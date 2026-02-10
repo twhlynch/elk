@@ -9,7 +9,8 @@ const Token = @import("tokens.zig").Token;
 pub fn main(init: std.process.Init) !void {
     const io, const gpa = .{ init.io, init.gpa };
 
-    var reporter = Reporter{ .io = io };
+    var reporter = Reporter.new(io);
+    try reporter.init();
 
     const path = "hw.asm";
 
@@ -44,17 +45,31 @@ pub const Diagnostic = struct {
 pub const Reporter = struct {
     const Self = @This();
 
+    const BUFFER_SIZE = 1024;
+
+    file: Io.File,
+    buffer: [BUFFER_SIZE]u8,
+    writer: Io.File.Writer,
     io: Io,
 
+    pub fn new(io: Io) Self {
+        return .{
+            .io = io,
+            .file = undefined,
+            .buffer = undefined,
+            .writer = undefined,
+        };
+    }
+
+    pub fn init(self: *Self) !void {
+        self.file = std.Io.File.stderr();
+        self.writer = self.file.writer(self.io, &self.buffer);
+    }
+
     pub fn err(self: *Self, code: Token.Error) void {
-
-        // ??
-        var stderr = std.Io.File.stderr();
-        const BUFFER_SIZE = 1024;
-        var buffer: [BUFFER_SIZE]u8 = undefined;
-        var writer = stderr.writer(self.io, &buffer);
-
-        writer.interface.print("some error: {t}\n", .{code}) catch unreachable;
-        writer.interface.flush() catch unreachable;
+        self.writer.interface.print("some error: {t}\n", .{code}) catch
+            unreachable;
+        self.writer.interface.flush() catch
+            unreachable;
     }
 };
