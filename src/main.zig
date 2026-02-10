@@ -67,9 +67,20 @@ pub const Reporter = struct {
     }
 
     pub fn err(self: *Self, code: Token.Error) void {
-        self.writer.interface.print("some error: {t}\n", .{code}) catch
-            unreachable;
+        self.print("\x1b[31m", .{});
+        self.print("Error: {t}", .{code});
+        self.print("\x1b[0m", .{});
+        self.print("\n", .{});
+        self.flush();
+    }
+
+    fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
+        self.writer.interface.print(fmt, args) catch
+            std.debug.panic("failed to write to reporter file", .{});
+    }
+
+    fn flush(self: *Self) void {
         self.writer.interface.flush() catch
-            unreachable;
+            std.debug.panic("failed to flush reporter file", .{});
     }
 };
