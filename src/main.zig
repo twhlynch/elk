@@ -4,7 +4,6 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const Tokenizer = @import("Tokenizer.zig");
-const utils = @import("utils.zig");
 const Token = @import("tokens.zig").Token;
 
 pub fn main(init: std.process.Init) !void {
@@ -14,13 +13,10 @@ pub fn main(init: std.process.Init) !void {
 
     const path = "hw.asm";
 
-    const flags: Io.File.OpenFlags = .{};
-    const file = try Io.Dir.cwd().openFile(io, path, flags);
+    const text = try Io.Dir.cwd().readFileAlloc(io, path, gpa, .unlimited);
+    defer gpa.free(text);
 
-    var text = try utils.readFile(io, file, gpa);
-    defer text.deinit(gpa);
-
-    var lines = std.mem.tokenizeAny(u8, text.items, "\r\n");
+    var lines = std.mem.tokenizeAny(u8, text, "\r\n");
     while (lines.next()) |line| {
         std.debug.print("-" ** 20 ++ "\n", .{});
         std.debug.print("[{s}]\n", .{line});
