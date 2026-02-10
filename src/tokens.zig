@@ -62,7 +62,7 @@ pub const Token = union(enum) {
         RTI,
     };
 
-    const Error = error{
+    pub const Error = error{
         InvalidInteger,
         InvalidDirective,
         InvalidIdent,
@@ -137,35 +137,38 @@ pub const Token = union(enum) {
         if (!isIdent(rest)) {
             return error.InvalidIdent;
         }
-        for (std.meta.tags(Directive)) |directive| {
-            const mnemonic = @tagName(directive);
-            if (std.ascii.eqlIgnoreCase(rest, mnemonic)) {
-                return .{ .directive = directive };
-            }
+        if (matchTagName(Directive, rest)) |directive| {
+            return .{ .directive = directive };
         }
         return error.InvalidDirective;
     }
 
     fn tryInstruction(string: []const u8) Error!?Self {
         assert(string.len > 0);
-        for (std.meta.tags(Instruction)) |instruction| {
-            const mnemonic = @tagName(instruction);
-            if (std.ascii.eqlIgnoreCase(string, mnemonic)) {
-                return .{ .instruction = instruction };
-            }
+        if (matchTagName(Instruction, string)) |instruction| {
+            return .{ .instruction = instruction };
         }
         return null;
     }
 
     fn tryLabel(string: []const u8) Error!?Self {
         assert(string.len > 0);
-        if (!isIdent(string[0..0])) {
+        if (!isIdent(string[0..1])) {
             return null;
         }
-        if (!isIdent(string)) {
+        if (!isIdent(string[1..])) {
             return error.InvalidIdent;
         }
         return .{ .label = string };
+    }
+
+    fn matchTagName(comptime T: type, string: []const u8) ?T {
+        for (std.meta.tags(T)) |tag| {
+            if (std.ascii.eqlIgnoreCase(string, @tagName(tag))) {
+                return tag;
+            }
+        }
+        return null;
     }
 
     fn isIdent(string: []const u8) bool {

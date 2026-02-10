@@ -12,6 +12,8 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
+    var reporter = Reporter{};
+
     const path = "hw.asm";
 
     const flags: fs.File.OpenFlags = .{};
@@ -31,10 +33,33 @@ pub fn main() !void {
             if (Token.from(string)) |token| {
                 std.debug.print("\t{f}\n", .{token});
             } else |err| {
-                std.debug.print("\tERROR: {t}\n", .{err});
+                std.debug.print("\n", .{});
+                reporter.err(err);
             }
         }
 
         std.debug.print("\n", .{});
     }
 }
+
+pub const Diagnostic = struct {
+    string: []const u8,
+    code: Token.Error,
+};
+
+pub const Reporter = struct {
+    const Self = @This();
+
+    pub fn err(self: *Self, code: Token.Error) void {
+        _ = self;
+
+        // ??
+        var stderr = std.fs.File.stderr();
+        const BUFFER_SIZE = 1024;
+        var buffer: [BUFFER_SIZE]u8 = undefined;
+        var writer = stderr.writer(&buffer);
+
+        writer.interface.print("some error: {t}\n", .{code}) catch unreachable;
+        writer.interface.flush() catch unreachable;
+    }
+};
