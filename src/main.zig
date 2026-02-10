@@ -1,26 +1,24 @@
 const std = @import("std");
-const fs = std.fs;
-const ArrayList = std.ArrayList;
+const Io = std.Io;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 const Tokenizer = @import("Tokenizer.zig");
 const utils = @import("utils.zig");
 const Token = @import("tokens.zig").Token;
 
-pub fn main() !void {
-    var gpa = std.heap.DebugAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const io, const gpa = .{ init.io, init.gpa };
 
-    var reporter = Reporter{};
+    var reporter = Reporter{ .io = io };
 
     const path = "hw.asm";
 
-    const flags: fs.File.OpenFlags = .{};
-    const file = try fs.cwd().openFile(path, flags);
+    const flags: Io.File.OpenFlags = .{};
+    const file = try Io.Dir.cwd().openFile(io, path, flags);
 
-    var text = try utils.readFile(file, allocator);
-    defer text.deinit(allocator);
+    var text = try utils.readFile(io, file, gpa);
+    defer text.deinit(gpa);
 
     var lines = std.mem.tokenizeAny(u8, text.items, "\r\n");
     while (lines.next()) |line| {
@@ -50,14 +48,15 @@ pub const Diagnostic = struct {
 pub const Reporter = struct {
     const Self = @This();
 
+    io: Io,
+
     pub fn err(self: *Self, code: Token.Error) void {
-        _ = self;
 
         // ??
-        var stderr = std.fs.File.stderr();
+        var stderr = std.Io.File.stderr();
         const BUFFER_SIZE = 1024;
         var buffer: [BUFFER_SIZE]u8 = undefined;
-        var writer = stderr.writer(&buffer);
+        var writer = stderr.writer(self.io, &buffer);
 
         writer.interface.print("some error: {t}\n", .{code}) catch unreachable;
         writer.interface.flush() catch unreachable;

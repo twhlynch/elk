@@ -1,16 +1,17 @@
 const std = @import("std");
-const fs = std.fs;
-const ArrayList = std.ArrayList;
+const Io = std.Io;
 const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 
 pub fn readFile(
-    file: fs.File,
+    io: Io,
+    file: Io.File,
     allocator: Allocator,
 ) !ArrayList(u8) {
     const BUFFER_SIZE = 1024;
 
     var buffer: [BUFFER_SIZE]u8 = undefined;
-    var reader = file.reader(&buffer);
+    var reader = file.reader(io, &buffer);
 
     var string = ArrayList(u8).empty;
     errdefer string.deinit(allocator);
