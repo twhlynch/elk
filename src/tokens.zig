@@ -1,6 +1,9 @@
 const std = @import("std");
-const assert = std.debug.assert;
 const Io = std.Io;
+const assert = std.debug.assert;
+const testing = std.testing;
+
+const integers = @import("integers.zig");
 
 pub const Token = union(enum) {
     const Self = @This();
@@ -96,11 +99,6 @@ pub const Token = union(enum) {
         }
     }
 
-    fn tryInteger(string: []const u8) Error!?Self {
-        assert(string.len > 0);
-        return null;
-    }
-
     fn tryRegister(string: []const u8) Error!?Self {
         if (string.len != 2) {
             return null;
@@ -114,6 +112,12 @@ pub const Token = union(enum) {
             else => return null,
         };
         return .{ .register = register };
+    }
+
+    fn tryInteger(string: []const u8) Error!?Self {
+        const integer = try integers.tryInteger(string) orelse
+            return null;
+        return .{ .integer = integer };
     }
 
     fn tryString(string: []const u8) Error!?Self {

@@ -84,3 +84,7 @@ pub const Reporter = struct {
             std.debug.panic("failed to flush reporter file", .{});
     }
 };
+
+comptime {
+    std.testing.refAllDecls(@This());
+}
