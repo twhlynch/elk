@@ -43,8 +43,6 @@ pub const Diagnostic = struct {
 };
 
 pub const Reporter = struct {
-    const Self = @This();
-
     const BUFFER_SIZE = 1024;
 
     file: Io.File,
@@ -52,7 +50,7 @@ pub const Reporter = struct {
     writer: Io.File.Writer,
     io: Io,
 
-    pub fn new(io: Io) Self {
+    pub fn new(io: Io) Reporter {
         return .{
             .io = io,
             .file = undefined,
@@ -61,26 +59,26 @@ pub const Reporter = struct {
         };
     }
 
-    pub fn init(self: *Self) !void {
-        self.file = std.Io.File.stderr();
-        self.writer = self.file.writer(self.io, &self.buffer);
+    pub fn init(reporter: *Reporter) !void {
+        reporter.file = std.Io.File.stderr();
+        reporter.writer = reporter.file.writer(reporter.io, &reporter.buffer);
     }
 
-    pub fn err(self: *Self, code: Token.Error) void {
-        self.print("\x1b[31m", .{});
-        self.print("Error: {t}", .{code});
-        self.print("\x1b[0m", .{});
-        self.print("\n", .{});
-        self.flush();
+    pub fn err(reporter: *Reporter, code: Token.Error) void {
+        reporter.print("\x1b[31m", .{});
+        reporter.print("Error: {t}", .{code});
+        reporter.print("\x1b[0m", .{});
+        reporter.print("\n", .{});
+        reporter.flush();
     }
 
-    fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
-        self.writer.interface.print(fmt, args) catch
+    fn print(reporter: *Reporter, comptime fmt: []const u8, args: anytype) void {
+        reporter.writer.interface.print(fmt, args) catch
             std.debug.panic("failed to write to reporter file", .{});
     }
 
-    fn flush(self: *Self) void {
-        self.writer.interface.flush() catch
+    fn flush(reporter: *Reporter) void {
+        reporter.writer.interface.flush() catch
             std.debug.panic("failed to flush reporter file", .{});
     }
 };

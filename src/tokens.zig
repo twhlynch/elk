@@ -6,8 +6,6 @@ const testing = std.testing;
 const integers = @import("integers.zig");
 
 pub const Token = union(enum) {
-    const Self = @This();
-
     comma: void,
     register: u3,
     integer: u16,
@@ -72,9 +70,9 @@ pub const Token = union(enum) {
         InvalidToken,
     };
 
-    pub fn from(string: []const u8) Error!Self {
+    pub fn from(string: []const u8) Error!Token {
         assert(string.len > 0);
-        const parsers = [_]fn ([]const u8) Error!?Self{
+        const parsers = [_]fn ([]const u8) Error!?Token{
             tryComma,
             tryRegister,
             tryInteger,
@@ -91,7 +89,7 @@ pub const Token = union(enum) {
         return error.InvalidToken;
     }
 
-    fn tryComma(string: []const u8) Error!?Self {
+    fn tryComma(string: []const u8) Error!?Token {
         if (std.mem.eql(u8, string, ",")) {
             return .{ .comma = void{} };
         } else {
@@ -99,7 +97,7 @@ pub const Token = union(enum) {
         }
     }
 
-    fn tryRegister(string: []const u8) Error!?Self {
+    fn tryRegister(string: []const u8) Error!?Token {
         if (string.len != 2) {
             return null;
         }
@@ -114,13 +112,13 @@ pub const Token = union(enum) {
         return .{ .register = register };
     }
 
-    fn tryInteger(string: []const u8) Error!?Self {
+    fn tryInteger(string: []const u8) Error!?Token {
         const integer = try integers.tryInteger(string) orelse
             return null;
         return .{ .integer = integer };
     }
 
-    fn tryString(string: []const u8) Error!?Self {
+    fn tryString(string: []const u8) Error!?Token {
         if (string.len < 2) {
             return null;
         }
@@ -133,7 +131,7 @@ pub const Token = union(enum) {
         return .{ .string = string[1 .. string.len - 1] };
     }
 
-    fn tryDirective(string: []const u8) Error!?Self {
+    fn tryDirective(string: []const u8) Error!?Token {
         if (string.len < 2 or string[0] != '.') {
             return null;
         }
@@ -147,7 +145,7 @@ pub const Token = union(enum) {
         return error.InvalidDirective;
     }
 
-    fn tryInstruction(string: []const u8) Error!?Self {
+    fn tryInstruction(string: []const u8) Error!?Token {
         assert(string.len > 0);
         if (matchTagName(Instruction, string)) |instruction| {
             return .{ .instruction = instruction };
@@ -155,7 +153,7 @@ pub const Token = union(enum) {
         return null;
     }
 
-    fn tryLabel(string: []const u8) Error!?Self {
+    fn tryLabel(string: []const u8) Error!?Token {
         assert(string.len > 0);
         if (!isIdent(string[0..1])) {
             return null;
@@ -186,8 +184,8 @@ pub const Token = union(enum) {
         return true;
     }
 
-    pub fn format(self: *const Self, writer: *Io.Writer) Io.Writer.Error!void {
-        switch (self.*) {
+    pub fn format(token: Token, writer: *Io.Writer) Io.Writer.Error!void {
+        switch (token) {
             .comma => {
                 try writer.print("comma", .{});
             },

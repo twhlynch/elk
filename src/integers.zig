@@ -63,17 +63,17 @@ const CharIter = struct {
         return .{ .string = string };
     }
 
-    pub fn next(self: *CharIter) ?u8 {
-        const char = self.peek() orelse
+    pub fn next(iter: *CharIter) ?u8 {
+        const char = iter.peek() orelse
             return null;
-        self.string = self.string[1..];
+        iter.string = iter.string[1..];
         return char;
     }
 
-    pub fn peek(self: *const CharIter) ?u8 {
-        if (self.string.len == 0)
+    pub fn peek(iter: *const CharIter) ?u8 {
+        if (iter.string.len == 0)
             return null;
-        return self.string[0];
+        return iter.string[0];
     }
 };
 

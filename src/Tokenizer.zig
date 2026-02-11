@@ -1,4 +1,4 @@
-const Self = @This();
+const Tokenizer = @This();
 
 const std = @import("std");
 const assert = std.debug.assert;
@@ -6,24 +6,24 @@ const assert = std.debug.assert;
 text: []const u8,
 index: usize,
 
-pub fn new(text: []const u8) Self {
-    return Self{
+pub fn new(text: []const u8) Tokenizer {
+    return Tokenizer{
         .text = text,
         .index = 0,
     };
 }
 
-pub fn next(self: *Self) ?[]const u8 {
+pub fn next(tokenizer: *Tokenizer) ?[]const u8 {
     // Skip whitespace
-    while (self.peekChar()) |char| {
+    while (tokenizer.peekChar()) |char| {
         if (!char.isWhitespace()) {
             break;
         }
-        _ = self.takeChar();
+        _ = tokenizer.takeChar();
     }
 
-    const start = self.getIndex();
-    const first = self.takeChar() orelse {
+    const start = tokenizer.getIndex();
+    const first = tokenizer.takeChar() orelse {
         return null;
     };
 
@@ -32,13 +32,13 @@ pub fn next(self: *Self) ?[]const u8 {
         return null;
     }
     if (first.isAtomic()) {
-        return self.text[start..self.getIndex()];
+        return tokenizer.text[start..tokenizer.getIndex()];
     }
 
     if (first.value == '"') {
         // String literal
         var is_escaped = false;
-        while (self.takeChar()) |char| {
+        while (tokenizer.takeChar()) |char| {
             if (!is_escaped) {
                 is_escaped = false;
                 continue;
@@ -51,38 +51,38 @@ pub fn next(self: *Self) ?[]const u8 {
         }
     } else {
         // Normal token
-        while (self.peekChar()) |char| {
+        while (tokenizer.peekChar()) |char| {
             if (char.isWhitespace() or char.isAtomic()) {
                 break;
             }
-            _ = self.takeChar();
+            _ = tokenizer.takeChar();
         }
     }
 
-    return self.text[start..self.getIndex()];
+    return tokenizer.text[start..tokenizer.getIndex()];
 }
 
-fn peekChar(self: *Self) ?TokenChar {
-    if (self.isEnd()) {
+fn peekChar(tokenizer: *Tokenizer) ?TokenChar {
+    if (tokenizer.isEnd()) {
         return null;
     }
-    return TokenChar.from(self.text[self.index]);
+    return TokenChar.from(tokenizer.text[tokenizer.index]);
 }
 
-fn takeChar(self: *Self) ?TokenChar {
-    const char = self.peekChar() orelse {
+fn takeChar(tokenizer: *Tokenizer) ?TokenChar {
+    const char = tokenizer.peekChar() orelse {
         return null;
     };
-    self.index += 1;
+    tokenizer.index += 1;
     return char;
 }
 
-fn getIndex(self: *const Self) usize {
-    return self.index;
+fn getIndex(tokenizer: *const Tokenizer) usize {
+    return tokenizer.index;
 }
 
-fn isEnd(self: *const Self) bool {
-    return self.index >= self.text.len;
+fn isEnd(tokenizer: *const Tokenizer) bool {
+    return tokenizer.index >= tokenizer.text.len;
 }
 
 const TokenChar = struct {
@@ -99,8 +99,8 @@ const TokenChar = struct {
         return TokenChar{ .value = value };
     }
 
-    pub fn kind(self: TokenChar) Kind {
-        return switch (self.value) {
+    pub fn kind(char: TokenChar) Kind {
+        return switch (char.value) {
             ' ', '\t'...'\r' => .whitespace,
             0x00...0x08, 0x0e...0x1f, 0x7f => .control,
             ',' => .atomic,
@@ -108,11 +108,11 @@ const TokenChar = struct {
         };
     }
 
-    pub fn isWhitespace(self: TokenChar) bool {
-        return self.kind() == .whitespace;
+    pub fn isWhitespace(char: TokenChar) bool {
+        return char.kind() == .whitespace;
     }
 
-    pub fn isAtomic(self: TokenChar) bool {
-        return self.kind() == .atomic;
+    pub fn isAtomic(char: TokenChar) bool {
+        return char.kind() == .atomic;
     }
 };
