@@ -5,8 +5,9 @@ const ArrayList = std.ArrayList;
 
 const Tokenizer = @import("Tokenizer.zig");
 const LineIterator = Tokenizer.LineIterator;
-const Span = @import("Span.zig");
 const Token = @import("Token.zig");
+const Span = @import("Span.zig");
+const Reporter = @import("Reporter.zig");
 
 pub fn main(init: std.process.Init) !void {
     const io, const gpa = .{ init.io, init.gpa };
@@ -43,70 +44,6 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("\n", .{});
     }
 }
-
-pub const Diagnostic = struct {
-    string: []const u8,
-    code: Token.Error,
-};
-
-pub const Reporter = struct {
-    const BUFFER_SIZE = 1024;
-
-    file: Io.File,
-    buffer: [BUFFER_SIZE]u8,
-    writer: Io.File.Writer,
-
-    source: ?[]const u8,
-
-    io: Io,
-
-    pub fn new(io: Io) Reporter {
-        return .{
-            .file = undefined,
-            .buffer = undefined,
-            .writer = undefined,
-            .source = null,
-            .io = io,
-        };
-    }
-
-    pub fn init(reporter: *Reporter) !void {
-        reporter.file = std.Io.File.stderr();
-        reporter.writer = reporter.file.writer(reporter.io, &reporter.buffer);
-    }
-
-    pub fn setSource(reporter: *Reporter, source: []const u8) void {
-        std.debug.assert(reporter.source == null);
-        reporter.source = source;
-    }
-
-    pub fn err(reporter: *Reporter, code: Token.Error, line: Span) void {
-        reporter.print("\x1b[31m", .{});
-        reporter.print("Error: {t}", .{code});
-        reporter.print("\x1b[0m", .{});
-        reporter.print("\n", .{});
-
-        const source = reporter.source orelse
-            unreachable;
-
-        reporter.print("\x1b[33m", .{});
-        reporter.print("Line: [{s}]", .{line.resolve(source)});
-        reporter.print("\x1b[0m", .{});
-        reporter.print("\n", .{});
-
-        reporter.flush();
-    }
-
-    fn print(reporter: *Reporter, comptime fmt: []const u8, args: anytype) void {
-        reporter.writer.interface.print(fmt, args) catch
-            std.debug.panic("failed to write to reporter file", .{});
-    }
-
-    fn flush(reporter: *Reporter) void {
-        reporter.writer.interface.flush() catch
-            std.debug.panic("failed to flush reporter file", .{});
-    }
-};
 
 comptime {
     std.testing.refAllDecls(@This());
