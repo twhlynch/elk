@@ -24,31 +24,16 @@ pub fn next(tokenizer: *Tokenizer) ?Span {
     if (first.kind == .atomic)
         return .fromBounds(start, tokenizer.getIndex());
 
-    if (first.value == '"') {
-        // String literal
-        var is_escaped = false;
-        while (tokenizer.takeChar()) |char| {
-            if (is_escaped) {
-                is_escaped = false;
-                continue;
-            }
-            switch (char.value) {
-                '"' => break,
-                '\\' => is_escaped = true,
-                else => {},
-            }
-        }
-    } else {
-        // Normal token
-        while (tokenizer.peekChar()) |char| {
-            if (char.kind == .whitespace or char.kind == .atomic)
-                break;
-            _ = tokenizer.takeChar();
-        }
-    }
+    if (first.value == '"')
+        tokenizer.consumeStringLiteral()
+    else
+        tokenizer.consumeNormal();
 
     return .fromBounds(start, tokenizer.getIndex());
 }
+
+// TODO: Consolidate verbs in methods
+// discard, consume, take
 
 fn discardWhitespaceAndComments(tokenizer: *Tokenizer) void {
     while (tokenizer.peekChar()) |char| {
@@ -68,6 +53,29 @@ fn discardComment(tokenizer: *Tokenizer) void {
 
     while (tokenizer.peekChar()) |char| {
         if (char.value == '\n')
+            break;
+        _ = tokenizer.takeChar();
+    }
+}
+
+fn consumeStringLiteral(tokenizer: *Tokenizer) void {
+    var is_escaped = false;
+    while (tokenizer.takeChar()) |char| {
+        if (is_escaped) {
+            is_escaped = false;
+            continue;
+        }
+        switch (char.value) {
+            '"' => break,
+            '\\' => is_escaped = true,
+            else => {},
+        }
+    }
+}
+
+fn consumeNormal(tokenizer: *Tokenizer) void {
+    while (tokenizer.peekChar()) |char| {
+        if (char.kind == .whitespace or char.kind == .atomic)
             break;
         _ = tokenizer.takeChar();
     }
