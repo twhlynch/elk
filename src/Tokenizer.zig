@@ -13,21 +13,14 @@ pub fn new(source: []const u8) Tokenizer {
 }
 
 pub fn next(tokenizer: *Tokenizer) ?Span {
-    // Skip whitespace
-    while (tokenizer.peekChar()) |char| {
-        if (char.kind != .whitespace)
-            break;
-        _ = tokenizer.takeChar();
-    }
+    tokenizer.discardWhitespaceAndComments();
 
     const start = tokenizer.getIndex();
     const first = tokenizer.takeChar() orelse
         return null;
 
     assert(first.kind != .whitespace);
-    // FIXME: Discard characters until \n
-    if (first.value == ';')
-        return null;
+    assert(first.value != ';');
     if (first.kind == .atomic)
         return .fromBounds(start, tokenizer.getIndex());
 
@@ -35,7 +28,7 @@ pub fn next(tokenizer: *Tokenizer) ?Span {
         // String literal
         var is_escaped = false;
         while (tokenizer.takeChar()) |char| {
-            if (!is_escaped) {
+            if (is_escaped) {
                 is_escaped = false;
                 continue;
             }
@@ -55,6 +48,29 @@ pub fn next(tokenizer: *Tokenizer) ?Span {
     }
 
     return .fromBounds(start, tokenizer.getIndex());
+}
+
+fn discardWhitespaceAndComments(tokenizer: *Tokenizer) void {
+    while (tokenizer.peekChar()) |char| {
+        if (char.value == ';') {
+            tokenizer.discardComment();
+            continue;
+        }
+        if (char.kind != .whitespace)
+            break;
+        _ = tokenizer.takeChar();
+    }
+}
+
+fn discardComment(tokenizer: *Tokenizer) void {
+    const first = tokenizer.takeChar();
+    assert(first.?.value == ';');
+
+    while (tokenizer.peekChar()) |char| {
+        if (char.value == '\n')
+            break;
+        _ = tokenizer.takeChar();
+    }
 }
 
 fn peekChar(tokenizer: *Tokenizer) ?TokenChar {
@@ -94,7 +110,7 @@ const TokenChar = struct {
         const kind: Kind = switch (value) {
             ' ', '\t', '\r' => .whitespace,
             0x00...0x08, 0x0e...0x1f, 0x7f => .control,
-            '\n', ',' => .atomic,
+            '\n', ';', ',' => .atomic,
             else => .combining,
         };
         return TokenChar{

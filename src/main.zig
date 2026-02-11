@@ -25,7 +25,11 @@ pub fn main(init: std.process.Init) !void {
     var tokens = Tokenizer.new(source);
     while (tokens.next()) |span| {
         const token_str = span.resolve(source);
-        std.debug.print("\t[{s}]", .{token_str});
+        if (std.mem.containsAtLeastScalar2(u8, token_str, '\n', 1)) {
+            std.debug.print("\t<CR>", .{});
+        } else {
+            std.debug.print("\t[{s}]", .{token_str});
+        }
 
         const token = Token.from(span, source) catch |err| {
             std.debug.print("\n", .{});
@@ -33,7 +37,7 @@ pub fn main(init: std.process.Init) !void {
             continue;
         };
 
-        std.debug.print("\t{f}\n", .{token.kind});
+        std.debug.print("\t\t{f}\n", .{token.kind});
     }
 }
 
