@@ -3,7 +3,6 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 
 const Tokenizer = @import("Tokenizer.zig");
-const LineIterator = Tokenizer.LineIterator;
 const Token = @import("Token.zig");
 const Span = @import("Span.zig");
 const Reporter = @import("Reporter.zig");
@@ -24,7 +23,6 @@ pub fn main(init: std.process.Init) !void {
     var air: Air = .{
         .lines = .empty,
         .allocator = gpa,
-        .source = source,
     };
 
     defer {
@@ -72,7 +70,7 @@ const Air = struct {
         };
     };
 
-    pub fn parseLine(
+    pub fn parse(
         air: *Air,
         source: []const u8,
         reporter: *Reporter,
