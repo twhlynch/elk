@@ -31,10 +31,7 @@ pub fn main(init: std.process.Init) !void {
         air.lines.deinit(air.allocator);
     }
 
-    var lines: LineIterator = .new(source);
-    while (lines.next()) |line| {
-        try air.parseLine(line, &reporter);
-    }
+    try air.parse(source, &reporter);
 }
 
 const ArrayList = std.ArrayList;
@@ -42,7 +39,6 @@ const ArrayList = std.ArrayList;
 const Air = struct {
     lines: ArrayList(Line),
     allocator: Allocator,
-    source: []const u8,
 
     pub const Line = struct {
         statement: Statement,
@@ -76,20 +72,30 @@ const Air = struct {
         };
     };
 
-    pub fn parseLine(air: *Air, line: Span, reporter: *Reporter) !void {
-        const line_str = line.resolve(air.source);
+    pub fn parseLine(
+        air: *Air,
+        source: []const u8,
+        reporter: *Reporter,
+    ) !void {
+        _ = air;
 
-        std.debug.print("-" ** 20 ++ "\n", .{});
-        std.debug.print("[{s}]\n", .{line_str});
+        var tokens = Tokenizer.new(source);
+        while (tokens.next()) |span| {
+            const token_str = span.resolve(source);
+            if (std.mem.containsAtLeastScalar2(u8, token_str, '\n', 1)) {
+                std.debug.print("\t<CR>", .{});
+            } else {
+                std.debug.print("\t[{s}]", .{token_str});
+            }
 
-        var tokens = Tokenizer.new(line_str);
+            const token = Token.from(span, source) catch |err| {
+                std.debug.print("\n", .{});
+                reporter.err(err, span);
+                continue;
+            };
 
-        const first = tokens.next() orelse
-            unreachable;
-
-        std.debug.print("{s}\n", .{first.resolve(line_str)});
-
-        _ = reporter;
+            std.debug.print("\t\t{f}\n", .{token.kind});
+        }
     }
 };
 
