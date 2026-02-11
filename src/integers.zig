@@ -56,17 +56,36 @@ const Prefix = struct {
     };
 };
 
-// TODO: Use char iterator instead of mutating slice ptr
+const CharIter = struct {
+    string: []const u8,
+
+    pub fn new(string: []const u8) CharIter {
+        return .{ .string = string };
+    }
+
+    pub fn next(self: *CharIter) ?u8 {
+        const char = self.peek() orelse
+            return null;
+        self.string = self.string[1..];
+        return char;
+    }
+
+    pub fn peek(self: *const CharIter) ?u8 {
+        if (self.string.len == 0)
+            return null;
+        return self.string[0];
+    }
+};
 
 pub fn tryInteger(string: []const u8) Error!?u16 {
     if (string.len == 0)
         return null;
 
-    var rest = string;
+    var chars = CharIter.new(string);
 
-    const first_sign = takeSign(&rest);
+    const first_sign = takeSign(&chars);
 
-    const prefix = switch (try takePrefix(&rest)) {
+    const prefix = switch (try takePrefix(&chars)) {
         .regular => |prefix| prefix,
         .single_zero => return 0,
         .non_integer => {
@@ -77,19 +96,19 @@ pub fn tryInteger(string: []const u8) Error!?u16 {
         },
     };
 
-    const second_sign = takeSign(&rest);
+    const second_sign = takeSign(&chars);
 
     const sign = try reconcileSigns(first_sign, second_sign);
 
     // Check if anything follows prefix (also covers "" case)
     // Otherwise loop would be skipped and value assumed to be `0`
-    if (rest.len == 0) {
+    if (chars.peek() == null) {
         return endOfInteger(sign, prefix);
     }
 
     var integer: Oversize = 0;
 
-    for (rest) |char| {
+    while (chars.next()) |char| {
         const digit = prefix.radix.parse_digit(char) orelse {
             return endOfInteger(sign, prefix);
         };
@@ -109,20 +128,19 @@ pub fn tryInteger(string: []const u8) Error!?u16 {
     };
 }
 
-fn takeSign(string: *[]const u8) ?Sign {
-    if (string.len < 1) {
+fn takeSign(chars: *CharIter) ?Sign {
+    const char = chars.peek() orelse
         return null;
-    }
-    const sign: Sign = switch (string.*[0]) {
+    const sign: Sign = switch (char) {
         '+' => .positive,
         '-' => .negative,
         else => return null,
     };
-    string.* = string.*[1..];
+    _ = chars.next();
     return sign;
 }
 
-fn takePrefix(string: *[]const u8) !union(enum) {
+fn takePrefix(chars: *CharIter) !union(enum) {
     regular: Prefix,
     single_zero,
     non_integer,
@@ -130,17 +148,17 @@ fn takePrefix(string: *[]const u8) !union(enum) {
     // Only take ONE leading zero here
     // Caller can disallow "00x..." etc.
     const leading_zeros =
-        if (string.len > 0 and string.*[0] == '0') blk: {
-            string.* = string.*[1..];
+        if (chars.peek() == '0') blk: {
+            _ = chars.next();
             break :blk true;
         } else false;
 
     // "0" or ""
-    if (string.len == 0) {
+    const peeked = chars.peek() orelse {
         return if (leading_zeros) .single_zero else .non_integer;
-    }
+    };
 
-    const radix: Prefix.Radix, const next_char = switch (string.*[0]) {
+    const radix: Prefix.Radix, const next_char = switch (peeked) {
         'b', 'B' => .{ .binary, true },
         'o', 'O' => .{ .octal, true },
         'x', 'X' => .{ .hex, true },
@@ -166,7 +184,7 @@ fn takePrefix(string: *[]const u8) !union(enum) {
     };
 
     if (next_char)
-        string.* = string.*[1..];
+        _ = chars.next();
 
     return .{ .regular = .{
         .radix = radix,
@@ -205,9 +223,9 @@ test takeSign {
     };
     for (cases) |case| {
         const input, const expected_rest, const expected_result = case;
-        var rest = input;
-        const result = takeSign(&rest);
-        try testing.expect(std.mem.eql(u8, expected_rest, rest));
+        var chars = CharIter.new(input);
+        const result = takeSign(&chars);
+        try testing.expect(std.mem.eql(u8, expected_rest, chars.string));
         try testing.expect(expected_result == result);
     }
 }
@@ -248,11 +266,11 @@ test takePrefix {
         const input, const expected_rest, const expected_result = case;
         log.info("INPUT:   \t\"{s}\"", .{input});
         log.info("EXPECTED:\t\"{s}\"\t{!}", .{ expected_rest, expected_result });
-        var rest = input;
-        const result = takePrefix(&rest);
-        log.info("ACTUAL:  \t\"{s}\"\t{!}", .{ rest, result });
+        var chars = CharIter.new(input);
+        const result = takePrefix(&chars);
+        log.info("ACTUAL:  \t\"{s}\"\t{!}", .{ chars.string, result });
         if (!std.meta.isError(result))
-            try testing.expect(std.mem.eql(u8, expected_rest, rest));
+            try testing.expect(std.mem.eql(u8, expected_rest, chars.string));
         try testing.expect(std.meta.eql(expected_result, result));
     }
 }
