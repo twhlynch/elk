@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
 const Tokenizer = @import("Tokenizer.zig");
-const Token = @import("tokens.zig").Token;
+const Token = @import("tokens.zig");
 
 pub fn main(init: std.process.Init) !void {
     const io, const gpa = .{ init.io, init.gpa };
@@ -26,8 +26,8 @@ pub fn main(init: std.process.Init) !void {
         while (tokens.next()) |span| {
             const string = span.resolve(line);
             std.debug.print("\t[{s}]", .{string});
-            if (Token.from(string)) |token| {
-                std.debug.print("\t{f}\n", .{token});
+            if (Token.from(span, line)) |token| {
+                std.debug.print("\t{f}\n", .{token.kind});
             } else |err| {
                 std.debug.print("\n", .{});
                 reporter.err(err);

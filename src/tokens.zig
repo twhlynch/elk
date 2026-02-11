@@ -1,11 +1,30 @@
+const Token = @This();
+
 const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 const testing = std.testing;
 
 const integers = @import("integers.zig");
+const Span = @import("Span.zig");
 
-pub const Token = union(enum) {
+// TODO: Rename, since "kind" might imply a tag with no data
+kind: Kind,
+span: Span,
+
+pub const Error = error{
+    InvalidInteger,
+    InvalidDirective,
+    InvalidIdent,
+    InvalidToken,
+};
+
+pub fn from(span: Span, source: []const u8) !Token {
+    const kind = try Kind.from(span.resolve(source));
+    return .{ .kind = kind, .span = span };
+}
+
+pub const Kind = union(enum) {
     comma: void,
     register: u3,
     integer: u16,
@@ -63,16 +82,9 @@ pub const Token = union(enum) {
         RTI,
     };
 
-    pub const Error = error{
-        InvalidInteger,
-        InvalidDirective,
-        InvalidIdent,
-        InvalidToken,
-    };
-
-    pub fn from(string: []const u8) Error!Token {
+    pub fn from(string: []const u8) Error!Kind {
         assert(string.len > 0);
-        const parsers = [_]fn ([]const u8) Error!?Token{
+        const parsers = [_]fn ([]const u8) Error!?Kind{
             tryComma,
             tryRegister,
             tryInteger,
@@ -82,14 +94,14 @@ pub const Token = union(enum) {
             tryLabel,
         };
         inline for (parsers) |parser| {
-            if (try parser(string)) |token| {
-                return token;
+            if (try parser(string)) |kind| {
+                return kind;
             }
         }
         return error.InvalidToken;
     }
 
-    fn tryComma(string: []const u8) Error!?Token {
+    fn tryComma(string: []const u8) Error!?Kind {
         if (std.mem.eql(u8, string, ",")) {
             return .{ .comma = void{} };
         } else {
@@ -97,7 +109,7 @@ pub const Token = union(enum) {
         }
     }
 
-    fn tryRegister(string: []const u8) Error!?Token {
+    fn tryRegister(string: []const u8) Error!?Kind {
         if (string.len != 2) {
             return null;
         }
@@ -112,13 +124,13 @@ pub const Token = union(enum) {
         return .{ .register = register };
     }
 
-    fn tryInteger(string: []const u8) Error!?Token {
+    fn tryInteger(string: []const u8) Error!?Kind {
         const integer = try integers.tryInteger(string) orelse
             return null;
         return .{ .integer = integer };
     }
 
-    fn tryString(string: []const u8) Error!?Token {
+    fn tryString(string: []const u8) Error!?Kind {
         if (string.len < 2) {
             return null;
         }
@@ -131,7 +143,7 @@ pub const Token = union(enum) {
         return .{ .string = string[1 .. string.len - 1] };
     }
 
-    fn tryDirective(string: []const u8) Error!?Token {
+    fn tryDirective(string: []const u8) Error!?Kind {
         if (string.len < 2 or string[0] != '.') {
             return null;
         }
@@ -145,7 +157,7 @@ pub const Token = union(enum) {
         return error.InvalidDirective;
     }
 
-    fn tryInstruction(string: []const u8) Error!?Token {
+    fn tryInstruction(string: []const u8) Error!?Kind {
         assert(string.len > 0);
         if (matchTagName(Instruction, string)) |instruction| {
             return .{ .instruction = instruction };
@@ -153,7 +165,7 @@ pub const Token = union(enum) {
         return null;
     }
 
-    fn tryLabel(string: []const u8) Error!?Token {
+    fn tryLabel(string: []const u8) Error!?Kind {
         assert(string.len > 0);
         if (!isIdent(string[0..1])) {
             return null;
@@ -184,8 +196,8 @@ pub const Token = union(enum) {
         return true;
     }
 
-    pub fn format(token: Token, writer: *Io.Writer) Io.Writer.Error!void {
-        switch (token) {
+    pub fn format(kind: Kind, writer: *Io.Writer) Io.Writer.Error!void {
+        switch (kind) {
             .comma => {
                 try writer.print("comma", .{});
             },
