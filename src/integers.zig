@@ -3,8 +3,7 @@ const math = std.math;
 const testing = std.testing;
 const assert = std.debug.assert;
 
-const Token = @import("tokens.zig");
-const Error = Token.Error;
+const Error = error{InvalidInteger};
 
 /// Superset of (u16 UNION i16)
 const Oversize = i17;

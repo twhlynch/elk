@@ -5,7 +5,7 @@ const ArrayList = std.ArrayList;
 
 const Tokenizer = @import("Tokenizer.zig");
 const LineIterator = Tokenizer.LineIterator;
-const Token = @import("tokens.zig");
+const Token = @import("Token.zig");
 
 pub fn main(init: std.process.Init) !void {
     const io, const gpa = .{ init.io, init.gpa };
