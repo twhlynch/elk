@@ -1,10 +1,25 @@
 const Span = @This();
 
+const std = @import("std");
+const assert = std.debug.assert;
+
 offset: usize,
 len: usize,
 
-pub fn fromBounds(start: usize, end: usize) Span {
-    return .{ .offset = start, .len = end - start };
+pub fn fromBounds(start: usize, end_: usize) Span {
+    return .{ .offset = start, .len = end_ - start };
+}
+
+pub fn end(span: Span) usize {
+    return span.offset + span.len;
+}
+
+pub fn in(inner: Span, containing: Span) Span {
+    assert(inner.end() < containing.end());
+    return .{
+        .offset = containing.offset + inner.offset,
+        .len = inner.len,
+    };
 }
 
 pub fn resolve(span: Span, source: []const u8) []const u8 {
