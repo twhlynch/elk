@@ -188,8 +188,8 @@ const Parser = struct {
                 .@"continue" => continue,
                 .end_directive => break,
                 .eof => {
-                    parser.reporter.err(error.ExpectedEnd, .emptyAt(parser.source.len));
-                    break;
+                    parser.reporter.err(error.ExpectedEnd, .emptyAt(parser.source.len)) catch
+                        break;
                 },
             }
         }
@@ -214,8 +214,7 @@ const Parser = struct {
         switch (token.kind) {
             .label => {
                 if (parser.current_label != null) {
-                    parser.reporter.err(error.MultipleLabels, token.span);
-                    return error.Reported;
+                    try parser.reporter.err(error.MultipleLabels, token.span);
                 }
                 parser.current_label = token.span;
 
@@ -245,16 +244,13 @@ const Parser = struct {
                     .orig => {
                         const origin = try parser.expectTokenKind(.word);
                         if (parser.air.lines.items.len > 0) {
-                            parser.reporter.err(error.LateOrigin, origin.span);
-                            return error.Reported;
+                            try parser.reporter.err(error.LateOrigin, origin.span);
                         }
                         if (parser.air.origin != null) {
-                            parser.reporter.err(error.MultipleOrigins, origin.span);
-                            return error.Reported;
+                            try parser.reporter.err(error.MultipleOrigins, origin.span);
                         }
                         parser.air.origin = origin.value.asUnsigned() orelse {
-                            parser.reporter.err(error.IntegerTooLarge, origin.span);
-                            return error.Reported;
+                            try parser.reporter.err(error.IntegerTooLarge, origin.span);
                         };
 
                         return .@"continue"; // TODO:
@@ -276,7 +272,8 @@ const Parser = struct {
                                     't' => '\t',
                                     'r' => '\r',
                                     else => {
-                                        parser.reporter.err(error.InvalidEscapeSequence, string.span);
+                                        parser.reporter.err(error.InvalidEscapeSequence, string.span) catch
+                                            {}; // Keep parsing string
                                         is_escaped = false;
                                         continue;
                                     },
@@ -371,8 +368,7 @@ const Parser = struct {
             const span = parser.tokens.next() orelse
                 return null;
             const token = Token.from(span, parser.source) catch |err| {
-                parser.reporter.err(err, span);
-                return error.Reported;
+                try parser.reporter.err(err, span);
             };
             for (skip) |skip_kind| {
                 if (token.kind == skip_kind)
@@ -384,13 +380,11 @@ const Parser = struct {
 
     fn expectToken(parser: *Parser) !Token {
         const token = try parser.nextToken(&.{.comma}) orelse {
-            parser.reporter.err(error.UnexpectedEof, .emptyAt(parser.source.len));
-            return error.Reported;
+            try parser.reporter.err(error.UnexpectedEof, .emptyAt(parser.source.len));
         };
         switch (token.kind) {
             .newline => {
-                parser.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
-                return error.Reported;
+                try parser.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
             },
             .comma => unreachable,
             else => return token,
@@ -415,16 +409,14 @@ const Parser = struct {
                 .register => |register| .{ .register = register },
                 .integer => |integer| .{
                     .immediate = integer.castTo(u5) orelse {
-                        parser.reporter.err(error.IntegerTooLarge, token.span);
-                        return error.Reported;
+                        try parser.reporter.err(error.IntegerTooLarge, token.span);
                     },
                 },
                 else => null,
             },
             .imm5 => switch (token.kind) {
                 .integer => |integer| integer.castTo(u5) orelse {
-                    parser.reporter.err(error.IntegerTooLarge, token.span);
-                    return error.Reported;
+                    try parser.reporter.err(error.IntegerTooLarge, token.span);
                 },
                 else => null,
             },
@@ -443,8 +435,7 @@ const Parser = struct {
             else => comptime unreachable,
         };
         const value = value_opt orelse {
-            parser.reporter.err(error.UnexpectedTokenKind, token.span);
-            return error.Reported;
+            try parser.reporter.err(error.UnexpectedTokenKind, token.span);
         };
         return .{
             .span = token.span,

@@ -47,7 +47,7 @@ pub fn err(
     // TODO:
     code: anyerror,
     token: Span,
-) void {
+) error{Reported}!noreturn {
     reporter.print("\x1b[31m", .{});
     reporter.print("Error: {t}", .{code});
     reporter.print("\x1b[0m", .{});
@@ -67,6 +67,8 @@ pub fn err(
     reporter.print("\n", .{});
 
     reporter.flush();
+
+    return error.Reported;
 }
 
 fn print(reporter: *Reporter, comptime fmt: []const u8, args: anytype) void {
