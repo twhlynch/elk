@@ -90,36 +90,43 @@ const Air = struct {
             pub fn format(statement: Statement, writer: *Io.Writer) !void {
                 inline for (@typeInfo(Statement).@"union".fields) |tag| {
                     if (std.mem.eql(u8, @tagName(statement), tag.name)) {
-                        switch (@typeInfo(tag.type)) {
-                            .@"struct" => |info| {
-                                for (tag.name) |char| {
-                                    std.debug.print("{c}", .{std.ascii.toUpper(char)});
-                                }
-                                std.debug.print(":\n", .{});
+                        const variant = @field(statement, tag.name);
 
-                                inline for (info.fields) |field| {
-                                    std.debug.print("{s:8} = ", .{field.name});
-                                    const value = @field(@field(statement, tag.name), field.name);
-                                    switch (field.type) {
-                                        Register => try writer.print("Register: r{}", .{value}),
-                                        Label => try writer.print("Label: [{s}]", .{value}),
-                                        RegisterOrImmediate => {
-                                            try writer.print("Register/Immediate: ", .{});
-                                            switch (value) {
-                                                .register => |register| try writer.print("r{}", .{register}),
-                                                .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
-                                            }
-                                        },
-                                        TrapVect => try writer.print("Vect 0x{x:02}", .{value}),
-                                        else => comptime unreachable,
-                                    }
-                                    std.debug.print("\n", .{});
-                                }
-                            },
+                        if (@typeInfo(tag.type) == .@"struct") {
+                            assert(statement != .raw_word);
 
-                            else => {
-                                // TODO:
-                            },
+                            for (tag.name) |char| {
+                                try writer.print("{c}", .{std.ascii.toUpper(char)});
+                            }
+                            try writer.print(":\n", .{});
+
+                            inline for (@typeInfo(tag.type).@"struct".fields) |field| {
+                                try writer.print("{s:8} = ", .{field.name});
+                                const value = @field(variant, field.name);
+                                switch (field.type) {
+                                    Register => try writer.print("Register: r{}", .{value}),
+                                    Label => try writer.print("Label: [{s}]", .{value}),
+                                    RegisterOrImmediate => {
+                                        try writer.print("Register/Immediate: ", .{});
+                                        switch (value) {
+                                            .register => |register| try writer.print("r{}", .{register}),
+                                            .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
+                                        }
+                                    },
+                                    TrapVect => try writer.print("Vect 0x{x:02}", .{value}),
+                                    else => comptime unreachable,
+                                }
+                                try writer.print("\n", .{});
+                            }
+                        } else {
+                            assert(statement == .raw_word);
+
+                            try writer.print("0x{x:04}", .{variant});
+                            switch (variant) {
+                                0x00...0x7f => try writer.print(" '{c}'", .{@as(u8, @intCast(variant))}),
+                                else => try writer.print(" (?)", .{}),
+                            }
+                            try writer.print("\n", .{});
                         }
                     }
                 }
@@ -161,24 +168,48 @@ const Parser = struct {
                         parser.tokens.index,
                     );
 
-                    try parser.air.lines.append(parser.air.allocator, .{
-                        .statement = statement,
-                        .span = span,
-                    });
+                    try parser.appendLine(statement, span);
+
+                    continue; // TODO:
+                },
+
+                .directive => |directive| {
+                    switch (directive) {
+                        .stringz => {
+                            const string = try parser.expectTokenKind(.string);
+                            // TODO: Handle escape sequences
+                            for (string.value) |char| {
+                                try parser.appendLine(
+                                    .{ .raw_word = char },
+                                    string.span,
+                                );
+                            }
+                        },
+
+                        // TODO:
+                        else => {},
+                    }
                 },
 
                 // TODO:
-                else => {
-                    std.debug.print("warning: unhandled {t:<10} {s}\n", .{
-                        token.kind,
-                        if (token.kind == .newline)
-                            ""
-                        else
-                            token.span.resolve(parser.source),
-                    });
-                },
+                else => {},
             }
+
+            std.debug.print("warning: unhandled {t:<10} {s}\n", .{
+                token.kind,
+                if (token.kind == .newline)
+                    ""
+                else
+                    token.span.resolve(parser.source),
+            });
         }
+    }
+
+    fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
+        try parser.air.lines.append(parser.air.allocator, .{
+            .statement = statement,
+            .span = span,
+        });
     }
 
     fn parseInstruction(
@@ -207,8 +238,8 @@ const Parser = struct {
                         else => comptime unreachable,
                     };
 
-                    const value = try parser.expectTokenKind(kind);
-                    @field(payload, field.name) = value;
+                    const token = try parser.expectTokenKind(kind);
+                    @field(payload, field.name) = token.value;
                 }
 
                 return @unionInit(Statement, @tagName(regular), payload);
@@ -259,10 +290,13 @@ const Parser = struct {
     fn expectTokenKind(
         parser: *Parser,
         comptime kind: @EnumLiteral(),
-    ) !ExpectTokenKind(kind) {
+    ) !struct {
+        span: Span,
+        value: ExpectTokenKind(kind),
+    } {
         const token = try parser.expectToken();
         assert(token.kind != .comma);
-        const value: ?ExpectTokenKind(kind) = switch (kind) {
+        const value_opt: ?ExpectTokenKind(kind) = switch (kind) {
             .register => switch (token.kind) {
                 .register => |register| register,
                 else => null,
@@ -279,11 +313,19 @@ const Parser = struct {
                 .integer => |integer| .{ .immediate = @intCast(integer) },
                 else => null,
             },
+            .string => switch (token.kind) {
+                .string => |string| string,
+                else => null,
+            },
             else => comptime unreachable,
         };
-        return value orelse {
+        const value = value_opt orelse {
             parser.reporter.err(error.UnexpectedTokenKind, .dummy);
             return error.Reported;
+        };
+        return .{
+            .span = token.span,
+            .value = value,
         };
     }
 
@@ -292,7 +334,9 @@ const Parser = struct {
             .register => Statement.Register,
             .label => Statement.Label,
             .register_or_immediate => Statement.RegisterOrImmediate,
-            else => comptime unreachable,
+            // TODO: Use span
+            .string => []const u8,
+            else => @compileError("unsupported token kind `." ++ @tagName(kind) ++ "`"),
         };
     }
 
