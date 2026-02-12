@@ -38,10 +38,15 @@ pub fn main(init: std.process.Init) !void {
 
     try parser.parse();
 
-    std.debug.print("\n", .{});
-    for (air.lines.items) |line| {
-        std.debug.print("{f}", .{line.statement});
-        std.debug.print("[{s}]\n", .{line.span.resolve(source)});
+    {
+        var was_raw_word = false;
+        for (air.lines.items) |line| {
+            if (!(line.statement == .raw_word and was_raw_word)) {
+                std.debug.print("\n[{s}]\n", .{line.span.resolve(source)});
+            }
+            std.debug.print("{f}", .{line.statement});
+            was_raw_word = line.statement == .raw_word;
+        }
         std.debug.print("\n", .{});
     }
 }
