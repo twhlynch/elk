@@ -41,9 +41,14 @@ pub fn main(init: std.process.Init) !void {
     {
         var was_raw_word = false;
         for (air.lines.items) |line| {
-            if (!(line.statement == .raw_word and was_raw_word)) {
-                std.debug.print("\n[{s}]\n", .{line.span.resolve(source)});
+            const concise = line.statement == .raw_word and was_raw_word and line.label == null;
+            if (!concise)
+                std.debug.print("\n[{s}]", .{line.span.resolve(source)});
+            if (line.label) |label| {
+                std.debug.print(" \"{s}\"", .{label.resolve(source)});
             }
+            if (!concise)
+                std.debug.print("\n", .{});
             std.debug.print("{f}", .{line.statement});
             was_raw_word = line.statement == .raw_word;
         }
@@ -58,6 +63,7 @@ const Air = struct {
     allocator: Allocator,
 
     pub const Line = struct {
+        label: ?Span,
         statement: Statement,
         span: Span,
 
@@ -87,7 +93,7 @@ const Air = struct {
                 immediate: u5,
             };
 
-            // TODO:
+            // TODO: Use Span
             const Label = []const u8;
 
             const TrapVect = u8;
@@ -130,7 +136,7 @@ const Air = struct {
                             if (variant > 0x7f) {
                                 try writer.print(" (?)", .{});
                             } else switch (@as(u8, @intCast(variant))) {
-                                '\n' => try writer.print(" <CR>", .{}),
+                                '\n' => try writer.print(" '\\n'", .{}),
                                 else => |char| try writer.print(" '{c}'", .{char}),
                             }
                             try writer.print("\n", .{});
@@ -153,6 +159,8 @@ const Parser = struct {
     const Statement = Air.Line.Statement;
 
     pub fn parse(parser: *Parser) !void {
+        var current_label: ?Span = null;
+
         while (true) {
             const token = try nullIfReported(parser.nextToken()) orelse {
                 parser.discardTokensInLine();
@@ -166,6 +174,15 @@ const Parser = struct {
             }
 
             switch (token.kind) {
+                .label => {
+                    if (current_label != null) {
+                        parser.reporter.err(error.MultipleLabels, token.span);
+                        continue;
+                    }
+                    current_label = token.span;
+                    continue;
+                },
+
                 .instruction => |instruction| {
                     const statement = try parser.parseInstruction(instruction) orelse
                         continue;
@@ -175,7 +192,7 @@ const Parser = struct {
                         parser.tokens.index,
                     );
 
-                    try parser.appendLine(statement, span);
+                    try parser.appendLine(&current_label, statement, span);
 
                     continue; // TODO:
                 },
@@ -205,10 +222,13 @@ const Parser = struct {
                                     };
                                 is_escaped = false;
                                 try parser.appendLine(
+                                    &current_label,
                                     .{ .raw_word = char_escaped },
                                     string.span,
                                 );
                             }
+
+                            continue; // TODO:
                         },
 
                         // TODO:
@@ -230,11 +250,18 @@ const Parser = struct {
         }
     }
 
-    fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
+    fn appendLine(
+        parser: *Parser,
+        current_label: *?Span,
+        statement: Statement,
+        span: Span,
+    ) !void {
         try parser.air.lines.append(parser.air.allocator, .{
+            .label = current_label.*,
             .statement = statement,
             .span = span,
         });
+        current_label.* = null;
     }
 
     fn parseInstruction(
