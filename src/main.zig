@@ -23,21 +23,22 @@ pub fn main(init: std.process.Init) !void {
     var air: Air = .init(gpa);
     defer air.deinit();
 
-    var parser: Parser = .new(&air, source, &reporter);
-
-    try parser.parse();
+    {
+        var parser: Parser = .new(&air, source, &reporter);
+        try parser.parse();
+    }
 
     {
         var was_raw_word = false;
         for (air.lines.items) |line| {
             const concise = line.statement == .raw_word and was_raw_word and line.label == null;
             if (!concise)
-                std.debug.print("\n[{s}]", .{line.span.resolve(source)});
+                std.debug.print("\n", .{});
             if (line.label) |label| {
-                std.debug.print(" \"{s}\"", .{label.resolve(source)});
+                std.debug.print("\"{s}\" ", .{label.resolve(source)});
             }
             if (!concise)
-                std.debug.print("\n", .{});
+                std.debug.print("[{s}]\n", .{line.span.resolve(source)});
             std.debug.print("{f}", .{line.statement});
             was_raw_word = line.statement == .raw_word;
         }
@@ -103,19 +104,19 @@ const Air = struct {
                             try writer.print(":\n", .{});
 
                             inline for (@typeInfo(tag.type).@"struct".fields) |field| {
-                                try writer.print("{s:8} = ", .{field.name});
+                                try writer.print("{s:8}: ", .{field.name});
                                 const value = @field(variant, field.name);
                                 switch (field.type) {
-                                    Register => try writer.print("Register: r{}", .{value}),
-                                    Label => try writer.print("Label: [{s}]", .{value}),
+                                    Register => try writer.print("Register = r{}", .{value}),
+                                    Label => try writer.print("Label = \"{s}\"", .{value}),
                                     RegisterOrImmediate => {
-                                        try writer.print("Register/Immediate: ", .{});
+                                        try writer.print("Reg/Imm = ", .{});
                                         switch (value) {
                                             .register => |register| try writer.print("r{}", .{register}),
                                             .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                         }
                                     },
-                                    TrapVect => try writer.print("Vect 0x{x:02}", .{value}),
+                                    TrapVect => try writer.print("Vect = 0x{x:02}", .{value}),
                                     else => comptime unreachable,
                                 }
                                 try writer.print("\n", .{});
@@ -123,7 +124,7 @@ const Air = struct {
                         } else {
                             assert(statement == .raw_word);
 
-                            try writer.print("0x{x:04}", .{variant});
+                            try writer.print("    0x{x:04}", .{variant});
                             if (variant > 0x7f) {
                                 try writer.print(" (?)", .{});
                             } else switch (@as(u8, @intCast(variant))) {
