@@ -27,6 +27,55 @@ pub fn new(air: *Air, source: []const u8, reporter: *Reporter) Parser {
     };
 }
 
+pub fn resolveLabels(parser: *Parser) void {
+    // Bruh.
+    // TODO: Literally just do this manually.
+    for (parser.air.lines.items) |*line| {
+        inline for (std.meta.tags(std.meta.Tag(Statement)), 0..) |tag, i| {
+            if (tag == line.statement) {
+                const variant = @typeInfo(Statement).@"union".fields[i];
+                switch (@typeInfo(variant.type)) {
+                    .@"struct" => |payload| {
+                        assert(line.statement != .raw_word);
+                        inline for (payload.fields) |field| {
+                            switch (field.type) {
+                                Statement.Label => {
+                                    parser.resolveFieldLabel(
+                                        &@field(
+                                            @field(line.statement, variant.name),
+                                            field.name,
+                                        ),
+                                    );
+                                },
+                                else => {},
+                            }
+                        }
+                    },
+                    .int => assert(line.statement == .raw_word),
+                    else => unreachable,
+                }
+                break;
+            }
+        }
+    }
+}
+
+fn resolveFieldLabel(parser: *Parser, field: *Statement.Label) void {
+    for (parser.air.lines.items, 0..) |*line, index| {
+        const label = line.label orelse
+            continue;
+        // TODO: should it be case insensitive ?
+        if (!std.mem.eql(
+            u8,
+            label.resolve(parser.source),
+            field.unresolved.resolve(parser.source),
+        ))
+            continue;
+
+        field.* = .{ .index = @intCast(index) };
+    }
+}
+
 pub fn parse(parser: *Parser) !void {
     while (true) {
         const control = parser.parseLine() catch |err| switch (err) {

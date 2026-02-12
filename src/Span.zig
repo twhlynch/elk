@@ -28,6 +28,7 @@ pub fn in(inner: Span, containing: Span) Span {
     };
 }
 
+// TODO: Rename
 pub fn resolve(span: Span, source: []const u8) []const u8 {
     return source[span.offset..][0..span.len];
 }

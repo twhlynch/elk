@@ -50,15 +50,13 @@ pub const Line = struct {
 
         pub const TrapVect = u8;
 
-        pub fn format(statement: Statement, source: []const u8) Format {
-            return .{
-                .statement = statement,
-                .source = source,
-            };
+        pub fn format(statement: Statement, air: *const Air, source: []const u8) Format {
+            return .{ .statement = statement, .air = air, .source = source };
         }
 
         pub const Format = struct {
             statement: Statement,
+            air: *const Air,
             source: []const u8,
 
             pub fn format(self: Format, writer: *std.Io.Writer) !void {
@@ -82,8 +80,14 @@ pub const Line = struct {
                                     Label => {
                                         try writer.print("Label = ", .{});
                                         switch (value) {
-                                            .unresolved => |span| try writer.print("\"{s}\"", .{span.resolve(self.source)}),
-                                            .index => |index| try writer.print("{}", .{index}),
+                                            .unresolved => |span| try writer.print("\"{s}\" (unresolved)", .{span.resolve(self.source)}),
+                                            .index => |index| {
+                                                if (self.air.lines.items[index].label) |label|
+                                                    try writer.print("\"{s}\"", .{label.resolve(self.source)})
+                                                else
+                                                    try writer.print("<INVALID>", .{});
+                                                try writer.print(" (0x{x:04})", .{index});
+                                            },
                                         }
                                     },
                                     RegImm5 => {

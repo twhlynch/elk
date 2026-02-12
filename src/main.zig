@@ -21,11 +21,11 @@ pub fn main(init: std.process.Init) !void {
     var air: Air = .init(gpa);
     defer air.deinit();
 
-    {
-        var parser: Parser = .new(&air, source, &reporter);
-        try parser.parse();
-    }
+    var parser: Parser = .new(&air, source, &reporter);
 
+    try parser.parse();
+
+    if (false) //
     {
         var was_raw_word = false;
         for (air.lines.items) |line| {
@@ -40,7 +40,30 @@ pub fn main(init: std.process.Init) !void {
             }
             if (!concise)
                 std.debug.print("[{s}]\n", .{line.span.resolve(source)});
-            std.debug.print("{f}", .{line.statement.format(source)});
+            std.debug.print("{f}", .{line.statement.format(&air, source)});
+            was_raw_word = line.statement == .raw_word;
+        }
+        std.debug.print("\n", .{});
+    }
+
+    parser.resolveLabels();
+
+    // if (false) //
+    {
+        var was_raw_word = false;
+        for (air.lines.items) |line| {
+            const concise =
+                line.statement == .raw_word and
+                was_raw_word and
+                line.label == null;
+            if (!concise)
+                std.debug.print("\n", .{});
+            if (line.label) |label| {
+                std.debug.print("\"{s}\" ", .{label.resolve(source)});
+            }
+            if (!concise)
+                std.debug.print("[{s}]\n", .{line.span.resolve(source)});
+            std.debug.print("{f}", .{line.statement.format(&air, source)});
             was_raw_word = line.statement == .raw_word;
         }
         std.debug.print("\n", .{});
@@ -48,6 +71,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (reporter.summary() == .err) {
         std.log.info("stop", .{});
+        return;
     }
 }
 
