@@ -203,12 +203,13 @@ const Parser = struct {
         while (true) {
             const control =
                 try nullIfReported(parser.parseLine()) orelse {
-                    parser.discardTokensInLine();
+                    parser.discardRestOfLine();
                     continue;
                 };
 
             switch (control) {
                 .@"continue" => continue,
+                // Any label on `.END` should have been reported by `parseLine`
                 .end_directive => break,
                 .eof => {
                     parser.reporter.err(error.ExpectedEnd, .emptyAt(parser.source.len)) catch
@@ -218,8 +219,7 @@ const Parser = struct {
         }
     }
 
-    // TODO: Rename
-    fn discardTokensInLine(parser: *Parser) void {
+    fn discardRestOfLine(parser: *Parser) void {
         while (true) {
             const token = try nullIfReported(parser.nextToken(&.{.comma})) orelse {
                 continue; // Ignore
@@ -236,106 +236,99 @@ const Parser = struct {
 
         switch (token.kind) {
             .label => {
-                if (parser.current_label != null) {
-                    try parser.reporter.err(error.MultipleLabels, token.span);
-                }
+                parser.expectNoCurrentLabel();
                 parser.current_label = token.span;
+            },
 
-                return .@"continue"; // TODO:
+            .directive => |directive| {
+                return switch (try parser.parseDirective(directive)) {
+                    .@"continue" => .@"continue",
+                    .end_directive => .end_directive,
+                };
             },
 
             .instruction => |instruction| {
                 const statement = try parser.parseInstruction(instruction) orelse
                     return error.Reported;
-
                 const span: Span = .fromBounds(
                     token.span.offset,
                     parser.tokens.index,
                 );
-
                 try parser.appendLine(statement, span);
-
-                return .@"continue"; // TODO:
             },
 
-            .directive => |directive| {
-                switch (directive) {
-                    .end => {
-                        return .end_directive;
-                    },
-
-                    .orig => {
-                        const origin = try parser.expectTokenKind(.word);
-                        if (parser.air.lines.items.len > 0) {
-                            try parser.reporter.err(error.LateOrigin, origin.span);
-                        }
-                        if (parser.air.origin != null) {
-                            try parser.reporter.err(error.MultipleOrigins, origin.span);
-                        }
-                        parser.air.origin = origin.value.asUnsigned() orelse {
-                            try parser.reporter.err(error.IntegerTooLarge, origin.span);
-                        };
-
-                        return .@"continue"; // TODO:
-                    },
-
-                    .stringz => {
-                        const string = try parser.expectTokenKind(.string);
-                        var is_escaped = false;
-                        for (string.value) |char| {
-                            if (!is_escaped and char == '\\') {
-                                is_escaped = true;
-                                continue;
-                            }
-                            const char_escaped: u8 =
-                                if (!is_escaped) char else switch (char) {
-                                    '\\' => '\\',
-                                    '"' => '"',
-                                    'n' => '\n',
-                                    't' => '\t',
-                                    'r' => '\r',
-                                    else => {
-                                        parser.reporter.err(error.InvalidEscapeSequence, string.span) catch
-                                            {}; // Keep parsing string
-                                        is_escaped = false;
-                                        continue;
-                                    },
-                                };
-                            is_escaped = false;
-                            try parser.appendLine(
-                                .{ .raw_word = char_escaped },
-                                string.span,
-                            );
-                        }
-
-                        return .@"continue"; // TODO:
-                    },
-
-                    else => {}, // TODO:
-                }
+            else => {
+                // TODO:
+                std.log.warn("unhandled token: {s}", .{token.span.resolve(parser.source)});
             },
-
-            else => {}, // TODO:
         }
-
-        std.debug.print("warning: unhandled {t:<10} {s}\n", .{
-            token.kind,
-            if (token.kind == .newline)
-                ""
-            else
-                token.span.resolve(parser.source),
-        });
-
         return .@"continue";
     }
 
-    fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
-        try parser.air.lines.append(parser.air.allocator, .{
-            .label = parser.current_label,
-            .statement = statement,
-            .span = span,
-        });
-        parser.current_label = null;
+    fn parseDirective(
+        parser: *Parser,
+        directive: Token.Kind.Directive,
+    ) !enum { @"continue", end_directive } {
+        switch (directive) {
+            .end => {
+                parser.expectNoCurrentLabel();
+                return .end_directive;
+            },
+
+            .orig => {
+                parser.expectNoCurrentLabel();
+                if (parser.current_label) |label| {
+                    try parser.reporter.err(error.UnusedLabel, label);
+                }
+                const origin = try parser.expectTokenKind(.word);
+                if (parser.air.lines.items.len > 0) {
+                    try parser.reporter.err(error.LateOrigin, origin.span);
+                }
+                if (parser.air.origin != null) {
+                    try parser.reporter.err(error.MultipleOrigins, origin.span);
+                }
+                parser.air.origin = origin.value.asUnsigned() orelse {
+                    try parser.reporter.err(error.IntegerTooLarge, origin.span);
+                };
+            },
+
+            .stringz => {
+                const string = try parser.expectTokenKind(.string);
+                var is_escaped = false;
+                for (string.value) |char| {
+                    if (!is_escaped and char == '\\') {
+                        is_escaped = true;
+                        continue;
+                    }
+                    const char_escaped: u8 =
+                        if (!is_escaped) char else switch (char) {
+                            '\\' => '\\',
+                            '"' => '"',
+                            'n' => '\n',
+                            't' => '\t',
+                            'r' => '\r',
+                            else => {
+                                parser.reporter.err(error.InvalidEscapeSequence, string.span) catch
+                                    {}; // Keep parsing string
+                                is_escaped = false;
+                                continue;
+                            },
+                        };
+                    is_escaped = false;
+                    try parser.appendLine(
+                        .{ .raw_word = char_escaped },
+                        string.span,
+                    );
+                }
+            },
+
+            else => {
+                // TODO:
+                std.log.warn("unimplemented directive: {t}", .{directive});
+            },
+        }
+
+        return .@"continue";
     }
 
     fn parseInstruction(
@@ -381,6 +374,22 @@ const Parser = struct {
 
         // TODO: Replace with `unreachable` and to remove `?` from return type
         return null;
+    }
+
+    fn expectNoCurrentLabel(parser: *Parser) void {
+        if (parser.current_label) |label| {
+            parser.reporter.err(error.UnusedLabel, label) catch
+                {}; // Ignore; caller can continue parsing line
+        }
+    }
+
+    fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
+        try parser.air.lines.append(parser.air.allocator, .{
+            .label = parser.current_label,
+            .statement = statement,
+            .span = span,
+        });
+        parser.current_label = null;
     }
 
     fn nextToken(
