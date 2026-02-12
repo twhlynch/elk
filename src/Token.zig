@@ -17,6 +17,7 @@ pub const Error = error{
     InvalidDirective,
     InvalidIdent,
     InvalidToken,
+    UnmatchedQuote,
 };
 
 pub fn from(span: Span, source: []const u8) !Token {
@@ -140,7 +141,8 @@ pub const Kind = union(enum) {
         const has_final_quote = string[string.len - 1] == '"';
         if (!has_initial_quote and !has_final_quote)
             return null;
-        assert(has_initial_quote and has_final_quote);
+        if (!has_initial_quote or !has_final_quote)
+            return error.UnmatchedQuote;
         return .{ .string = string[1 .. string.len - 1] };
     }
 
