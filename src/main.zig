@@ -192,8 +192,11 @@ const Parser = struct {
                                         'n' => '\n',
                                         't' => '\t',
                                         'r' => '\r',
-                                        // TODO: Handle invalid escape character
-                                        else => unreachable,
+                                        else => {
+                                            parser.reporter.err(error.InvalidEscapeSequence, string.span);
+                                            is_escaped = false;
+                                            continue;
+                                        },
                                     };
                                 is_escaped = false;
                                 try parser.appendLine(
