@@ -31,7 +31,10 @@ pub fn main(init: std.process.Init) !void {
     {
         var was_raw_word = false;
         for (air.lines.items) |line| {
-            const concise = line.statement == .raw_word and was_raw_word and line.label == null;
+            const concise =
+                line.statement == .raw_word and
+                was_raw_word and
+                line.label == null;
             if (!concise)
                 std.debug.print("\n", .{});
             if (line.label) |label| {
@@ -87,7 +90,10 @@ const Air = struct {
                 immediate: u5,
             };
 
-            const Label = Span;
+            const Label = union(enum) {
+                unresolved: Span,
+                index: u16,
+            };
 
             const TrapVect = u8;
 
@@ -120,7 +126,13 @@ const Air = struct {
                                     const value = @field(variant, field.name);
                                     switch (field.type) {
                                         Register => try writer.print("Register = r{}", .{value}),
-                                        Label => try writer.print("Label = \"{s}\"", .{value.resolve(self.source)}),
+                                        Label => {
+                                            try writer.print("Label = ", .{});
+                                            switch (value) {
+                                                .unresolved => |span| try writer.print("\"{s}\"", .{span.resolve(self.source)}),
+                                                .index => |index| try writer.print("{}", .{index}),
+                                            }
+                                        },
                                         RegImm5 => {
                                             try writer.print("Reg/Imm = ", .{});
                                             switch (value) {
@@ -436,7 +448,7 @@ const Parser = struct {
                 else => null,
             },
             .label => switch (token.kind) {
-                .label => token.span,
+                .label => .{ .unresolved = token.span },
                 else => null,
             },
             .string => switch (token.kind) {
@@ -460,7 +472,6 @@ const Parser = struct {
             .reg_imm5 => Statement.RegImm5,
             .imm5 => u5,
             .word => Integer(16),
-            // TODO: Use span
             .label => Statement.Label,
             .string => []const u8,
             else => @compileError("unsupported token kind `." ++ @tagName(kind) ++ "`"),
