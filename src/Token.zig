@@ -27,16 +27,15 @@ pub fn from(span: Span, source: []const u8) !Token {
 }
 
 pub const Kind = union(enum) {
-    // TODO: Use spans instead of slices
-    // spans can be relative to (contained by) `token.span`
     newline,
     comma,
     register: u3,
     integer: Integer(16),
+    // TODO: Use Span ? right now there is not much benefit either way...
     string: []const u8,
     directive: Directive,
     instruction: Instruction,
-    label: []const u8,
+    label,
 
     pub const Directive = enum {
         orig,
@@ -173,7 +172,7 @@ pub const Kind = union(enum) {
             return null;
         if (!isIdent(string[1..]))
             return error.InvalidIdent;
-        return .{ .label = string };
+        return .label;
     }
 
     fn matchTagName(comptime T: type, string: []const u8) ?T {

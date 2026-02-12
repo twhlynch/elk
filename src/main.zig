@@ -87,8 +87,7 @@ const Air = struct {
                 immediate: u5,
             };
 
-            // TODO: Use Span
-            const Label = []const u8;
+            const Label = Span;
 
             const TrapVect = u8;
 
@@ -110,7 +109,7 @@ const Air = struct {
                                 const value = @field(variant, field.name);
                                 switch (field.type) {
                                     Register => try writer.print("Register = r{}", .{value}),
-                                    Label => try writer.print("Label = \"{s}\"", .{value}),
+                                    Label => try writer.print("Label = \"{}\"", .{value}),
                                     RegImm5 => {
                                         try writer.print("Reg/Imm = ", .{});
                                         switch (value) {
@@ -425,7 +424,7 @@ const Parser = struct {
                 else => null,
             },
             .label => switch (token.kind) {
-                .label => |label| label,
+                .label => token.span,
                 else => null,
             },
             .string => switch (token.kind) {
