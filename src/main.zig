@@ -122,9 +122,11 @@ const Air = struct {
                             assert(statement == .raw_word);
 
                             try writer.print("0x{x:04}", .{variant});
-                            switch (variant) {
-                                0x00...0x7f => try writer.print(" '{c}'", .{@as(u8, @intCast(variant))}),
-                                else => try writer.print(" (?)", .{}),
+                            if (variant > 0x7f) {
+                                try writer.print(" (?)", .{});
+                            } else switch (@as(u8, @intCast(variant))) {
+                                '\n' => try writer.print(" <CR>", .{}),
+                                else => |char| try writer.print(" '{c}'", .{char}),
                             }
                             try writer.print("\n", .{});
                         }
@@ -177,10 +179,25 @@ const Parser = struct {
                     switch (directive) {
                         .stringz => {
                             const string = try parser.expectTokenKind(.string);
-                            // TODO: Handle escape sequences
+                            var is_escaped = false;
                             for (string.value) |char| {
+                                if (!is_escaped and char == '\\') {
+                                    is_escaped = true;
+                                    continue;
+                                }
+                                const char_escaped: u8 =
+                                    if (!is_escaped) char else switch (char) {
+                                        '\\' => '\\',
+                                        '"' => '"',
+                                        'n' => '\n',
+                                        't' => '\t',
+                                        'r' => '\r',
+                                        // TODO: Handle invalid escape character
+                                        else => unreachable,
+                                    };
+                                is_escaped = false;
                                 try parser.appendLine(
-                                    .{ .raw_word = char },
+                                    .{ .raw_word = char_escaped },
                                     string.span,
                                 );
                             }
