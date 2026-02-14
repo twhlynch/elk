@@ -63,6 +63,18 @@ pub fn err(
     const source = reporter.source orelse
         unreachable;
 
+    const line = std.mem.trim(u8, token
+        .getWholeLine(source)
+        .view(source), " \t\r");
+
+    reporter.print("\x1b[33m", .{});
+    reporter.print("  -  Line: ", .{});
+    reporter.print("\x1b[0m", .{});
+    reporter.print("\x1b[3m", .{});
+    reporter.print("{s}", .{line});
+    reporter.print("\x1b[0m", .{});
+    reporter.print("\n", .{});
+
     reporter.print("\x1b[33m", .{});
     reporter.print("  - Token: ", .{});
     reporter.print("\x1b[0m", .{});

@@ -32,3 +32,19 @@ pub fn in(inner: Span, containing: Span) Span {
 pub fn view(span: Span, source: []const u8) []const u8 {
     return source[span.offset..][0..span.len];
 }
+
+pub fn getWholeLine(span: Span, source: []const u8) Span {
+    var start = span.offset;
+    while (start > 0) : (start -= 1) {
+        if (source[start - 1] == '\n')
+            break;
+    }
+
+    var end_ = span.end();
+    while (end_ + 1 < source.len) : (end_ += 1) {
+        if (source[end_] == '\n')
+            break;
+    }
+
+    return .fromBounds(start, end_);
+}
