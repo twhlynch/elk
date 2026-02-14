@@ -4,6 +4,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const Air = @import("Air.zig");
+const Operand = Air.Operand;
 const Statement = Air.Line.Statement;
 const Tokenizer = @import("Tokenizer.zig");
 const Token = @import("Token.zig");
@@ -39,7 +40,7 @@ pub fn resolveLabels(parser: *Parser) void {
                         assert(line.statement != .raw_word);
                         inline for (payload.fields) |field| {
                             switch (field.type) {
-                                Statement.Offset(9) => {
+                                Operand.Offset9 => {
                                     parser.resolveFieldLabel(
                                         &@field(
                                             @field(line.statement, variant.name),
@@ -60,7 +61,7 @@ pub fn resolveLabels(parser: *Parser) void {
     }
 }
 
-fn resolveFieldLabel(parser: *Parser, field: *Statement.Offset(9)) void {
+fn resolveFieldLabel(parser: *Parser, field: *Operand.Offset9) void {
     for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
             continue;
@@ -217,7 +218,7 @@ fn parseInstruction(
         .add,
         .lea,
     };
-    const trap_instructions = [_]struct { Token.Kind.Instruction, Statement.TrapVect }{
+    const trap_instructions = [_]struct { Token.Kind.Instruction, Operand.TrapVect }{
         .{ .puts, 0x22 },
         .{ .halt, 0x25 },
     };
@@ -229,9 +230,9 @@ fn parseInstruction(
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
                 const token = try parser.expectOperand(switch (field.type) {
-                    Statement.Register => .register,
-                    Statement.RegImm5 => .reg_imm5,
-                    Statement.Offset(9) => .offset9,
+                    Operand.Register => .register,
+                    Operand.RegImm5 => .reg_imm5,
+                    Operand.Offset9 => .offset9,
                     else => comptime unreachable,
                 });
                 @field(payload, field.name) = token.value;
@@ -299,27 +300,9 @@ fn expectToken(parser: *Parser) !Token {
     }
 }
 
-const Operand = enum {
-    register,
-    reg_imm5,
-    offset9,
-    word,
-    string,
-};
-
-fn OperandValue(comptime operand: Operand) type {
-    return switch (operand) {
-        .register => Statement.Register,
-        .reg_imm5 => Statement.RegImm5,
-        .offset9 => Statement.Offset(9),
-        .word => Integer(16),
-        .string => []const u8,
-    };
-}
-
 fn expectOperand(parser: *Parser, comptime operand: Operand) !struct {
     span: Span,
-    value: OperandValue(operand),
+    value: operand.asType(),
 } {
     const token = try parser.expectToken();
     assert(token.kind != .comma);
@@ -338,10 +321,10 @@ fn convertOperand(
     kind: Token.Kind,
     // TODO: Can remove this if `Statement.Label.unresolved` has type `void`
     span: Span,
-) error{ UnexpectedTokenKind, IntegerTooLarge }!OperandValue(operand) {
+) error{ UnexpectedTokenKind, IntegerTooLarge }!operand.asType() {
     return switch (operand) {
         .register => switch (kind) {
-            .register => |register| register,
+            .register => |register| .{ .value = register },
             else => error.UnexpectedTokenKind,
         },
         .reg_imm5 => switch (kind) {

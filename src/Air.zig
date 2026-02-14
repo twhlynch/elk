@@ -6,11 +6,52 @@ const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
 
 const Span = @import("Span.zig");
+const Integer = @import("integers.zig").Integer;
 
 origin: ?u16,
 
 lines: ArrayList(Line),
 allocator: Allocator,
+
+pub const Operand = enum {
+    register,
+    reg_imm5,
+    offset9,
+    word,
+    string,
+
+    // TODO: Rename
+    pub fn asType(comptime operand: Operand) type {
+        return switch (operand) {
+            .register => Register,
+            .reg_imm5 => RegImm5,
+            .offset9 => Offset9,
+            .word => Integer(16),
+            .string => []const u8,
+        };
+    }
+
+    pub const Register = struct {
+        value: u3,
+        pub const operand: Operand = .register;
+    };
+
+    // TODO: Rename
+    pub const RegImm5 = union(enum) {
+        register: u3,
+        immediate: u5,
+        pub const operand: Operand = .reg_imm5;
+    };
+
+    pub const Offset9 = union(enum) {
+        // TODO: Replace 'redundant' span with void ?
+        unresolved: Span,
+        resolved: i9,
+        pub const operand: Operand = .offset9;
+    };
+
+    pub const TrapVect = u8;
+};
 
 pub const Line = struct {
     label: ?Span,
@@ -21,37 +62,19 @@ pub const Line = struct {
         raw_word: u16,
 
         add: struct {
-            dest: Register,
-            src_a: Register,
-            src_b: RegImm5,
+            dest: Operand.Register,
+            src_a: Operand.Register,
+            src_b: Operand.RegImm5,
         },
 
         lea: struct {
-            dest: Register,
-            src: Offset(9),
+            dest: Operand.Register,
+            src: Operand.Offset9,
         },
 
         trap: struct {
-            vect: TrapVect,
+            vect: Operand.TrapVect,
         },
-
-        pub const Register = u3;
-
-        // TODO: Rename
-        pub const RegImm5 = union(enum) {
-            register: Register,
-            immediate: u5,
-        };
-
-        pub fn Offset(comptime bits: u16) type {
-            return union(enum) {
-                // TODO: Replace 'redundant' span with void ?
-                unresolved: Span,
-                resolved: @Int(.signed, bits),
-            };
-        }
-
-        pub const TrapVect = u8;
 
         pub fn format(
             statement: Statement,
@@ -90,15 +113,15 @@ pub const Line = struct {
                                 try writer.print("{s:8}: ", .{field.name});
                                 const value = @field(variant, field.name);
                                 switch (field.type) {
-                                    Register => try writer.print("Register = r{}", .{value}),
-                                    RegImm5 => {
+                                    Operand.Register => try writer.print("Register = r{}", .{value.value}),
+                                    Operand.RegImm5 => {
                                         try writer.print("Reg/Imm = ", .{});
                                         switch (value) {
                                             .register => |register| try writer.print("r{}", .{register}),
                                             .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                         }
                                     },
-                                    Offset(9) => {
+                                    Operand.Offset9 => {
                                         try writer.print("Label = ", .{});
                                         switch (value) {
                                             .unresolved => |span| try writer.print("\"{s}\" (unresolved)", .{span.resolve(self.source)}),
@@ -118,7 +141,7 @@ pub const Line = struct {
                                             },
                                         }
                                     },
-                                    TrapVect => try writer.print("Vect = 0x{x:02}", .{value}),
+                                    Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{value}),
                                     else => comptime unreachable,
                                 }
                                 try writer.print("\n", .{});
