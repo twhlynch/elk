@@ -24,22 +24,14 @@ pub fn Integer(comptime bits: u16) type {
         pub fn asUnsigned(integer: @This()) ?Unsigned {
             return switch (integer) {
                 .unsigned => |unsigned| unsigned,
-                .signed => |signed| std.math.cast(Unsigned, signed),
+                .signed => |signed| math.cast(Unsigned, signed),
             };
         }
 
-        // TODO: Rename (misleading)
         pub fn castTo(integer: @This(), comptime T: type) error{IntegerTooLarge}!T {
-            const info = @typeInfo(T).int;
-            assert(info.signedness == .unsigned);
-
             return switch (integer) {
-                .unsigned => |unsigned| std.math.cast(T, unsigned) orelse
+                inline else => |inner| math.cast(T, inner) orelse
                     return error.IntegerTooLarge,
-                .signed => |signed| @bitCast(
-                    std.math.cast(@Int(.signed, info.bits), signed) orelse
-                        return error.IntegerTooLarge,
-                ),
             };
         }
     };
