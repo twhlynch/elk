@@ -42,11 +42,13 @@ pub fn resolveLabels(parser: *Parser) void {
                         inline for (payload.fields) |field| {
                             switch (field.type) {
                                 OperandSpan(Operand.Offset9) => {
+                                    const operand = &@field(
+                                        @field(line.statement, variant.name),
+                                        field.name,
+                                    );
                                     parser.resolveFieldLabel(
-                                        &@field(
-                                            @field(line.statement, variant.name),
-                                            field.name,
-                                        ).value,
+                                        &operand.value,
+                                        operand.span,
                                     );
                                 },
                                 else => {},
@@ -63,11 +65,15 @@ pub fn resolveLabels(parser: *Parser) void {
 }
 
 // TODO: Use `anytype` for `field` and check if is an 'offset' operand
-fn resolveFieldLabel(parser: *Parser, field: *Operand.Offset9) void {
-    const unresolved = switch (field.*) {
-        .unresolved => |unresolved| unresolved,
+fn resolveFieldLabel(
+    parser: *Parser,
+    field: *Operand.Offset9,
+    span: Span,
+) void {
+    switch (field.*) {
+        .unresolved => {},
         .resolved => return,
-    };
+    }
 
     for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
@@ -76,7 +82,7 @@ fn resolveFieldLabel(parser: *Parser, field: *Operand.Offset9) void {
         if (!std.mem.eql(
             u8,
             label.view(parser.source),
-            unresolved.view(parser.source),
+            span.view(parser.source),
         ))
             continue;
 
@@ -84,7 +90,7 @@ fn resolveFieldLabel(parser: *Parser, field: *Operand.Offset9) void {
         return;
     }
 
-    parser.reporter.err(error.UndeclaredLabel, unresolved) catch
+    parser.reporter.err(error.UndeclaredLabel, span) catch
         {}; // Continue line
 }
 
@@ -325,7 +331,7 @@ fn expectOperand(
 ) !OperandSpan(operand.asType()) {
     const token = try parser.expectToken();
     assert(token.kind != .comma);
-    const value = convertOperand(operand, token.kind, token.span) catch |err| {
+    const value = convertOperand(operand, token.kind) catch |err| {
         try parser.reporter.err(err, token.span);
     };
     return .{
@@ -338,8 +344,6 @@ fn expectOperand(
 fn convertOperand(
     comptime operand: Operand,
     kind: Token.Kind,
-    // TODO: Can remove this if `Statement.Label.unresolved` has type `void`
-    span: Span,
 ) error{ UnexpectedTokenKind, IntegerTooLarge }!operand.asType() {
     return switch (operand) {
         .register => switch (kind) {
@@ -353,7 +357,7 @@ fn convertOperand(
         },
         .offset9 => switch (kind) {
             .integer => |integer| .{ .resolved = try integer.castTo(i9) },
-            .label => .{ .unresolved = span },
+            .label => .unresolved,
             else => error.UnexpectedTokenKind,
         },
         .word => switch (kind) {

@@ -53,7 +53,7 @@ pub const Operand = enum {
     };
 
     pub const Offset9 = union(enum) {
-        unresolved: Span,
+        unresolved,
         resolved: i9,
         pub const operand: Operand = .offset9;
     };
@@ -133,7 +133,7 @@ pub const Statement = union(enum) {
                                 Operand.Offset9 => {
                                     try writer.print("Label = ", .{});
                                     switch (operand.value) {
-                                        .unresolved => |span| try writer.print("\"{s}\" (unresolved)", .{span.view(self.source)}),
+                                        .unresolved => try writer.print("\"{s}\" (unresolved)", .{operand.span.view(self.source)}),
                                         .resolved => |offset| {
                                             const index: usize = @intCast(
                                                 @as(isize, @intCast(self.index)) +
