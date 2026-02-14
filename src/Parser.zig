@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 
 const Air = @import("Air.zig");
 const Operand = Air.Operand;
-const Statement = Air.Line.Statement;
+const Statement = Air.Statement;
 const Tokenizer = @import("Tokenizer.zig");
 const Token = @import("Token.zig");
 const Span = @import("Span.zig");
