@@ -69,6 +69,15 @@ pub fn main(init: std.process.Init) !void {
         std.debug.print("\n", .{});
     }
 
+    {
+        var buffer: [256]u8 = undefined;
+        var writer = std.Io.Writer.fixed(&buffer);
+
+        try air.emit(&writer);
+
+        std.debug.print("{x}\n", .{buffer[0..writer.end]});
+    }
+
     if (reporter.summary() == .err) {
         std.log.info("stop", .{});
         return;

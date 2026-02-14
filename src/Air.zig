@@ -1,6 +1,7 @@
 const Air = @This();
 
 const std = @import("std");
+const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
@@ -41,6 +42,7 @@ pub const Operand = enum {
     }
 
     pub const Register = struct {
+        // TODO: Rename to `bits` or something
         value: u3,
         pub const operand: Operand = .register;
     };
@@ -183,4 +185,43 @@ pub fn init(allocator: Allocator) Air {
 
 pub fn deinit(air: *Air) void {
     air.lines.deinit(air.allocator);
+}
+
+pub fn emit(air: *const Air, writer: *Io.Writer) !void {
+    for (air.lines.items) |line| {
+        const raw = encode(line.statement);
+        std.debug.print("0x{x:04}\n", .{raw});
+        try writer.writeInt(u16, raw, .big);
+    }
+}
+
+fn encode(statement: Statement) u16 {
+    switch (statement) {
+        .raw_word => |raw| {
+            return raw;
+        },
+
+        .add => |operands| {
+            var raw: u16 = 0x1000;
+            raw |= @as(u16, operands.dest.value.value) << 9;
+            raw |= @as(u16, operands.src_a.value.value) << 6;
+            raw |= switch (operands.src_b.value) {
+                inline else => |inner| @as(u16, inner),
+            };
+            return raw;
+        },
+
+        .lea => |operands| {
+            var raw: u16 = 0xe000;
+            raw |= @as(u16, operands.dest.value.value) << 9;
+            raw |= @as(u9, @bitCast(operands.src.value.resolved));
+            return raw;
+        },
+
+        .trap => |operands| {
+            var raw: u16 = 0xf000;
+            raw |= @as(u16, operands.vect.value);
+            return raw;
+        },
+    }
 }
