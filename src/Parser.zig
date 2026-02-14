@@ -158,7 +158,7 @@ fn parseDirective(
             if (parser.current_label) |label| {
                 try parser.reporter.err(error.UnusedLabel, label);
             }
-            const origin = try parser.expectTokenKind(.word);
+            const origin = try parser.expectTokenType(Integer(16));
             if (parser.air.lines.items.len > 0) {
                 try parser.reporter.err(error.LateOrigin, origin.span);
             }
@@ -171,7 +171,7 @@ fn parseDirective(
         },
 
         .stringz => {
-            const string = try parser.expectTokenKind(.string);
+            const string = try parser.expectTokenType([]const u8);
             var is_escaped = false;
             for (string.value) |char| {
                 if (!is_escaped and char == '\\') {
@@ -228,14 +228,7 @@ fn parseInstruction(
             var payload: Payload = undefined;
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
-                const kind = switch (field.type) {
-                    Statement.Register => .register,
-                    Statement.Label => .label,
-                    Statement.RegImm5 => .reg_imm5,
-                    else => comptime unreachable,
-                };
-
-                const token = try parser.expectTokenKind(kind);
+                const token = try parser.expectTokenType(field.type);
                 @field(payload, field.name) = token.value;
             }
 
@@ -301,21 +294,18 @@ fn expectToken(parser: *Parser) !Token {
     }
 }
 
-fn expectTokenKind(
-    parser: *Parser,
-    comptime kind: @EnumLiteral(),
-) !struct {
+fn expectTokenType(parser: *Parser, comptime T: type) !struct {
     span: Span,
-    value: ExpectTokenKind(kind),
+    value: T,
 } {
     const token = try parser.expectToken();
     assert(token.kind != .comma);
-    const value_opt: ?ExpectTokenKind(kind) = switch (kind) {
-        .register => switch (token.kind) {
+    const value_opt: ?T = switch (T) {
+        Statement.Register => switch (token.kind) {
             .register => |register| register,
             else => null,
         },
-        .reg_imm5 => switch (token.kind) {
+        Statement.RegImm5 => switch (token.kind) {
             .register => |register| .{ .register = register },
             .integer => |integer| .{
                 .immediate = integer.castTo(u5) orelse {
@@ -324,25 +314,25 @@ fn expectTokenKind(
             },
             else => null,
         },
-        .imm5 => switch (token.kind) {
+        u5 => switch (token.kind) {
             .integer => |integer| integer.castTo(u5) orelse {
                 try parser.reporter.err(error.IntegerTooLarge, token.span);
             },
             else => null,
         },
-        .word => switch (token.kind) {
+        Integer(16) => switch (token.kind) {
             .integer => |integer| integer,
             else => null,
         },
-        .label => switch (token.kind) {
+        Statement.Label => switch (token.kind) {
             .label => .{ .unresolved = token.span },
             else => null,
         },
-        .string => switch (token.kind) {
+        []const u8 => switch (token.kind) {
             .string => |string| string,
             else => null,
         },
-        else => comptime unreachable,
+        else => @compileError("unsupported expected type for token `." ++ @typeName(T) ++ "`"),
     };
     const value = value_opt orelse {
         try parser.reporter.err(error.UnexpectedTokenKind, token.span);
@@ -350,17 +340,5 @@ fn expectTokenKind(
     return .{
         .span = token.span,
         .value = value,
-    };
-}
-
-fn ExpectTokenKind(comptime kind: @EnumLiteral()) type {
-    return switch (kind) {
-        .register => Statement.Register,
-        .reg_imm5 => Statement.RegImm5,
-        .imm5 => u5,
-        .word => Integer(16),
-        .label => Statement.Label,
-        .string => []const u8,
-        else => @compileError("unsupported token kind `." ++ @tagName(kind) ++ "`"),
     };
 }
