@@ -28,6 +28,7 @@ pub const Operand = enum {
     reg_imm5,
     offset9,
     offset11,
+    trap_vect,
     word,
     string,
 
@@ -38,6 +39,7 @@ pub const Operand = enum {
             .reg_imm5 => RegImm5,
             .offset9 => Offset9,
             .offset11 => Offset11,
+            .trap_vect => TrapVect,
             .word => Integer(16),
             .string => []const u8,
         };
@@ -90,7 +92,7 @@ pub const Operand = enum {
     pub const TrapVect = struct {
         value: u8,
 
-        // pub const operand: Operand = .trap_vect;
+        pub const operand: Operand = .trap_vect;
         pub fn bits(self: TrapVect) u16 {
             return self.value;
         }
@@ -236,6 +238,7 @@ pub fn emit(air: *const Air, writer: *Io.Writer) !void {
     }
 }
 
+// TODO: Move to `Statement` ?
 fn encode(statement: Statement) u16 {
     switch (statement) {
         .raw_word => |raw| {

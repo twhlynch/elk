@@ -176,10 +176,13 @@ fn parseInstruction(
         .add,
         .lea,
         .jsr,
+        .trap,
+        // TODO: Add rest.
     };
     const trap_aliases = [_]struct { Token.Kind.Instruction, u8 }{
         .{ .puts, 0x22 },
         .{ .halt, 0x25 },
+        // TODO: Add rest.
     };
 
     inline for (regular_instructions) |regular| {
@@ -193,6 +196,7 @@ fn parseInstruction(
                     Operand.RegImm5 => .reg_imm5,
                     Operand.Offset9 => .offset9,
                     Operand.Offset11 => .offset11,
+                    Operand.TrapVect => .trap_vect,
                     else => comptime unreachable,
                 });
                 @field(payload, field.name) = token;
@@ -217,8 +221,8 @@ fn parseInstruction(
         }
     }
 
-    // TODO: Replace with `unreachable` and to remove `?` from return type
-    return null;
+    // TODO: Replace with `unreachable` when all instructions/aliases are added above
+    std.debug.panic("unimplemented instruction `{t}`", .{instruction});
 }
 
 fn expectNoCurrentLabel(parser: *Parser) void {
@@ -306,6 +310,10 @@ fn convertOperand(
         .offset11 => switch (kind) {
             .integer => |integer| .{ .resolved = try integer.castTo(i11) },
             .label => .unresolved,
+            else => error.UnexpectedTokenKind,
+        },
+        .trap_vect => switch (kind) {
+            .integer => |integer| .{ .value = try integer.castTo(u8) },
             else => error.UnexpectedTokenKind,
         },
         .word => switch (kind) {
