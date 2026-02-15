@@ -29,98 +29,6 @@ pub fn new(air: *Air, source: []const u8, reporter: *Reporter) Parser {
     };
 }
 
-pub fn resolveLabels(parser: *Parser) void {
-    // Bruh.
-    // TODO: Literally just do this manually.
-    for (parser.air.lines.items, 0..) |*line, index| {
-        inline for (std.meta.tags(std.meta.Tag(Statement)), 0..) |tag, i| {
-            if (tag == line.statement) {
-                const variant = @typeInfo(Statement).@"union".fields[i];
-                switch (@typeInfo(variant.type)) {
-                    .@"struct" => |payload| {
-                        assert(line.statement != .raw_word);
-                        inline for (payload.fields) |field| {
-                            switch (field.type) {
-                                OperandSpan(Operand.Offset9) => {
-                                    const operand = &@field(
-                                        @field(line.statement, variant.name),
-                                        field.name,
-                                    );
-                                    parser.resolveFieldLabel(
-                                        &operand.value,
-                                        operand.span,
-                                        index,
-                                    );
-                                },
-                                else => {},
-                            }
-                        }
-                    },
-                    .int => assert(line.statement == .raw_word),
-                    else => unreachable,
-                }
-                break;
-            }
-        }
-    }
-}
-
-// TODO: Use `anytype` for `field` and check if is an 'offset' operand
-fn resolveFieldLabel(
-    parser: *Parser,
-    field: *Operand.Offset9,
-    span: Span,
-    index: usize,
-) void {
-    switch (field.*) {
-        .unresolved => {},
-        .resolved => return,
-    }
-
-    const definition = parser.findLabelDefinition(span.view(parser.source)) orelse {
-        parser.reporter.err(error.UndeclaredLabel, span) catch
-            return;
-    };
-
-    // TODO: Derive from `field` type
-    const OffsetInt = i9;
-
-    const offset = calculateOffset(OffsetInt, definition, index) orelse {
-        parser.reporter.err(error.OffsetTooLarge, span) catch
-            return;
-    };
-
-    field.* = .{ .resolved = offset };
-}
-
-fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
-    for (parser.air.lines.items, 0..) |*line, index| {
-        const label = line.label orelse
-            continue;
-        // TODO: should it be case insensitive ?
-        if (std.mem.eql(u8, label.view(parser.source), reference))
-            return index;
-    }
-    return null;
-}
-
-fn calculateOffset(
-    comptime T: type,
-    definition: usize,
-    reference: usize,
-) ?T {
-    return std.math.cast(
-        T,
-        std.math.sub(
-            usize,
-            definition,
-            reference +
-                1, // PC is at N+1 when instruction N is interpreted
-        ) catch
-            return null,
-    );
-}
-
 pub fn parse(parser: *Parser) !void {
     while (true) {
         const control = parser.parseLine() catch |err| switch (err) {
@@ -401,4 +309,95 @@ fn convertOperand(
             else => error.UnexpectedTokenKind,
         },
     };
+}
+
+pub fn resolveLabels(parser: *Parser) void {
+    // This is awful!
+    for (parser.air.lines.items, 0..) |*line, index| {
+        inline for (std.meta.tags(std.meta.Tag(Statement)), 0..) |tag, i| {
+            if (tag == line.statement) {
+                const variant = @typeInfo(Statement).@"union".fields[i];
+                switch (@typeInfo(variant.type)) {
+                    .@"struct" => |payload| {
+                        assert(line.statement != .raw_word);
+                        inline for (payload.fields) |field| {
+                            switch (field.type) {
+                                OperandSpan(Operand.Offset9) => {
+                                    const operand = &@field(
+                                        @field(line.statement, variant.name),
+                                        field.name,
+                                    );
+                                    parser.resolveFieldLabel(
+                                        &operand.value,
+                                        operand.span,
+                                        index,
+                                    );
+                                },
+                                else => {},
+                            }
+                        }
+                    },
+                    .int => assert(line.statement == .raw_word),
+                    else => unreachable,
+                }
+                break;
+            }
+        }
+    }
+}
+
+// TODO: Use `anytype` for `field` and check if is an 'offset' operand
+fn resolveFieldLabel(
+    parser: *Parser,
+    field: *Operand.Offset9,
+    span: Span,
+    index: usize,
+) void {
+    switch (field.*) {
+        .unresolved => {},
+        .resolved => return,
+    }
+
+    const definition = parser.findLabelDefinition(span.view(parser.source)) orelse {
+        parser.reporter.err(error.UndeclaredLabel, span) catch
+            return;
+    };
+
+    // TODO: Derive from `field` type
+    const OffsetInt = i9;
+
+    const offset = calculateOffset(OffsetInt, definition, index) orelse {
+        parser.reporter.err(error.OffsetTooLarge, span) catch
+            return;
+    };
+
+    field.* = .{ .resolved = offset };
+}
+
+fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
+    for (parser.air.lines.items, 0..) |*line, index| {
+        const label = line.label orelse
+            continue;
+        // TODO: should it be case insensitive ?
+        if (std.mem.eql(u8, label.view(parser.source), reference))
+            return index;
+    }
+    return null;
+}
+
+fn calculateOffset(
+    comptime T: type,
+    definition: usize,
+    reference: usize,
+) ?T {
+    return std.math.cast(
+        T,
+        std.math.sub(
+            usize,
+            definition,
+            reference +
+                1, // PC is at N+1 when instruction N is interpreted
+        ) catch
+            return null,
+    );
 }
