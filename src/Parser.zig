@@ -194,9 +194,10 @@ fn parseInstruction(
                 const token = try parser.expectOperand(switch (field.type.Kind) {
                     Operand.Register => .register,
                     Operand.RegImm5 => .reg_imm5,
+                    Operand.TrapVect => .trap_vect,
+                    Operand.Offset6 => .offset6,
                     Operand.Offset9 => .offset9,
                     Operand.Offset11 => .offset11,
-                    Operand.TrapVect => .trap_vect,
                     else => comptime unreachable,
                 });
                 @field(payload, field.name) = token;
@@ -300,6 +301,11 @@ fn convertOperand(
         .reg_imm5 => switch (kind) {
             .register => |register| .{ .register = register },
             .integer => |integer| .{ .immediate = try integer.castTo(u5) },
+            else => error.UnexpectedTokenKind,
+        },
+        .offset6 => switch (kind) {
+            .integer => |integer| .{ .resolved = try integer.castTo(i6) },
+            .label => .unresolved,
             else => error.UnexpectedTokenKind,
         },
         .offset9 => switch (kind) {

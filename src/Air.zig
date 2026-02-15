@@ -26,6 +26,7 @@ pub fn OperandSpan(comptime K: type) type {
 pub const Operand = enum {
     register,
     reg_imm5,
+    offset6,
     offset9,
     offset11,
     trap_vect,
@@ -37,6 +38,7 @@ pub const Operand = enum {
         return switch (operand) {
             .register => Register,
             .reg_imm5 => RegImm5,
+            .offset6 => Offset6,
             .offset9 => Offset9,
             .offset11 => Offset11,
             .trap_vect => TrapVect,
@@ -69,13 +71,22 @@ pub const Operand = enum {
         }
     };
 
-    pub const Offset11 = union(enum) {
-        unresolved,
-        resolved: i11,
+    pub const TrapVect = struct {
+        value: u8,
 
-        pub const operand: Operand = .offset11;
-        pub fn bits(self: Offset11) u16 {
-            return @as(u11, @bitCast(self.resolved));
+        pub const operand: Operand = .trap_vect;
+        pub fn bits(self: TrapVect) u16 {
+            return self.value;
+        }
+    };
+
+    pub const Offset6 = union(enum) {
+        unresolved,
+        resolved: i6,
+
+        pub const operand: Operand = .offset6;
+        pub fn bits(self: Offset6) u16 {
+            return @as(u6, @bitCast(self.resolved));
         }
     };
 
@@ -89,12 +100,13 @@ pub const Operand = enum {
         }
     };
 
-    pub const TrapVect = struct {
-        value: u8,
+    pub const Offset11 = union(enum) {
+        unresolved,
+        resolved: i11,
 
-        pub const operand: Operand = .trap_vect;
-        pub fn bits(self: TrapVect) u16 {
-            return self.value;
+        pub const operand: Operand = .offset11;
+        pub fn bits(self: Offset11) u16 {
+            return @as(u11, @bitCast(self.resolved));
         }
     };
 };
@@ -172,6 +184,8 @@ pub const Statement = union(enum) {
                                         .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                     }
                                 },
+                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.value}),
+                                Operand.Offset6,
                                 Operand.Offset9,
                                 Operand.Offset11,
                                 => {
@@ -194,7 +208,6 @@ pub const Statement = union(enum) {
                                         },
                                     }
                                 },
-                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.value}),
                                 else => comptime unreachable,
                             }
                             try writer.print("\n", .{});
