@@ -216,6 +216,11 @@ fn parseDirective(
                     string.span,
                 );
             }
+            // Null terminator
+            try parser.appendLine(
+                .{ .raw_word = 0x0000 },
+                string.span,
+            );
         },
 
         else => {
