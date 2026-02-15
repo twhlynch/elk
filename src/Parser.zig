@@ -191,6 +191,7 @@ fn parseInstruction(
                     Operand.Register => .register,
                     Operand.RegImm5 => .reg_imm5,
                     Operand.Offset9 => .offset9,
+                    Operand.Offset11 => .offset11,
                     else => comptime unreachable,
                 });
                 @field(payload, field.name) = token;
@@ -301,6 +302,11 @@ fn convertOperand(
             .label => .unresolved,
             else => error.UnexpectedTokenKind,
         },
+        .offset11 => switch (kind) {
+            .integer => |integer| .{ .resolved = try integer.castTo(i11) },
+            .label => .unresolved,
+            else => error.UnexpectedTokenKind,
+        },
         .word => switch (kind) {
             .integer => |integer| integer,
             else => error.UnexpectedTokenKind,
@@ -314,6 +320,7 @@ fn convertOperand(
 
 pub fn resolveLabels(parser: *Parser) void {
     // This is awful!
+    // TODO: Is there any way to make this better ???
     for (parser.air.lines.items, 0..) |*line, index| {
         inline for (std.meta.tags(std.meta.Tag(Statement)), 0..) |tag, i| {
             if (tag == line.statement) {
@@ -323,7 +330,9 @@ pub fn resolveLabels(parser: *Parser) void {
                         assert(line.statement != .raw_word);
                         inline for (payload.fields) |field| {
                             switch (field.type) {
-                                OperandSpan(Operand.Offset9) => {
+                                OperandSpan(Operand.Offset9),
+                                OperandSpan(Operand.Offset11),
+                                => {
                                     const operand = &@field(
                                         @field(line.statement, variant.name),
                                         field.name,
@@ -347,13 +356,14 @@ pub fn resolveLabels(parser: *Parser) void {
     }
 }
 
-// TODO: Use `anytype` for `field` and check if is an 'offset' operand
 fn resolveFieldLabel(
     parser: *Parser,
-    field: *Operand.Offset9,
+    field: anytype,
     span: Span,
     index: usize,
 ) void {
+    const Int = @FieldType(@TypeOf(field.*), "resolved");
+
     switch (field.*) {
         .unresolved => {},
         .resolved => return,
@@ -364,10 +374,7 @@ fn resolveFieldLabel(
             return;
     };
 
-    // TODO: Derive from `field` type
-    const OffsetInt = i9;
-
-    const offset = calculateOffset(OffsetInt, definition, index) orelse {
+    const offset = calculateOffset(Int, definition, index) orelse {
         parser.reporter.err(error.OffsetTooLarge, span) catch
             return;
     };

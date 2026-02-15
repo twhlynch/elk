@@ -27,6 +27,7 @@ pub const Operand = enum {
     register,
     reg_imm5,
     offset9,
+    offset11,
     word,
     string,
 
@@ -36,6 +37,7 @@ pub const Operand = enum {
             .register => Register,
             .reg_imm5 => RegImm5,
             .offset9 => Offset9,
+            .offset11 => Offset11,
             .word => Integer(16),
             .string => []const u8,
         };
@@ -65,6 +67,16 @@ pub const Operand = enum {
         }
     };
 
+    pub const Offset11 = union(enum) {
+        unresolved,
+        resolved: i11,
+
+        pub const operand: Operand = .offset11;
+        pub fn bits(self: Offset11) u16 {
+            return @as(u11, @bitCast(self.resolved));
+        }
+    };
+
     pub const Offset9 = union(enum) {
         unresolved,
         resolved: i9,
@@ -75,6 +87,7 @@ pub const Operand = enum {
         }
     };
 
+    // TODO: Convert to struct with `operand` and `bits` decls ?
     pub const TrapVect = u8;
 };
 
@@ -94,7 +107,7 @@ pub const Statement = union(enum) {
     },
 
     jsr: struct {
-        dest: OperandSpan(Operand.Offset9),
+        dest: OperandSpan(Operand.Offset11),
     },
 
     lea: struct {
@@ -151,7 +164,9 @@ pub const Statement = union(enum) {
                                         .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                     }
                                 },
-                                Operand.Offset9 => {
+                                Operand.Offset9,
+                                Operand.Offset11,
+                                => {
                                     try writer.print("Label = ", .{});
                                     switch (operand.value) {
                                         .unresolved => try writer.print("\"{s}\" (unresolved)", .{operand.span.view(self.source)}),
