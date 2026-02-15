@@ -23,10 +23,9 @@ pub fn OperandSpan(comptime K: type) type {
 
 pub const Operand = struct {
     pub const Register = struct {
-        // TODO: Rename to `inner` or something (and elsewhere)
-        value: u3,
+        inner: u3,
         pub fn bits(self: Register) u16 {
-            return self.value;
+            return self.inner;
         }
     };
 
@@ -43,16 +42,16 @@ pub const Operand = struct {
     };
 
     pub const TrapVect = struct {
-        value: u8,
+        inner: u8,
         pub fn bits(self: TrapVect) u16 {
-            return self.value;
+            return self.inner;
         }
     };
 
     pub const Offset6 = struct {
-        value: i6,
+        inner: i6,
         pub fn bits(self: Offset6) u16 {
-            return @as(u6, @bitCast(self.value));
+            return @as(u6, @bitCast(self.inner));
         }
     };
 
@@ -144,7 +143,7 @@ pub const Statement = union(enum) {
                             try writer.print("{s:8}: ", .{field.name});
                             const operand = @field(variant, field.name);
                             switch (@FieldType(field.type, "value")) {
-                                Operand.Register => try writer.print("Register = r{}", .{operand.value.value}),
+                                Operand.Register => try writer.print("Register = r{}", .{operand.value.inner}),
                                 Operand.RegImm5 => {
                                     try writer.print("Reg/Imm = ", .{});
                                     switch (operand.value) {
@@ -152,8 +151,8 @@ pub const Statement = union(enum) {
                                         .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                     }
                                 },
-                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.value}),
-                                Operand.Offset6 => try writer.print("Offset6 = 0x{x:04}", .{operand.value.value}),
+                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.inner}),
+                                Operand.Offset6 => try writer.print("Offset6 = 0x{x:04}", .{operand.value.inner}),
                                 Operand.PCOffset9,
                                 Operand.PCOffset11,
                                 => {

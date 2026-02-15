@@ -210,7 +210,7 @@ fn parseInstruction(
                     .vect = .{
                         // Use alias span for operand
                         .span = span,
-                        .value = .{ .value = vect },
+                        .value = .{ .inner = vect },
                     },
                 },
             };
@@ -313,7 +313,7 @@ fn convertArgument(
         },
         .operand => |operand| switch (operand) {
             Operand.Register => switch (kind) {
-                .register => |register| .{ .value = register },
+                .register => |register| .{ .inner = register },
                 else => error.UnexpectedTokenKind,
             },
             Operand.RegImm5 => switch (kind) {
@@ -322,7 +322,7 @@ fn convertArgument(
                 else => error.UnexpectedTokenKind,
             },
             Operand.Offset6 => switch (kind) {
-                .integer => |integer| .{ .value = try integer.castTo(i6) },
+                .integer => |integer| .{ .inner = try integer.castTo(i6) },
                 else => error.UnexpectedTokenKind,
             },
             Operand.PCOffset9 => switch (kind) {
@@ -336,7 +336,7 @@ fn convertArgument(
                 else => error.UnexpectedTokenKind,
             },
             Operand.TrapVect => switch (kind) {
-                .integer => |integer| .{ .value = try integer.castTo(u8) },
+                .integer => |integer| .{ .inner = try integer.castTo(u8) },
                 else => error.UnexpectedTokenKind,
             },
             else => comptime unreachable,
