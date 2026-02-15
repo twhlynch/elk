@@ -202,9 +202,10 @@ pub fn deinit(air: *Air) void {
 }
 
 pub fn emit(air: *const Air, writer: *Io.Writer) !void {
+    try writer.writeInt(u16, air.origin.?, .big);
+
     for (air.lines.items) |line| {
         const raw = encode(line.statement);
-        std.debug.print("0x{x:04}\n", .{raw});
         try writer.writeInt(u16, raw, .big);
     }
 }
