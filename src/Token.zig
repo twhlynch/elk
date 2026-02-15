@@ -30,8 +30,8 @@ pub const Value = union(enum) {
     comma,
     register: u3,
     integer: Integer(16),
-    // TODO: Use Span ? right now there is not much benefit either way...
-    string: []const u8,
+    /// Contained in `Token.span`.
+    string: Span,
     directive: Directive,
     instruction: Instruction,
     label,
@@ -142,7 +142,7 @@ pub const Value = union(enum) {
             return null;
         if (!has_initial_quote or !has_final_quote)
             return error.UnmatchedQuote;
-        return .{ .string = string[1 .. string.len - 1] };
+        return .{ .string = .fromBounds(1, string.len - 1) };
     }
 
     fn tryDirective(string: []const u8) Error!?Value {

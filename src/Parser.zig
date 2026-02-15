@@ -135,12 +135,15 @@ fn parseDirective(
 
         .stringz => {
             const string = try parser.expectArgument(.string);
+            const string_value = string.value.in(string.span).view(parser.source);
+
             var is_escaped = false;
-            for (string.value) |char| {
+            for (string_value) |char| {
                 if (!is_escaped and char == '\\') {
                     is_escaped = true;
                     continue;
                 }
+
                 const char_escaped: u8 =
                     if (!is_escaped) char else switch (char) {
                         '\\' => '\\',
@@ -156,11 +159,13 @@ fn parseDirective(
                         },
                     };
                 is_escaped = false;
+
                 try parser.appendLine(
                     .{ .raw_word = char_escaped },
                     string.span,
                 );
             }
+
             // Null terminator
             try parser.appendLine(
                 .{ .raw_word = 0x0000 },
@@ -287,7 +292,7 @@ const Argument = union(enum) {
         return switch (argument) {
             .operand => |operand| operand,
             .word => Integer(16),
-            .string => []const u8,
+            .string => Span,
         };
     }
 };
