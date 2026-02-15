@@ -29,7 +29,6 @@ pub const Operand = struct {
         }
     };
 
-    // TODO: Rename
     pub const RegImm5 = union(enum) {
         register: u3,
         immediate: u5,

@@ -193,34 +193,4 @@ pub const Kind = union(enum) {
         }
         return true;
     }
-
-    // TODO: Remove
-    pub fn format(kind: Kind, writer: *Io.Writer) Io.Writer.Error!void {
-        switch (kind) {
-            .newline => {
-                try writer.print("newline", .{});
-            },
-            .comma => {
-                try writer.print("comma", .{});
-            },
-            .register => |register| {
-                try writer.print("register R{}", .{register});
-            },
-            .integer => |integer| {
-                try writer.print("{}", .{integer});
-            },
-            .string => |string| {
-                try writer.print("\"{s}\"", .{string});
-            },
-            .directive => |directive| {
-                try writer.print("directive `{t}`", .{directive});
-            },
-            .instruction => |instruction| {
-                try writer.print("instruction `{t}`", .{instruction});
-            },
-            .label => |string| {
-                try writer.print("label `{s}`", .{string});
-            },
-        }
-    }
 };

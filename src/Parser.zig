@@ -297,7 +297,6 @@ fn expectArgument(
     };
 }
 
-// TODO: Rename
 fn convertArgument(
     comptime argument: Argument,
     kind: Token.Kind,
