@@ -77,34 +77,48 @@ fn resolveFieldLabel(
         .resolved => return,
     }
 
-    for (parser.air.lines.items, 0..) |*line, label_index| {
+    const definition = parser.findLabelDefinition(span.view(parser.source)) orelse {
+        parser.reporter.err(error.UndeclaredLabel, span) catch
+            return;
+    };
+
+    // TODO: Derive from `field` type
+    const OffsetInt = i9;
+
+    const offset = calculateOffset(OffsetInt, definition, index) orelse {
+        parser.reporter.err(error.OffsetTooLarge, span) catch
+            return;
+    };
+
+    field.* = .{ .resolved = offset };
+}
+
+fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
+    for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
             continue;
         // TODO: should it be case insensitive ?
-        if (!std.mem.eql(
-            u8,
-            label.view(parser.source),
-            span.view(parser.source),
-        ))
-            continue;
-
-        // TODO: Derive from `field` type
-        const I = i9;
-
-        // FIXME: Catch overflows
-        const offset: I =
-            @intCast(
-                @as(isize, @intCast(label_index)) -
-                    @as(isize, @intCast(index)) -
-                    1, // PC is at N+1 when instruction N is interpreted
-            );
-
-        field.* = .{ .resolved = offset };
-        return;
+        if (std.mem.eql(u8, label.view(parser.source), reference))
+            return index;
     }
+    return null;
+}
 
-    parser.reporter.err(error.UndeclaredLabel, span) catch
-        {}; // Continue line
+fn calculateOffset(
+    comptime T: type,
+    definition: usize,
+    reference: usize,
+) ?T {
+    return std.math.cast(
+        T,
+        std.math.sub(
+            usize,
+            definition,
+            reference +
+                1, // PC is at N+1 when instruction N is interpreted
+        ) catch
+            return null,
+    );
 }
 
 pub fn parse(parser: *Parser) !void {
