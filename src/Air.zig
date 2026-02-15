@@ -80,13 +80,12 @@ pub const Operand = enum {
         }
     };
 
-    pub const Offset6 = union(enum) {
-        unresolved,
-        resolved: i6,
+    pub const Offset6 = struct {
+        value: i6,
 
         pub const operand: Operand = .offset6;
         pub fn bits(self: Offset6) u16 {
-            return @as(u6, @bitCast(self.resolved));
+            return @as(u6, @bitCast(self.value));
         }
     };
 
@@ -185,7 +184,7 @@ pub const Statement = union(enum) {
                                     }
                                 },
                                 Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.value}),
-                                Operand.Offset6,
+                                Operand.Offset6 => try writer.print("Offset6 = 0x{x:04}", .{operand.value.value}),
                                 Operand.Offset9,
                                 Operand.Offset11,
                                 => {

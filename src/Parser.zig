@@ -304,8 +304,7 @@ fn convertOperand(
             else => error.UnexpectedTokenKind,
         },
         .offset6 => switch (kind) {
-            .integer => |integer| .{ .resolved = try integer.castTo(i6) },
-            .label => .unresolved,
+            .integer => |integer| .{ .value = try integer.castTo(i6) },
             else => error.UnexpectedTokenKind,
         },
         .offset9 => switch (kind) {
