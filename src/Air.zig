@@ -42,22 +42,36 @@ pub const Operand = enum {
     }
 
     pub const Register = struct {
-        // TODO: Rename to `bits` or something
+        // TODO: Rename
         value: u3,
+
         pub const operand: Operand = .register;
+        pub fn bits(self: Register) u16 {
+            return self.value;
+        }
     };
 
     // TODO: Rename
     pub const RegImm5 = union(enum) {
         register: u3,
         immediate: u5,
+
         pub const operand: Operand = .reg_imm5;
+        pub fn bits(self: RegImm5) u16 {
+            return switch (self) {
+                inline else => |inner| inner,
+            };
+        }
     };
 
     pub const Offset9 = union(enum) {
         unresolved,
         resolved: i9,
+
         pub const operand: Operand = .offset9;
+        pub fn bits(self: Offset9) u16 {
+            return @as(u9, @bitCast(self.resolved));
+        }
     };
 
     pub const TrapVect = u8;
@@ -203,18 +217,16 @@ fn encode(statement: Statement) u16 {
 
         .add => |operands| {
             var raw: u16 = 0x1000;
-            raw |= @as(u16, operands.dest.value.value) << 9;
-            raw |= @as(u16, operands.src_a.value.value) << 6;
-            raw |= switch (operands.src_b.value) {
-                inline else => |inner| @as(u16, inner),
-            };
+            raw |= operands.dest.value.bits() << 9;
+            raw |= operands.src_b.value.bits() << 6;
+            raw |= operands.src_b.value.bits();
             return raw;
         },
 
         .lea => |operands| {
             var raw: u16 = 0xe000;
-            raw |= @as(u16, operands.dest.value.value) << 9;
-            raw |= @as(u9, @bitCast(operands.src.value.resolved));
+            raw |= operands.dest.value.bits() << 9;
+            raw |= operands.src.value.bits();
             return raw;
         },
 
