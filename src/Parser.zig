@@ -177,7 +177,7 @@ fn parseInstruction(
         .lea,
         .jsr,
     };
-    const trap_aliases = [_]struct { Token.Kind.Instruction, Operand.TrapVect }{
+    const trap_aliases = [_]struct { Token.Kind.Instruction, u8 }{
         .{ .puts, 0x22 },
         .{ .halt, 0x25 },
     };
@@ -210,7 +210,7 @@ fn parseInstruction(
                     .vect = .{
                         // Use alias span for operand
                         .span = span,
-                        .value = vect,
+                        .value = .{ .value = vect },
                     },
                 },
             };

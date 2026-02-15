@@ -44,7 +44,7 @@ pub const Operand = enum {
     }
 
     pub const Register = struct {
-        // TODO: Rename
+        // TODO: Rename to `inner` or something (and elsewhere)
         value: u3,
 
         pub const operand: Operand = .register;
@@ -87,8 +87,14 @@ pub const Operand = enum {
         }
     };
 
-    // TODO: Convert to struct with `operand` and `bits` decls ?
-    pub const TrapVect = u8;
+    pub const TrapVect = struct {
+        value: u8,
+
+        // pub const operand: Operand = .trap_vect;
+        pub fn bits(self: TrapVect) u16 {
+            return self.value;
+        }
+    };
 };
 
 pub const Line = struct {
@@ -186,7 +192,7 @@ pub const Statement = union(enum) {
                                         },
                                     }
                                 },
-                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value}),
+                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.value}),
                                 else => comptime unreachable,
                             }
                             try writer.print("\n", .{});
@@ -235,7 +241,6 @@ fn encode(statement: Statement) u16 {
         .raw_word => |raw| {
             return raw;
         },
-
         .add => |operands| {
             var raw: u16 = 0x1000;
             raw |= operands.dest.value.bits() << 9;
@@ -243,23 +248,20 @@ fn encode(statement: Statement) u16 {
             raw |= operands.src_b.value.bits();
             return raw;
         },
-
         .jsr => |operands| {
             var raw: u16 = 0x4800;
             raw |= operands.dest.value.bits();
             return raw;
         },
-
         .lea => |operands| {
             var raw: u16 = 0xe000;
             raw |= operands.dest.value.bits() << 9;
             raw |= operands.src.value.bits();
             return raw;
         },
-
         .trap => |operands| {
             var raw: u16 = 0xf000;
-            raw |= @as(u16, operands.vect.value);
+            raw |= operands.vect.value.bits();
             return raw;
         },
     }
