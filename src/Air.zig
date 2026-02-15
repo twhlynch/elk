@@ -14,60 +14,62 @@ origin: ?u16,
 lines: ArrayList(Line),
 allocator: Allocator,
 
-pub fn OperandSpan(comptime K: type) type {
-    return struct {
-        span: Span,
-        value: K,
-    };
-}
-
 pub const Operand = struct {
-    pub const Register = struct {
-        inner: u3,
-        pub fn bits(self: Register) u16 {
-            return self.inner;
-        }
-    };
+    pub fn Spanned(comptime K: type) type {
+        return struct {
+            span: Span,
+            value: K,
+        };
+    }
 
-    pub const RegImm5 = union(enum) {
-        register: u3,
-        immediate: u5,
-        pub fn bits(self: RegImm5) u16 {
-            return switch (self) {
-                .register => |register| register,
-                .immediate => |immediate| 0b100000 + @as(u16, immediate),
-            };
-        }
-    };
+    pub const Value = struct {
+        pub const Register = struct {
+            inner: u3,
+            pub fn bits(self: Register) u16 {
+                return self.inner;
+            }
+        };
 
-    pub const TrapVect = struct {
-        inner: u8,
-        pub fn bits(self: TrapVect) u16 {
-            return self.inner;
-        }
-    };
+        pub const RegImm5 = union(enum) {
+            register: u3,
+            immediate: u5,
+            pub fn bits(self: RegImm5) u16 {
+                return switch (self) {
+                    .register => |register| register,
+                    .immediate => |immediate| 0b100000 + @as(u16, immediate),
+                };
+            }
+        };
 
-    pub const Offset6 = struct {
-        inner: i6,
-        pub fn bits(self: Offset6) u16 {
-            return @as(u6, @bitCast(self.inner));
-        }
-    };
+        pub const TrapVect = struct {
+            inner: u8,
+            pub fn bits(self: TrapVect) u16 {
+                return self.inner;
+            }
+        };
 
-    pub const PCOffset9 = union(enum) {
-        unresolved,
-        resolved: i9,
-        pub fn bits(self: PCOffset9) u16 {
-            return @as(u9, @bitCast(self.resolved));
-        }
-    };
+        pub const Offset6 = struct {
+            inner: i6,
+            pub fn bits(self: Offset6) u16 {
+                return @as(u6, @bitCast(self.inner));
+            }
+        };
 
-    pub const PCOffset11 = union(enum) {
-        unresolved,
-        resolved: i11,
-        pub fn bits(self: PCOffset11) u16 {
-            return @as(u11, @bitCast(self.resolved));
-        }
+        pub const PCOffset9 = union(enum) {
+            unresolved,
+            resolved: i9,
+            pub fn bits(self: PCOffset9) u16 {
+                return @as(u9, @bitCast(self.resolved));
+            }
+        };
+
+        pub const PCOffset11 = union(enum) {
+            unresolved,
+            resolved: i11,
+            pub fn bits(self: PCOffset11) u16 {
+                return @as(u11, @bitCast(self.resolved));
+            }
+        };
     };
 };
 
@@ -81,28 +83,28 @@ pub const Statement = union(enum) {
     raw_word: u16,
 
     add: struct {
-        dest: OperandSpan(Operand.Register),
-        src_a: OperandSpan(Operand.Register),
-        src_b: OperandSpan(Operand.RegImm5),
+        dest: Operand.Spanned(Operand.Value.Register),
+        src_a: Operand.Spanned(Operand.Value.Register),
+        src_b: Operand.Spanned(Operand.Value.RegImm5),
     },
 
     jsr: struct {
-        dest: OperandSpan(Operand.PCOffset11),
+        dest: Operand.Spanned(Operand.Value.PCOffset11),
     },
 
     ldr: struct {
-        dest: OperandSpan(Operand.Register),
-        src: OperandSpan(Operand.Register),
-        offset: OperandSpan(Operand.Offset6),
+        dest: Operand.Spanned(Operand.Value.Register),
+        src: Operand.Spanned(Operand.Value.Register),
+        offset: Operand.Spanned(Operand.Value.Offset6),
     },
 
     lea: struct {
-        dest: OperandSpan(Operand.Register),
-        src: OperandSpan(Operand.PCOffset9),
+        dest: Operand.Spanned(Operand.Value.Register),
+        src: Operand.Spanned(Operand.Value.PCOffset9),
     },
 
     trap: struct {
-        vect: OperandSpan(Operand.TrapVect),
+        vect: Operand.Spanned(Operand.Value.TrapVect),
     },
 
     pub fn format(
@@ -142,18 +144,18 @@ pub const Statement = union(enum) {
                             try writer.print("{s:8}: ", .{field.name});
                             const operand = @field(variant, field.name);
                             switch (@FieldType(field.type, "value")) {
-                                Operand.Register => try writer.print("Register = r{}", .{operand.value.inner}),
-                                Operand.RegImm5 => {
+                                Operand.Value.Register => try writer.print("Register = r{}", .{operand.value.inner}),
+                                Operand.Value.RegImm5 => {
                                     try writer.print("Reg/Imm = ", .{});
                                     switch (operand.value) {
                                         .register => |register| try writer.print("r{}", .{register}),
                                         .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                     }
                                 },
-                                Operand.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.inner}),
-                                Operand.Offset6 => try writer.print("Offset6 = 0x{x:04}", .{operand.value.inner}),
-                                Operand.PCOffset9,
-                                Operand.PCOffset11,
+                                Operand.Value.TrapVect => try writer.print("Vect = 0x{x:02}", .{operand.value.inner}),
+                                Operand.Value.Offset6 => try writer.print("Offset6 = 0x{x:04}", .{operand.value.inner}),
+                                Operand.Value.PCOffset9,
+                                Operand.Value.PCOffset11,
                                 => {
                                     try writer.print("PCOffset(9/11) = ", .{});
                                     switch (operand.value) {

@@ -5,7 +5,6 @@ const assert = std.debug.assert;
 
 const Air = @import("Air.zig");
 const Operand = Air.Operand;
-const OperandSpan = Air.OperandSpan;
 const Statement = Air.Statement;
 const Tokenizer = @import("Tokenizer.zig");
 const Token = @import("Token.zig");
@@ -285,7 +284,7 @@ const Argument = union(enum) {
 fn expectArgument(
     parser: *Parser,
     comptime argument: Argument,
-) !OperandSpan(argument.asType()) {
+) !Operand.Spanned(argument.asType()) {
     const token = try parser.expectToken();
     assert(token.value != .comma);
     const value = convertArgument(argument, token.value) catch |err| {
@@ -311,30 +310,30 @@ fn convertArgument(
             else => error.UnexpectedTokenKind,
         },
         .operand => |operand| switch (operand) {
-            Operand.Register => switch (value) {
+            Operand.Value.Register => switch (value) {
                 .register => |register| .{ .inner = register },
                 else => error.UnexpectedTokenKind,
             },
-            Operand.RegImm5 => switch (value) {
+            Operand.Value.RegImm5 => switch (value) {
                 .register => |register| .{ .register = register },
                 .integer => |integer| .{ .immediate = try integer.castTo(u5) },
                 else => error.UnexpectedTokenKind,
             },
-            Operand.Offset6 => switch (value) {
+            Operand.Value.Offset6 => switch (value) {
                 .integer => |integer| .{ .inner = try integer.castTo(i6) },
                 else => error.UnexpectedTokenKind,
             },
-            Operand.PCOffset9 => switch (value) {
+            Operand.Value.PCOffset9 => switch (value) {
                 .integer => |integer| .{ .resolved = try integer.castTo(i9) },
                 .label => .unresolved,
                 else => error.UnexpectedTokenKind,
             },
-            Operand.PCOffset11 => switch (value) {
+            Operand.Value.PCOffset11 => switch (value) {
                 .integer => |integer| .{ .resolved = try integer.castTo(i11) },
                 .label => .unresolved,
                 else => error.UnexpectedTokenKind,
             },
-            Operand.TrapVect => switch (value) {
+            Operand.Value.TrapVect => switch (value) {
                 .integer => |integer| .{ .inner = try integer.castTo(u8) },
                 else => error.UnexpectedTokenKind,
             },
@@ -357,8 +356,8 @@ pub fn resolveLabels(parser: *Parser) void {
 fn resolveFieldLabel(parser: *Parser, operand: anytype, index: usize) void {
     // Check generic param
     const Int = switch (@TypeOf(operand)) {
-        *OperandSpan(Operand.PCOffset9) => i9,
-        *OperandSpan(Operand.PCOffset11) => i11,
+        *Operand.Spanned(Operand.Value.PCOffset9) => i9,
+        *Operand.Spanned(Operand.Value.PCOffset11) => i11,
         else => comptime unreachable,
     };
 
