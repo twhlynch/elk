@@ -193,7 +193,7 @@ fn parseInstruction(
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
                 const token = try parser.expectArgument(
-                    .{ .operand = field.type.Kind },
+                    .{ .operand = @FieldType(field.type, "value") },
                 );
                 @field(payload, field.name) = token;
             }

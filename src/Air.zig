@@ -18,8 +18,6 @@ pub fn OperandSpan(comptime K: type) type {
     return struct {
         span: Span,
         value: K,
-
-        pub const Kind: type = K;
     };
 }
 
@@ -145,7 +143,7 @@ pub const Statement = union(enum) {
                         inline for (@typeInfo(tag.type).@"struct".fields) |field| {
                             try writer.print("{s:8}: ", .{field.name});
                             const operand = @field(variant, field.name);
-                            switch (@field(field.type, "Kind")) {
+                            switch (@FieldType(field.type, "value")) {
                                 Operand.Register => try writer.print("Register = r{}", .{operand.value.value}),
                                 Operand.RegImm5 => {
                                     try writer.print("Reg/Imm = ", .{});
