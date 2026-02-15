@@ -15,6 +15,14 @@ lines: ArrayList(Line),
 allocator: Allocator,
 
 pub const Operand = struct {
+    // Shorthand
+    pub const Register = Spanned(Value.Register);
+    pub const RegImm5 = Spanned(Value.RegImm5);
+    pub const TrapVect = Spanned(Value.TrapVect);
+    pub const Offset6 = Spanned(Value.Offset6);
+    pub const PCOffset9 = Spanned(Value.PCOffset9);
+    pub const PCOffset11 = Spanned(Value.PCOffset11);
+
     pub fn Spanned(comptime K: type) type {
         return struct {
             span: Span,
@@ -25,7 +33,7 @@ pub const Operand = struct {
     pub const Value = struct {
         pub const Register = struct {
             inner: u3,
-            pub fn bits(self: Register) u16 {
+            pub fn bits(self: @This()) u16 {
                 return self.inner;
             }
         };
@@ -33,7 +41,7 @@ pub const Operand = struct {
         pub const RegImm5 = union(enum) {
             register: u3,
             immediate: u5,
-            pub fn bits(self: RegImm5) u16 {
+            pub fn bits(self: @This()) u16 {
                 return switch (self) {
                     .register => |register| register,
                     .immediate => |immediate| 0b100000 + @as(u16, immediate),
@@ -43,14 +51,14 @@ pub const Operand = struct {
 
         pub const TrapVect = struct {
             inner: u8,
-            pub fn bits(self: TrapVect) u16 {
+            pub fn bits(self: @This()) u16 {
                 return self.inner;
             }
         };
 
         pub const Offset6 = struct {
             inner: i6,
-            pub fn bits(self: Offset6) u16 {
+            pub fn bits(self: @This()) u16 {
                 return @as(u6, @bitCast(self.inner));
             }
         };
@@ -58,7 +66,7 @@ pub const Operand = struct {
         pub const PCOffset9 = union(enum) {
             unresolved,
             resolved: i9,
-            pub fn bits(self: PCOffset9) u16 {
+            pub fn bits(self: @This()) u16 {
                 return @as(u9, @bitCast(self.resolved));
             }
         };
@@ -66,7 +74,7 @@ pub const Operand = struct {
         pub const PCOffset11 = union(enum) {
             unresolved,
             resolved: i11,
-            pub fn bits(self: PCOffset11) u16 {
+            pub fn bits(self: @This()) u16 {
                 return @as(u11, @bitCast(self.resolved));
             }
         };
@@ -83,28 +91,28 @@ pub const Statement = union(enum) {
     raw_word: u16,
 
     add: struct {
-        dest: Operand.Spanned(Operand.Value.Register),
-        src_a: Operand.Spanned(Operand.Value.Register),
-        src_b: Operand.Spanned(Operand.Value.RegImm5),
+        dest: Operand.Register,
+        src_a: Operand.Register,
+        src_b: Operand.RegImm5,
     },
 
     jsr: struct {
-        dest: Operand.Spanned(Operand.Value.PCOffset11),
+        dest: Operand.PCOffset11,
     },
 
     ldr: struct {
-        dest: Operand.Spanned(Operand.Value.Register),
-        src: Operand.Spanned(Operand.Value.Register),
-        offset: Operand.Spanned(Operand.Value.Offset6),
+        dest: Operand.Register,
+        src: Operand.Register,
+        offset: Operand.Offset6,
     },
 
     lea: struct {
-        dest: Operand.Spanned(Operand.Value.Register),
-        src: Operand.Spanned(Operand.Value.PCOffset9),
+        dest: Operand.Register,
+        src: Operand.PCOffset9,
     },
 
     trap: struct {
-        vect: Operand.Spanned(Operand.Value.TrapVect),
+        vect: Operand.TrapVect,
     },
 
     pub fn format(
