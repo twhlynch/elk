@@ -21,6 +21,8 @@ air: *Air,
 allocator: Allocator,
 
 tokens: Tokenizer,
+token_peeked: ?Token,
+
 current_label: ?Span,
 
 pub fn new(
@@ -35,6 +37,7 @@ pub fn new(
         .air = air,
         .allocator = allocator,
         .tokens = Tokenizer.new(source),
+        .token_peeked = null,
         .current_label = null,
     };
 }
@@ -75,13 +78,14 @@ fn discardRestOfLine(parser: *Parser) void {
 const Control = enum { @"continue", @"break" };
 
 fn parseLine(parser: *Parser) !Control {
-    const token = try parser.nextToken(&.{ .comma, .colon, .newline }) orelse
+    const token = try parser.nextToken(&.{ .comma, .newline }) orelse
         return error.Eof;
 
     switch (token.value) {
         .label => {
             parser.expectNoCurrentLabel();
             parser.current_label = token.span;
+            try parser.discardOptionalToken(.colon);
         },
 
         .directive => |directive| {
@@ -93,6 +97,7 @@ fn parseLine(parser: *Parser) !Control {
                 return error.Reported;
             const span: Span = .fromBounds(
                 token.span.offset,
+                // FIXME: !!! This doesnt work with peeked token !!!
                 parser.tokens.index,
             );
             try parser.appendLine(statement, span);
@@ -223,8 +228,7 @@ fn parseInstruction(
             return .{
                 .trap = .{
                     .vect = .{
-                        // Use alias span for operand
-                        .span = span,
+                        .span = span, // Use alias span for operand
                         .value = .{ .inner = vect },
                     },
                 },
@@ -257,11 +261,8 @@ fn nextToken(
     comptime skip: []const std.meta.Tag(Token.Value),
 ) error{Reported}!?Token {
     token: while (true) {
-        const span = parser.tokens.next() orelse
+        const token = try parser.nextTokenAny() orelse
             return null;
-        const token = Token.from(span, parser.source) catch |err| {
-            try parser.reporter.err(err, span);
-        };
         for (skip) |skip_kind| {
             if (token.value == skip_kind)
                 continue :token;
@@ -270,15 +271,45 @@ fn nextToken(
     }
 }
 
+fn discardOptionalToken(parser: *Parser, comptime kind: std.meta.Tag(Token.Value)) !void {
+    if (try parser.peekTokenAny()) |peeked| {
+        if (peeked.value == kind) {
+            _ = parser.nextTokenAny() catch
+                unreachable orelse
+                unreachable;
+        }
+    }
+}
+
+fn peekTokenAny(parser: *Parser) !?Token {
+    if (parser.token_peeked) |peeked| {
+        return peeked;
+    }
+    parser.token_peeked = try parser.nextTokenAny();
+    return parser.token_peeked;
+}
+
+fn nextTokenAny(parser: *Parser) !?Token {
+    if (parser.token_peeked) |peeked| {
+        parser.token_peeked = null;
+        return peeked;
+    }
+    const span = parser.tokens.next() orelse
+        return null;
+    return Token.from(span, parser.source) catch |err| {
+        try parser.reporter.err(err, span);
+    };
+}
+
 fn expectToken(parser: *Parser) !Token {
-    const token = try parser.nextToken(&.{ .comma, .colon }) orelse {
+    const token = try parser.nextToken(&.{.comma}) orelse {
         try parser.reporter.err(error.UnexpectedEof, .emptyAt(parser.source.len));
     };
     switch (token.value) {
         .newline => {
             try parser.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
         },
-        .comma, .colon => unreachable,
+        .comma => unreachable,
         else => return token,
     }
 }
@@ -302,14 +333,11 @@ fn expectArgument(
     comptime argument: Argument,
 ) !Operand.Spanned(argument.asType()) {
     const token = try parser.expectToken();
-    assert(token.value != .comma and token.value != .colon);
+    assert(token.value != .comma);
     const value = convertArgument(argument, token.value) catch |err| {
         try parser.reporter.err(err, token.span);
     };
-    return .{
-        .span = token.span,
-        .value = value,
-    };
+    return .{ .span = token.span, .value = value };
 }
 
 fn convertArgument(
