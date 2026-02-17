@@ -7,7 +7,7 @@ const assert = std.debug.assert;
 const Air = @import("Air.zig");
 const Operand = Air.Operand;
 const Statement = Air.Statement;
-const Tokenizer = @import("Tokenizer.zig");
+const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const Span = @import("Span.zig");
 const Integer = @import("integers.zig").Integer;
@@ -20,7 +20,7 @@ air: *Air,
 /// Used for `air`.
 allocator: Allocator,
 
-tokens: Tokenizer,
+lexer: Lexer,
 token_peeked: ?Token,
 
 current_label: ?Span,
@@ -36,7 +36,7 @@ pub fn new(
         .reporter = reporter,
         .air = air,
         .allocator = allocator,
-        .tokens = Tokenizer.new(source),
+        .lexer = Lexer.new(source),
         .token_peeked = null,
         .current_label = null,
     };
@@ -99,7 +99,7 @@ fn parseLine(parser: *Parser) !Control {
             const span: Span = .fromBounds(
                 token.span.offset,
                 // FIXME: !!! This doesnt work with peeked token !!!
-                parser.tokens.index,
+                parser.lexer.index,
             );
             try parser.appendLine(statement, span);
         },
@@ -297,7 +297,7 @@ fn nextTokenAny(parser: *Parser) !?Token {
         parser.token_peeked = null;
         return peeked;
     }
-    const span = parser.tokens.next() orelse
+    const span = parser.lexer.next() orelse
         return null;
     return Token.from(span, parser.source) catch |err| {
         try parser.reporter.err(err, span);

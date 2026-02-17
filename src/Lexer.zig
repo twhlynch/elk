@@ -1,4 +1,4 @@
-const Tokenizer = @This();
+const Lexer = @This();
 
 const std = @import("std");
 const assert = std.debug.assert;
@@ -8,59 +8,59 @@ const Span = @import("Span.zig");
 source: []const u8,
 index: usize,
 
-pub fn new(source: []const u8) Tokenizer {
-    return Tokenizer{ .source = source, .index = 0 };
+pub fn new(source: []const u8) Lexer {
+    return Lexer{ .source = source, .index = 0 };
 }
 
-pub fn next(tokenizer: *Tokenizer) ?Span {
-    tokenizer.discardWhitespaceAndComments();
+pub fn next(lexer: *Lexer) ?Span {
+    lexer.discardWhitespaceAndComments();
 
-    const start = tokenizer.getIndex();
-    const first = tokenizer.takeChar() orelse
+    const start = lexer.getIndex();
+    const first = lexer.takeChar() orelse
         return null;
 
     assert(first.kind != .whitespace);
     assert(first.value != ';');
     if (first.kind == .atomic)
-        return .fromBounds(start, tokenizer.getIndex());
+        return .fromBounds(start, lexer.getIndex());
 
     if (first.value == '"')
-        tokenizer.consumeStringLiteral()
+        lexer.consumeStringLiteral()
     else
-        tokenizer.consumeNormal();
+        lexer.consumeNormal();
 
-    return .fromBounds(start, tokenizer.getIndex());
+    return .fromBounds(start, lexer.getIndex());
 }
 
 // TODO: Consolidate verbs in methods
 // discard, consume, take
 
-fn discardWhitespaceAndComments(tokenizer: *Tokenizer) void {
-    while (tokenizer.peekChar()) |char| {
+fn discardWhitespaceAndComments(lexer: *Lexer) void {
+    while (lexer.peekChar()) |char| {
         if (char.value == ';') {
-            tokenizer.discardComment();
+            lexer.discardComment();
             continue;
         }
         if (char.kind != .whitespace)
             break;
-        _ = tokenizer.takeChar();
+        _ = lexer.takeChar();
     }
 }
 
-fn discardComment(tokenizer: *Tokenizer) void {
-    const first = tokenizer.takeChar();
+fn discardComment(lexer: *Lexer) void {
+    const first = lexer.takeChar();
     assert(first.?.value == ';');
 
-    while (tokenizer.peekChar()) |char| {
+    while (lexer.peekChar()) |char| {
         if (char.value == '\n')
             break;
-        _ = tokenizer.takeChar();
+        _ = lexer.takeChar();
     }
 }
 
-fn consumeStringLiteral(tokenizer: *Tokenizer) void {
+fn consumeStringLiteral(lexer: *Lexer) void {
     var is_escaped = false;
-    while (tokenizer.takeChar()) |char| {
+    while (lexer.takeChar()) |char| {
         if (is_escaped) {
             is_escaped = false;
             continue;
@@ -73,36 +73,37 @@ fn consumeStringLiteral(tokenizer: *Tokenizer) void {
     }
 }
 
-fn consumeNormal(tokenizer: *Tokenizer) void {
-    while (tokenizer.peekChar()) |char| {
+fn consumeNormal(lexer: *Lexer) void {
+    while (lexer.peekChar()) |char| {
         if (char.kind == .whitespace or char.kind == .atomic)
             break;
-        _ = tokenizer.takeChar();
+        _ = lexer.takeChar();
     }
 }
 
-fn peekChar(tokenizer: *Tokenizer) ?TokenChar {
-    if (tokenizer.isEnd())
+fn peekChar(lexer: *Lexer) ?TokenChar {
+    if (lexer.isEnd())
         return null;
-    return .from(tokenizer.source[tokenizer.index]);
+    return .from(lexer.source[lexer.index]);
 }
 
-fn takeChar(tokenizer: *Tokenizer) ?TokenChar {
-    const char = tokenizer.peekChar() orelse
+fn takeChar(lexer: *Lexer) ?TokenChar {
+    const char = lexer.peekChar() orelse
         return null;
-    tokenizer.index += 1;
+    lexer.index += 1;
     return char;
 }
 
 // This is used to allow index to be calculated from a line span in the future.
-fn getIndex(tokenizer: *const Tokenizer) usize {
-    return tokenizer.index;
+fn getIndex(lexer: *const Lexer) usize {
+    return lexer.index;
 }
 
-fn isEnd(tokenizer: *const Tokenizer) bool {
-    return tokenizer.index >= tokenizer.source.len;
+fn isEnd(lexer: *const Lexer) bool {
+    return lexer.index >= lexer.source.len;
 }
 
+// TODO: Rename to `Char`
 const TokenChar = struct {
     value: u8,
     kind: Kind,
