@@ -33,13 +33,13 @@ pub fn view(span: Span, source: []const u8) []const u8 {
 }
 
 pub fn getWholeLine(span: Span, source: []const u8) Span {
-    var start = span.offset;
+    var start = span.offset -| 1;
     while (start > 0) : (start -= 1) {
         if (source[start - 1] == '\n')
             break;
     }
 
-    var end_ = span.end();
+    var end_ = span.end() -| 1;
     while (end_ + 1 < source.len) : (end_ += 1) {
         if (source[end_] == '\n')
             break;
