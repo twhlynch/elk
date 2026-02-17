@@ -20,9 +20,7 @@ air: *Air,
 /// Used for `air`.
 allocator: Allocator,
 
-lexer: Lexer,
-token_peeked: ?Token,
-
+tokens: TokenIter,
 current_label: ?Span,
 
 pub fn new(
@@ -36,8 +34,12 @@ pub fn new(
         .reporter = reporter,
         .air = air,
         .allocator = allocator,
-        .lexer = Lexer.new(source),
-        .token_peeked = null,
+        .tokens = .{
+            .source = source,
+            .reporter = reporter,
+            .lexer = Lexer.new(source),
+            .token_peeked = null,
+        },
         .current_label = null,
     };
 }
@@ -46,7 +48,7 @@ pub fn parse(parser: *Parser) !void {
     while (true) {
         const control = parser.parseLine() catch |err| switch (err) {
             error.Reported => {
-                parser.discardRestOfLine();
+                parser.tokens.discardRestOfLine();
                 continue;
             },
             error.Eof => {
@@ -64,29 +66,17 @@ pub fn parse(parser: *Parser) !void {
     }
 }
 
-fn discardRestOfLine(parser: *Parser) void {
-    while (true) {
-        // TODO: Why using `nextToken` here ?
-        const token = parser.nextToken(&.{}) catch |err| switch (err) {
-            // Ignore any other errors on this line
-            error.Reported => continue,
-        };
-        if (token == null or token.?.value == .newline)
-            break;
-    }
-}
-
 const Control = enum { @"continue", @"break" };
 
 fn parseLine(parser: *Parser) !Control {
-    const token = try parser.nextToken(&.{.newline}) orelse
+    const token = try parser.tokens.nextToken(&.{.newline}) orelse
         return error.Eof;
 
     switch (token.value) {
         .label => {
             parser.expectNoCurrentLabel();
             parser.current_label = token.span;
-            try parser.discardOptionalToken(.colon);
+            try parser.tokens.discardOptionalToken(.colon);
         },
 
         .directive => |directive| {
@@ -99,7 +89,7 @@ fn parseLine(parser: *Parser) !Control {
             const span: Span = .fromBounds(
                 token.span.offset,
                 // FIXME: !!! This doesnt work with peeked token !!!
-                parser.lexer.index,
+                parser.tokens.lexer.index,
             );
             try parser.appendLine(statement, span);
         },
@@ -127,7 +117,7 @@ fn parseDirective(
             if (parser.current_label) |label| {
                 try parser.reporter.err(error.UnusedLabel, label);
             }
-            const origin = try parser.expectArgument(.word);
+            const origin = try parser.tokens.expectArgument(.word);
             if (parser.air.lines.items.len > 0) {
                 try parser.reporter.err(error.LateOrigin, origin.span);
             }
@@ -140,7 +130,7 @@ fn parseDirective(
         },
 
         .stringz => {
-            const string = try parser.expectArgument(.string);
+            const string = try parser.tokens.expectArgument(.string);
             const string_value = string.value.in(string.span).view(parser.source);
 
             var is_escaped = false;
@@ -213,9 +203,9 @@ fn parseInstruction(
             var payload: Payload = undefined;
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
-                try parser.discardOptionalToken(.comma);
+                try parser.tokens.discardOptionalToken(.comma);
 
-                const token = try parser.expectArgument(
+                const token = try parser.tokens.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },
                 );
                 @field(payload, field.name) = token;
@@ -259,133 +249,153 @@ fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
     parser.current_label = null;
 }
 
-fn nextToken(
-    parser: *Parser,
-    comptime skip: []const std.meta.Tag(Token.Value),
-) error{Reported}!?Token {
-    token: while (true) {
-        const token = try parser.nextTokenAny() orelse
+const TokenIter = struct {
+    source: []const u8,
+    reporter: *Reporter,
+
+    lexer: Lexer,
+    token_peeked: ?Token,
+
+    fn discardRestOfLine(tokens: *TokenIter) void {
+        while (true) {
+            // TODO: Why using `nextToken` here ?
+            const token = tokens.nextToken(&.{}) catch |err| switch (err) {
+                // Ignore any other errors on this line
+                error.Reported => continue,
+            };
+            if (token == null or token.?.value == .newline)
+                break;
+        }
+    }
+
+    fn nextToken(
+        tokens: *TokenIter,
+        comptime skip: []const std.meta.Tag(Token.Value),
+    ) error{Reported}!?Token {
+        token: while (true) {
+            const token = try tokens.nextTokenAny() orelse
+                return null;
+            for (skip) |skip_kind| {
+                if (token.value == skip_kind)
+                    continue :token;
+            }
+            return token;
+        }
+    }
+
+    fn discardOptionalToken(tokens: *TokenIter, comptime kind: std.meta.Tag(Token.Value)) !void {
+        if (try tokens.peekTokenAny()) |peeked| {
+            if (peeked.value == kind) {
+                _ = tokens.nextTokenAny() catch
+                    unreachable orelse
+                    unreachable;
+            }
+        }
+    }
+
+    fn peekTokenAny(tokens: *TokenIter) !?Token {
+        if (tokens.token_peeked) |peeked| {
+            return peeked;
+        }
+        tokens.token_peeked = try tokens.nextTokenAny();
+        return tokens.token_peeked;
+    }
+
+    fn nextTokenAny(tokens: *TokenIter) !?Token {
+        if (tokens.token_peeked) |peeked| {
+            tokens.token_peeked = null;
+            return peeked;
+        }
+        const span = tokens.lexer.next() orelse
             return null;
-        for (skip) |skip_kind| {
-            if (token.value == skip_kind)
-                continue :token;
+        return Token.from(span, tokens.source) catch |err| {
+            try tokens.reporter.err(err, span);
+        };
+    }
+
+    fn expectToken(tokens: *TokenIter) !Token {
+        const token = try tokens.nextToken(&.{}) orelse {
+            try tokens.reporter.err(error.UnexpectedEof, .emptyAt(tokens.source.len));
+        };
+        switch (token.value) {
+            .newline => {
+                try tokens.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
+            },
+            else => return token,
         }
-        return token;
     }
-}
 
-fn discardOptionalToken(parser: *Parser, comptime kind: std.meta.Tag(Token.Value)) !void {
-    if (try parser.peekTokenAny()) |peeked| {
-        if (peeked.value == kind) {
-            _ = parser.nextTokenAny() catch
-                unreachable orelse
-                unreachable;
+    const Argument = union(enum) {
+        operand: type,
+        word,
+        string,
+
+        pub fn asType(comptime argument: Argument) type {
+            return switch (argument) {
+                .operand => |operand| operand,
+                .word => Integer(16),
+                .string => Span,
+            };
         }
-    }
-}
-
-fn peekTokenAny(parser: *Parser) !?Token {
-    if (parser.token_peeked) |peeked| {
-        return peeked;
-    }
-    parser.token_peeked = try parser.nextTokenAny();
-    return parser.token_peeked;
-}
-
-fn nextTokenAny(parser: *Parser) !?Token {
-    if (parser.token_peeked) |peeked| {
-        parser.token_peeked = null;
-        return peeked;
-    }
-    const span = parser.lexer.next() orelse
-        return null;
-    return Token.from(span, parser.source) catch |err| {
-        try parser.reporter.err(err, span);
     };
-}
 
-fn expectToken(parser: *Parser) !Token {
-    const token = try parser.nextToken(&.{}) orelse {
-        try parser.reporter.err(error.UnexpectedEof, .emptyAt(parser.source.len));
-    };
-    switch (token.value) {
-        .newline => {
-            try parser.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
-        },
-        else => return token,
+    fn expectArgument(
+        tokens: *TokenIter,
+        comptime argument: Argument,
+    ) !Operand.Spanned(argument.asType()) {
+        const token = try tokens.expectToken();
+        const value = convertArgument(argument, token.value) catch |err| {
+            try tokens.reporter.err(err, token.span);
+        };
+        return .{ .span = token.span, .value = value };
     }
-}
 
-const Argument = union(enum) {
-    operand: type,
-    word,
-    string,
-
-    pub fn asType(comptime argument: Argument) type {
+    fn convertArgument(
+        comptime argument: Argument,
+        value: Token.Value,
+    ) error{ UnexpectedTokenKind, IntegerTooLarge }!argument.asType() {
         return switch (argument) {
-            .operand => |operand| operand,
-            .word => Integer(16),
-            .string => Span,
+            .word => return switch (value) {
+                .integer => |integer| integer,
+                else => error.UnexpectedTokenKind,
+            },
+            .string => return switch (value) {
+                .string => |string| string,
+                else => error.UnexpectedTokenKind,
+            },
+            .operand => |operand| switch (operand) {
+                Operand.Value.Register => switch (value) {
+                    .register => |register| .{ .inner = register },
+                    else => error.UnexpectedTokenKind,
+                },
+                Operand.Value.RegImm5 => switch (value) {
+                    .register => |register| .{ .register = register },
+                    .integer => |integer| .{ .immediate = try integer.castTo(u5) },
+                    else => error.UnexpectedTokenKind,
+                },
+                Operand.Value.Offset6 => switch (value) {
+                    .integer => |integer| .{ .inner = try integer.castTo(i6) },
+                    else => error.UnexpectedTokenKind,
+                },
+                Operand.Value.PCOffset9 => switch (value) {
+                    .integer => |integer| .{ .resolved = try integer.castTo(i9) },
+                    .label => .unresolved,
+                    else => error.UnexpectedTokenKind,
+                },
+                Operand.Value.PCOffset11 => switch (value) {
+                    .integer => |integer| .{ .resolved = try integer.castTo(i11) },
+                    .label => .unresolved,
+                    else => error.UnexpectedTokenKind,
+                },
+                Operand.Value.TrapVect => switch (value) {
+                    .integer => |integer| .{ .inner = try integer.castTo(u8) },
+                    else => error.UnexpectedTokenKind,
+                },
+                else => comptime unreachable,
+            },
         };
     }
 };
-
-fn expectArgument(
-    parser: *Parser,
-    comptime argument: Argument,
-) !Operand.Spanned(argument.asType()) {
-    const token = try parser.expectToken();
-    const value = convertArgument(argument, token.value) catch |err| {
-        try parser.reporter.err(err, token.span);
-    };
-    return .{ .span = token.span, .value = value };
-}
-
-fn convertArgument(
-    comptime argument: Argument,
-    value: Token.Value,
-) error{ UnexpectedTokenKind, IntegerTooLarge }!argument.asType() {
-    return switch (argument) {
-        .word => return switch (value) {
-            .integer => |integer| integer,
-            else => error.UnexpectedTokenKind,
-        },
-        .string => return switch (value) {
-            .string => |string| string,
-            else => error.UnexpectedTokenKind,
-        },
-        .operand => |operand| switch (operand) {
-            Operand.Value.Register => switch (value) {
-                .register => |register| .{ .inner = register },
-                else => error.UnexpectedTokenKind,
-            },
-            Operand.Value.RegImm5 => switch (value) {
-                .register => |register| .{ .register = register },
-                .integer => |integer| .{ .immediate = try integer.castTo(u5) },
-                else => error.UnexpectedTokenKind,
-            },
-            Operand.Value.Offset6 => switch (value) {
-                .integer => |integer| .{ .inner = try integer.castTo(i6) },
-                else => error.UnexpectedTokenKind,
-            },
-            Operand.Value.PCOffset9 => switch (value) {
-                .integer => |integer| .{ .resolved = try integer.castTo(i9) },
-                .label => .unresolved,
-                else => error.UnexpectedTokenKind,
-            },
-            Operand.Value.PCOffset11 => switch (value) {
-                .integer => |integer| .{ .resolved = try integer.castTo(i11) },
-                .label => .unresolved,
-                else => error.UnexpectedTokenKind,
-            },
-            Operand.Value.TrapVect => switch (value) {
-                .integer => |integer| .{ .inner = try integer.castTo(u8) },
-                else => error.UnexpectedTokenKind,
-            },
-            else => comptime unreachable,
-        },
-    };
-}
 
 pub fn resolveLabels(parser: *Parser) void {
     for (parser.air.lines.items, 0..) |*line, index| {
