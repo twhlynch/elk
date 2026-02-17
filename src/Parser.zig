@@ -66,7 +66,8 @@ pub fn parse(parser: *Parser) !void {
 
 fn discardRestOfLine(parser: *Parser) void {
     while (true) {
-        const token = parser.nextToken(&.{.comma}) catch |err| switch (err) {
+        // TODO: Why using `nextToken` here ?
+        const token = parser.nextToken(&.{}) catch |err| switch (err) {
             // Ignore any other errors on this line
             error.Reported => continue,
         };
@@ -78,7 +79,7 @@ fn discardRestOfLine(parser: *Parser) void {
 const Control = enum { @"continue", @"break" };
 
 fn parseLine(parser: *Parser) !Control {
-    const token = try parser.nextToken(&.{ .comma, .newline }) orelse
+    const token = try parser.nextToken(&.{.newline}) orelse
         return error.Eof;
 
     switch (token.value) {
@@ -212,6 +213,8 @@ fn parseInstruction(
             var payload: Payload = undefined;
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
+                try parser.discardOptionalToken(.comma);
+
                 const token = try parser.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },
                 );
@@ -302,14 +305,13 @@ fn nextTokenAny(parser: *Parser) !?Token {
 }
 
 fn expectToken(parser: *Parser) !Token {
-    const token = try parser.nextToken(&.{.comma}) orelse {
+    const token = try parser.nextToken(&.{}) orelse {
         try parser.reporter.err(error.UnexpectedEof, .emptyAt(parser.source.len));
     };
     switch (token.value) {
         .newline => {
             try parser.reporter.err(error.UnexpectedEol, .emptyAt(token.span.offset));
         },
-        .comma => unreachable,
         else => return token,
     }
 }
@@ -333,7 +335,6 @@ fn expectArgument(
     comptime argument: Argument,
 ) !Operand.Spanned(argument.asType()) {
     const token = try parser.expectToken();
-    assert(token.value != .comma);
     const value = convertArgument(argument, token.value) catch |err| {
         try parser.reporter.err(err, token.span);
     };
