@@ -33,14 +33,24 @@ pub fn view(span: Span, source: []const u8) []const u8 {
 }
 
 pub fn getWholeLine(span: Span, source: []const u8) Span {
-    var start = span.offset -| 1;
+    assert(span.end() <= source.len);
+    { // Newlines may only be present for newline token "\n"
+        const newlines = std.mem.countScalar(u8, span.view(source), '\n');
+        switch (newlines) {
+            0 => {},
+            1 => assert(span.len == 1),
+            else => unreachable,
+        }
+    }
+
+    var start = span.offset;
     while (start > 0) : (start -= 1) {
         if (source[start - 1] == '\n')
             break;
     }
 
-    var end_ = span.end() -| 1;
-    while (end_ + 1 < source.len) : (end_ += 1) {
+    var end_ = span.offset;
+    while (end_ < source.len) : (end_ += 1) {
         if (source[end_] == '\n')
             break;
     }
