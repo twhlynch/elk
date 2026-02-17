@@ -75,12 +75,20 @@ pub fn err(
     reporter.print("\x1b[0m", .{});
     reporter.print("\n", .{});
 
+    const string = token.view(source);
+
     reporter.print("\x1b[33m", .{});
     reporter.print("  - Token: ", .{});
     reporter.print("\x1b[0m", .{});
-    reporter.print("\x1b[3m", .{});
-    reporter.print("{s}", .{token.view(source)});
-    reporter.print("\x1b[0m", .{});
+    if (string.len == 0) {
+        reporter.print("<empty>", .{});
+    } else if (std.mem.eql(u8, string, "\n")) {
+        reporter.print("<newline>", .{});
+    } else {
+        reporter.print("\x1b[3m", .{});
+        reporter.print("{s}", .{string});
+        reporter.print("\x1b[0m", .{});
+    }
     reporter.print("\n", .{});
 
     reporter.print("\n", .{});
