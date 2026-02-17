@@ -40,7 +40,7 @@ fn getNextSpan(tokens: *TokenIter) error{Eof}!Span {
         return error.Eof;
 }
 
-fn next(tokens: *TokenIter) error{ Reported, Eof }!Token {
+fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
     const span = try tokens.getNextSpan();
     tokens.peeked = null;
 
@@ -50,7 +50,7 @@ fn next(tokens: *TokenIter) error{ Reported, Eof }!Token {
 }
 
 /// Does **not** report failure to parse token.
-fn peek(tokens: *TokenIter) error{ InvalidTokenPeeked, Eof }!Token {
+fn peekAny(tokens: *TokenIter) error{ InvalidTokenPeeked, Eof }!Token {
     const span = try tokens.getNextSpan();
     tokens.peeked = span;
 
@@ -63,7 +63,7 @@ pub fn nextExcluding(
     comptime discards: []const TokenTag,
 ) error{ Reported, Eof }!Token {
     token: while (true) {
-        const token = try tokens.next();
+        const token = try tokens.nextAny();
         for (discards) |discard| {
             if (token.value == discard)
                 continue :token;
@@ -78,7 +78,7 @@ pub fn discardOptional(
     // This can become a slice if necessary
     comptime discard: TokenTag,
 ) void {
-    const token = tokens.peek() catch |err| switch (err) {
+    const token = tokens.peekAny() catch |err| switch (err) {
         // These can be handled by next token request
         error.InvalidTokenPeeked, error.Eof => return,
     };
@@ -90,7 +90,7 @@ pub fn discardOptional(
 
 pub fn discardRemainingLine(tokens: *TokenIter) void {
     while (true) {
-        const token = tokens.next() catch |err| switch (err) {
+        const token = tokens.nextAny() catch |err| switch (err) {
             error.Reported => continue,
             // This can be handled by next token request
             error.Eof => break,
@@ -103,10 +103,9 @@ pub fn discardRemainingLine(tokens: *TokenIter) void {
 pub fn expectArgument(
     tokens: *TokenIter,
     comptime argument: Argument,
-) error{ Reported, Eof }!Operand.Spanned(argument.asType()) {
-    // TODO: Rewrite this too...
-    const token = try tokens.next();
-    const value = argument.convertValue(token.value) catch |err| {
+) error{ Reported, Eof }!Operand.Spanned(argument.Value()) {
+    const token = try tokens.nextAny();
+    const value = argument.convert(token.value) catch |err| {
         try tokens.reporter.err(err, token.span);
     };
     return .{ .span = token.span, .value = value };
@@ -117,7 +116,7 @@ pub const Argument = union(enum) {
     word,
     string,
 
-    fn asType(comptime argument: Argument) type {
+    fn Value(comptime argument: Argument) type {
         return switch (argument) {
             .operand => |operand| operand,
             .word => Integer(16),
@@ -125,11 +124,15 @@ pub const Argument = union(enum) {
         };
     }
 
-    // TODO: Rename
-    fn convertValue(
+    const ConvertError = error{
+        UnexpectedTokenKind,
+        IntegerTooLarge,
+    };
+
+    fn convert(
         comptime argument: Argument,
         value: Token.Value,
-    ) error{ UnexpectedTokenKind, IntegerTooLarge }!argument.asType() {
+    ) ConvertError!argument.Value() {
         return switch (argument) {
             .word => return switch (value) {
                 .integer => |integer| integer,
