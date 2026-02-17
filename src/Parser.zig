@@ -38,6 +38,8 @@ pub fn new(
     };
 }
 
+const Control = enum { @"continue", @"break" };
+
 pub fn parse(parser: *Parser) !void {
     while (true) {
         const control = parser.parseLine() catch |err| switch (err) {
@@ -60,15 +62,13 @@ pub fn parse(parser: *Parser) !void {
     }
 }
 
-const Control = enum { @"continue", @"break" };
-
 fn parseLine(parser: *Parser) !Control {
     const token = try parser.tokens.nextToken(&.{.newline}) orelse
         return error.Eof;
 
     switch (token.value) {
         .label => {
-            parser.expectNoCurrentLabel();
+            parser.ensureNoCurrentLabel();
             parser.current_label = token.span;
             try parser.tokens.discardOptionalToken(.colon);
         },
@@ -96,18 +96,27 @@ fn parseLine(parser: *Parser) !Control {
     return .@"continue";
 }
 
+fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
+    try parser.air.lines.append(parser.allocator, .{
+        .label = parser.current_label,
+        .statement = statement,
+        .span = span,
+    });
+    parser.current_label = null;
+}
+
 fn parseDirective(
     parser: *Parser,
     directive: Token.Value.Directive,
 ) !Control {
     switch (directive) {
         .end => {
-            parser.expectNoCurrentLabel();
+            parser.ensureNoCurrentLabel();
             return .@"break";
         },
 
         .orig => {
-            parser.expectNoCurrentLabel();
+            parser.ensureNoCurrentLabel();
             if (parser.current_label) |label| {
                 try parser.reporter.err(error.UnusedLabel, label);
             }
@@ -227,20 +236,11 @@ fn parseInstruction(
     std.debug.panic("unimplemented instruction `{t}`", .{instruction});
 }
 
-fn expectNoCurrentLabel(parser: *Parser) void {
+fn ensureNoCurrentLabel(parser: *Parser) void {
     if (parser.current_label) |label| {
         parser.reporter.err(error.UnusedLabel, label) catch
             {}; // Ignore; caller can continue parsing line
     }
-}
-
-fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
-    try parser.air.lines.append(parser.allocator, .{
-        .label = parser.current_label,
-        .statement = statement,
-        .span = span,
-    });
-    parser.current_label = null;
 }
 
 pub fn resolveLabels(parser: *Parser) void {
