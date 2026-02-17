@@ -81,13 +81,13 @@ fn consumeNormal(lexer: *Lexer) void {
     }
 }
 
-fn peekChar(lexer: *Lexer) ?TokenChar {
+fn peekChar(lexer: *Lexer) ?Char {
     if (lexer.isEnd())
         return null;
     return .from(lexer.source[lexer.index]);
 }
 
-fn takeChar(lexer: *Lexer) ?TokenChar {
+fn takeChar(lexer: *Lexer) ?Char {
     const char = lexer.peekChar() orelse
         return null;
     lexer.index += 1;
@@ -103,8 +103,7 @@ fn isEnd(lexer: *const Lexer) bool {
     return lexer.index >= lexer.source.len;
 }
 
-// TODO: Rename to `Char`
-const TokenChar = struct {
+const Char = struct {
     value: u8,
     kind: Kind,
 
@@ -115,14 +114,14 @@ const TokenChar = struct {
         control,
     };
 
-    pub fn from(value: u8) TokenChar {
+    pub fn from(value: u8) Char {
         const kind: Kind = switch (value) {
             ' ', '\t', '\r' => .whitespace,
             0x00...0x08, 0x0e...0x1f, 0x7f => .control,
             '\n', ';', ',', ':' => .atomic,
             else => .combining,
         };
-        return TokenChar{
+        return Char{
             .value = value,
             .kind = kind,
         };
