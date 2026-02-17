@@ -40,11 +40,17 @@ pub fn new(
 
 const Control = enum { @"continue", @"break" };
 
-pub fn parse(parser: *Parser) !void {
+const InnerError = error{
+    Reported,
+    Eof,
+    OutOfMemory,
+};
+
+pub fn parse(parser: *Parser) error{OutOfMemory}!void {
     while (true) {
         const control = parser.parseLine() catch |err| switch (err) {
             error.Reported => {
-                parser.tokens.discardRestOfLine();
+                parser.tokens.discardRemainingLine();
                 continue;
             },
             error.Eof => {
@@ -62,15 +68,14 @@ pub fn parse(parser: *Parser) !void {
     }
 }
 
-fn parseLine(parser: *Parser) !Control {
-    const token = try parser.tokens.nextToken(&.{.newline}) orelse
-        return error.Eof;
+fn parseLine(parser: *Parser) InnerError!Control {
+    const token = try parser.tokens.nextExcluding(&.{.newline});
 
     switch (token.value) {
         .label => {
             parser.ensureNoCurrentLabel();
             parser.current_label = token.span;
-            try parser.tokens.discardOptionalToken(.colon);
+            parser.tokens.discardOptional(.colon);
         },
 
         .directive => |directive| {
@@ -82,8 +87,7 @@ fn parseLine(parser: *Parser) !Control {
                 return error.Reported;
             const span: Span = .fromBounds(
                 token.span.offset,
-                // FIXME: !!! This doesnt work with peeked token !!!
-                parser.tokens.lexer.index,
+                parser.tokens.getIndex(),
             );
             try parser.appendLine(statement, span);
         },
@@ -96,7 +100,11 @@ fn parseLine(parser: *Parser) !Control {
     return .@"continue";
 }
 
-fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
+fn appendLine(
+    parser: *Parser,
+    statement: Statement,
+    span: Span,
+) error{OutOfMemory}!void {
     try parser.air.lines.append(parser.allocator, .{
         .label = parser.current_label,
         .statement = statement,
@@ -108,7 +116,7 @@ fn appendLine(parser: *Parser, statement: Statement, span: Span) !void {
 fn parseDirective(
     parser: *Parser,
     directive: Token.Value.Directive,
-) !Control {
+) InnerError!Control {
     switch (directive) {
         .end => {
             parser.ensureNoCurrentLabel();
@@ -185,7 +193,7 @@ fn parseInstruction(
     parser: *Parser,
     instruction: Token.Value.Instruction,
     span: Span,
-) !?Statement {
+) InnerError!?Statement {
     const regular_instructions = [_]Token.Value.Instruction{
         .add,
         .lea,
@@ -206,7 +214,7 @@ fn parseInstruction(
             var payload: Payload = undefined;
 
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
-                try parser.tokens.discardOptionalToken(.comma);
+                parser.tokens.discardOptional(.comma);
 
                 const token = try parser.tokens.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },

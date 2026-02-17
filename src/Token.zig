@@ -20,7 +20,7 @@ pub const Error = error{
     UnmatchedQuote,
 };
 
-pub fn from(span: Span, source: []const u8) !Token {
+pub fn from(span: Span, source: []const u8) Error!Token {
     const value: Value = try .from(span.view(source));
     return .{ .span = span, .value = value };
 }
