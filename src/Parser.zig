@@ -90,7 +90,7 @@ fn parseLine(parser: *Parser) InnerError!Control {
             // Disallow two labels on same line
             // This should also be checked when the second label is parsed, but
             // this reports a more appropriate message
-            if (parser.tokens.nextMatching(.label)) |label| {
+            if (try parser.tokens.nextMatching(.label)) |label| {
                 try parser.reporter.err(error.UnexpectedLabel, label.span);
             }
         },

@@ -59,6 +59,15 @@ fn peekAny(tokens: *TokenIter) error{ InvalidTokenPeeked, Eof }!Token {
         return error.InvalidTokenPeeked;
 }
 
+// TODO: Rename for sure
+// TODO: Add note to nextAny/peekAny
+fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void {
+    switch (token.value) {
+        // TODO:
+        else => {},
+    }
+}
+
 pub fn nextExcluding(
     tokens: *TokenIter,
     comptime discards: []const TokenTag,
@@ -69,13 +78,17 @@ pub fn nextExcluding(
             if (token.value == discard)
                 continue :token;
         }
+        try tokens.ensureSupported(token);
         return token;
     }
     comptime unreachable;
 }
 
 // TODO: Rename
-pub fn nextMatching(tokens: *TokenIter, comptime match: TokenTag) ?Token {
+pub fn nextMatching(
+    tokens: *TokenIter,
+    comptime match: TokenTag,
+) error{Reported}!?Token {
     const token = tokens.peekAny() catch |err| switch (err) {
         // These can be handled by next token request
         error.InvalidTokenPeeked, error.Eof => return null,
@@ -84,11 +97,15 @@ pub fn nextMatching(tokens: *TokenIter, comptime match: TokenTag) ?Token {
         return null;
     assert(tokens.peeked != null);
     tokens.peeked = null;
+    try tokens.ensureSupported(token);
     return token;
 }
 
 pub fn discardOptional(tokens: *TokenIter, comptime discard: TokenTag) void {
-    _ = nextMatching(tokens, discard);
+    _ = nextMatching(tokens, discard) catch |err| switch (err) {
+        // We are discarding this token regardless
+        error.Reported => {},
+    };
 }
 
 pub fn discardRemainingLine(tokens: *TokenIter) void {
@@ -97,6 +114,10 @@ pub fn discardRemainingLine(tokens: *TokenIter) void {
             error.Reported => continue,
             // This can be handled by next token request
             error.Eof => break,
+        };
+        tokens.ensureSupported(token) catch |err| switch (err) {
+            // We are discarding this token regardless
+            error.Reported => {},
         };
         if (token.value == .newline)
             break;
@@ -121,6 +142,7 @@ pub fn expectArgument(
     const value = argument.convert(token.value) catch |err| {
         try tokens.reporter.err(err, token.span);
     };
+    try tokens.ensureSupported(token);
     return .{ .span = token.span, .value = value };
 }
 
