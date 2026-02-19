@@ -200,85 +200,64 @@ fn parseInstruction(
     instruction: Token.Value.Instruction,
     span: Span,
 ) InnerError!?Statement {
-    const regular_instructions = [_]Token.Value.Instruction{
+    switch (instruction) {
+        inline // Automatic parsing for 'regular' instructions
         .add,
         .@"and",
         .jmp,
-        .jsr,
-        .ldr,
         .lea,
-        .trap,
-        // TODO: Add rest.
-    };
-    const branch_instructions = [_]struct { Token.Value.Instruction, Operand.Value.ConditionMask }{
-        .{ .brn, .n },
-        .{ .brz, .z },
-        .{ .brp, .p },
-        .{ .brnz, .nz },
-        .{ .brzp, .zp },
-        .{ .brnp, .np },
-        .{ .br, .nzp },
-        .{ .brnzp, .nzp },
-    };
-    const trap_aliases = [_]struct { Token.Value.Instruction, u8 }{
-        .{ .puts, 0x22 },
-        .{ .halt, 0x25 },
-        // TODO: Add rest.
-    };
-
-    inline for (regular_instructions) |regular| {
-        if (instruction == regular) {
+        => |regular| {
             const Payload = @FieldType(Statement, @tagName(regular));
             var payload: Payload = undefined;
-
             inline for (@typeInfo(Payload).@"struct".fields) |field| {
                 parser.tokens.discardOptional(.comma);
-
                 const operand = try parser.tokens.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },
                 );
                 @field(payload, field.name) = operand;
             }
-
             return @unionInit(Statement, @tagName(regular), payload);
-        }
-    }
+        },
 
-    inline for (branch_instructions) |pair| {
-        const alias, const condition = pair;
-        if (instruction == alias) {
-            const dest = try parser.tokens.expectArgument(
-                .{ .operand = Operand.Value.PCOffset9 },
-            );
-
-            return .{
-                .br = .{
-                    .condition = .{
-                        .span = span, // Use instruction span for operand
-                        .value = condition,
-                    },
-                    .dest = dest,
-                },
+        inline // Branch instructions
+        .br, .brn, .brz, .brp, .brnz, .brzp, .brnp, .brnzp => |branch| {
+            const condition: Operand.Value.ConditionMask = switch (branch) {
+                .brn => .n,
+                .brz => .z,
+                .brp => .p,
+                .brnz => .nz,
+                .brzp => .zp,
+                .brnp => .np,
+                .br, .brnzp => .nzp,
+                else => comptime unreachable,
             };
-        }
-    }
+            parser.tokens.discardOptional(.comma);
+            const dest = try parser.tokens.expectArgument(.{ .operand = Operand.Value.PCOffset9 });
+            return .{ .br = .{
+                .condition = .{ .span = span, .value = condition },
+                .dest = dest,
+            } };
+        },
 
-    inline for (trap_aliases) |pair| {
-        const alias, const vect = pair;
-        if (instruction == alias) {
-            return .{
-                .trap = .{
-                    .vect = .{
-                        .span = span, // Use alias span for operand
-                        .value = .{ .inner = vect },
-                    },
-                },
+        inline // Trap aliases
+        .puts,
+        .halt,
+        => |alias| {
+            const vect: u8 = switch (alias) {
+                .puts => 0x22,
+                .halt => 0x25,
+                else => comptime unreachable,
             };
-        }
-    }
+            return .{ .trap = .{
+                .vect = .{ .span = span, .value = .{ .inner = vect } },
+            } };
+        },
 
-    // TODO: Replace with `unreachable` when all instructions/aliases are added above
-    std.debug.panic("unimplemented instruction `{t}`", .{instruction});
+        // TODO: Remove when all instructions/aliases are added above
+        else => {
+            std.debug.panic("unimplemented instruction `{t}`", .{instruction});
+        },
+    }
 }
 
 fn ensureNoCurrentLabel(parser: *Parser) void {
