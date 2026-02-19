@@ -146,6 +146,14 @@ fn parseDirective(
             };
         },
 
+        .fill => {
+            const word = try parser.tokens.expectArgument(.word);
+            try parser.appendLine(
+                .{ .raw_word = word.value.bitcastUnsigned() },
+                word.span,
+            );
+        },
+
         .stringz => {
             const string = try parser.tokens.expectArgument(.string);
             const string_value = string.value.in(string.span).view(parser.source);

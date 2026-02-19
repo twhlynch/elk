@@ -21,10 +21,19 @@ pub fn Integer(comptime bits: u16) type {
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
 
+        // TODO: Rename
         pub fn asUnsigned(integer: @This()) ?Unsigned {
             return switch (integer) {
                 .unsigned => |unsigned| unsigned,
                 .signed => |signed| math.cast(Unsigned, signed),
+            };
+        }
+
+        // TODO: Rename
+        pub fn bitcastUnsigned(integer: @This()) Unsigned {
+            return switch (integer) {
+                .unsigned => |unsigned| unsigned,
+                .signed => |signed| @bitCast(signed),
             };
         }
 
