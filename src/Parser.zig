@@ -399,7 +399,7 @@ fn getExistingLabel(parser: *const Parser, new_label: []const u8) ?Span {
 
 pub fn resolveLabels(parser: *Parser) void {
     for (parser.air.lines.items, 0..) |*line, index| {
-        switch (line.statement) {
+        _ = switch (line.statement) {
             .br => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             .jsr => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             .ld => |*operands| parser.resolveFieldLabel(&operands.src, index),
@@ -408,11 +408,17 @@ pub fn resolveLabels(parser: *Parser) void {
             .st => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             .sti => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             else => {},
-        }
+        } catch |err| switch (err) {
+            error.Reported => continue,
+        };
     }
 }
 
-fn resolveFieldLabel(parser: *Parser, operand: anytype, index: usize) void {
+fn resolveFieldLabel(
+    parser: *Parser,
+    operand: anytype,
+    index: usize,
+) error{Reported}!void {
     // Check generic param
     const Int = switch (@TypeOf(operand)) {
         *Operand.Spanned(Operand.Value.PCOffset9) => i9,
@@ -426,12 +432,16 @@ fn resolveFieldLabel(parser: *Parser, operand: anytype, index: usize) void {
     }
 
     const definition = parser.findLabelDefinition(operand.span.view(parser.source)) orelse {
-        parser.reporter.err(error.UndeclaredLabel, operand.span) catch
-            return;
+        try parser.reporter.report(.{ .undeclared_label = .{
+            .label = operand.span,
+        } }).abort();
     };
     const offset = calculateOffset(Int, definition, index) orelse {
-        parser.reporter.err(error.OffsetTooLarge, operand.span) catch
-            return;
+        try parser.reporter.report(.{ .offset_too_large = .{
+            .reference = operand.span,
+            .definition = parser.air.lines.items[definition].label orelse
+                unreachable,
+        } }).abort();
     };
     operand.value = .{ .resolved = offset };
 }

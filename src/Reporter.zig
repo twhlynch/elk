@@ -48,7 +48,6 @@ pub const Diagnostic = union(enum) {
         existing: Span,
         new: Span,
     },
-    // TODO: Rename
     unexpected_label: struct {
         existing: Span,
         new: Span,
@@ -60,6 +59,14 @@ pub const Diagnostic = union(enum) {
     useless_label: struct {
         label: Span,
         token: Span,
+    },
+    undeclared_label: struct {
+        label: Span,
+    },
+    offset_too_large: struct {
+        definition: Span,
+        reference: Span,
+        // TODO: Add offset value
     },
     eof_label: struct {
         label: Span,
@@ -126,6 +133,8 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
         .shadowed_label => standardResponse(reporter.mode),
         .useless_label => standardResponse(reporter.mode),
         .eof_label => standardResponse(reporter.mode),
+        .undeclared_label => .fatal,
+        .offset_too_large => .fatal,
         .unexpected_token_kind => .fatal,
         .unexpected_negative_integer => .fatal,
         .invalid_string_escape => standardResponse(reporter.mode),
@@ -190,6 +199,15 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.printTitle("Label is useless in this position", .{});
             ctx.deepen().printSourceNote("Label declared here:", info.label);
             ctx.deepen().printSourceNote("Token cannot be annotated with label", info.token);
+        },
+        .undeclared_label => |info| {
+            ctx.printTitle("Label is not declared", .{});
+            ctx.deepen().printSourceNote("Label used here:", info.label);
+        },
+        .offset_too_large => |info| {
+            ctx.printTitle("Label offset is too large", .{});
+            ctx.deepen().printSourceNote("Label declared here:", info.definition);
+            ctx.deepen().printSourceNote("Label used here:", info.reference);
         },
         .eof_label => |info| {
             ctx.printTitle("Label is useless in this position", .{});
