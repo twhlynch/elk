@@ -253,7 +253,7 @@ fn parseInstruction(
         .in,
         .putsp,
         .halt,
-        // .putn,
+        .putn,
         .reg,
         => |alias| {
             const vect: u8 = switch (alias) {
@@ -263,7 +263,7 @@ fn parseInstruction(
                 .in => 0x23,
                 .putsp => 0x24,
                 .halt => 0x25,
-                // .putn => 0x26,
+                .putn => 0x26,
                 .reg => 0x27,
                 else => comptime unreachable,
             };

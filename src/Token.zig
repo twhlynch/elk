@@ -83,8 +83,8 @@ pub const Value = union(enum) {
         putsp,
         halt,
         // Extension traps
+        putn,
         reg,
-        debug,
         // Only used in 'supervisor' mode
         rti,
     };
