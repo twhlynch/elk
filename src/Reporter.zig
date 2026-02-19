@@ -125,16 +125,14 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.printTitle("Missing .ORIG directive");
             ctx.deepen().printNote(
                 "Origin should be declared before any instructions:",
-                info.first_token orelse .{ .offset = 0, .len = 1 },
+                info.first_token orelse .firstCharOf(source),
             );
         },
         .missing_end => |info| {
             ctx.printTitle("Missing .END directive");
             ctx.deepen().printNote(
                 "End should be declared after included all instructions:",
-                info.last_token orelse
-                    // -1, then -1 in case of trailing newline
-                    .{ .offset = source.len - 2, .len = 2 },
+                info.last_token orelse .lastCharOf(source),
             );
         },
         .duplicate_label => |info| {

@@ -20,6 +20,19 @@ pub fn fromSlice(slice: []const u8, source: []const u8) Span {
     return .{ .offset = slice.ptr - source.ptr, .len = slice.len };
 }
 
+pub fn firstCharOf(source: []const u8) Span {
+    // TODO: Scan for first NON-WHITESPACE character!
+    // TODO: Handle len==0
+    _ = source;
+    return .{ .offset = 0, .len = 1 };
+}
+
+pub fn lastCharOf(source: []const u8) Span {
+    // TODO: Scan for last NON-WHITESPACE character!
+    // TODO: Handle len==0
+    return .{ .offset = source.len - 2, .len = 1 };
+}
+
 pub fn end(span: Span) usize {
     return span.offset + span.len;
 }
