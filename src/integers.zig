@@ -13,25 +13,28 @@ pub fn SourceInt(comptime bits: u16) type {
     //     underlying: u16,
     // }
 
-    return union(enum) {
+    return struct {
         const Self = @This();
 
-        unsigned: Unsigned,
-        signed: Signed,
+        radix: ?Radix,
+        value: union(enum) {
+            unsigned: Unsigned,
+            signed: Signed,
+        },
 
         const Unsigned = @Int(.unsigned, bits);
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
 
         pub fn bitcastToUnsigned(integer: Self) Unsigned {
-            return switch (integer) {
+            return switch (integer.value) {
                 .unsigned => |unsigned| unsigned,
                 .signed => |signed| @bitCast(signed),
             };
         }
 
         pub fn castToUnsigned(integer: Self) ?Unsigned {
-            return switch (integer) {
+            return switch (integer.value) {
                 .unsigned => |unsigned| unsigned,
                 .signed => |signed| math.cast(Unsigned, signed),
             };
@@ -39,7 +42,7 @@ pub fn SourceInt(comptime bits: u16) type {
 
         pub fn castToSmaller(integer: Self, comptime T: type) error{IntegerTooLarge}!T {
             assert(@typeInfo(T).int.bits < bits);
-            return switch (integer) {
+            return switch (integer.value) {
                 inline else => |inner| math.cast(T, inner) orelse
                     return error.IntegerTooLarge,
             };
@@ -50,14 +53,20 @@ pub fn SourceInt(comptime bits: u16) type {
             comptime new_bits: u16,
         ) error{IntegerTooLarge}!SourceInt(new_bits) {
             assert(new_bits < bits);
-            return switch (integer) {
+            return switch (integer.value) {
                 .unsigned => |unsigned| .{
-                    .unsigned = math.cast(SourceInt(new_bits).Unsigned, unsigned) orelse
-                        return error.IntegerTooLarge,
+                    .value = .{
+                        .unsigned = math.cast(SourceInt(new_bits).Unsigned, unsigned) orelse
+                            return error.IntegerTooLarge,
+                    },
+                    .radix = integer.radix,
                 },
                 .signed => |signed| .{
-                    .signed = math.cast(SourceInt(new_bits).Signed, signed) orelse
-                        return error.IntegerTooLarge,
+                    .value = .{
+                        .signed = math.cast(SourceInt(new_bits).Signed, signed) orelse
+                            return error.IntegerTooLarge,
+                    },
+                    .radix = integer.radix,
                 },
             };
         }
@@ -72,37 +81,39 @@ const Sign = enum(i2) {
 const Prefix = struct {
     radix: Radix,
     leading_zeros: bool,
+};
 
-    const Radix = enum(u8) {
-        binary = 2,
-        octal = 8,
-        decimal = 10,
-        hex = 16,
+const Radix = enum(u8) {
+    binary = 2,
+    octal = 8,
+    decimal = 10,
+    hex = 16,
 
-        pub fn parse_digit(radix: Radix, char: u8) ?u8 {
-            return switch (radix) {
-                .binary => switch (char) {
-                    '0' => 0,
-                    '1' => 1,
-                    else => null,
-                },
-                .octal => switch (char) {
-                    '0'...'7' => char - '0',
-                    else => null,
-                },
-                .decimal => switch (char) {
-                    '0'...'9' => char - '0',
-                    else => null,
-                },
-                .hex => switch (char) {
-                    '0'...'9' => char - '0',
-                    'A'...'F' => char - 'A' + 10,
-                    'a'...'f' => char - 'a' + 10,
-                    else => null,
-                },
-            };
-        }
-    };
+    pub const default: Radix = .decimal;
+
+    pub fn parse_digit(radix: Radix, char: u8) ?u8 {
+        return switch (radix) {
+            .binary => switch (char) {
+                '0' => 0,
+                '1' => 1,
+                else => null,
+            },
+            .octal => switch (char) {
+                '0'...'7' => char - '0',
+                else => null,
+            },
+            .decimal => switch (char) {
+                '0'...'9' => char - '0',
+                else => null,
+            },
+            .hex => switch (char) {
+                '0'...'9' => char - '0',
+                'A'...'F' => char - 'A' + 10,
+                'a'...'f' => char - 'a' + 10,
+                else => null,
+            },
+        };
+    }
 };
 
 const CharIter = struct {
@@ -136,7 +147,10 @@ pub fn tryInteger(string: []const u8) Error!?SourceInt(16) {
 
     const prefix = switch (try takePrefix(&chars)) {
         .regular => |prefix| prefix,
-        .single_zero => return .{ .unsigned = 0 },
+        .single_zero => return .{
+            .radix = .default,
+            .value = .{ .unsigned = 0 },
+        },
         .non_integer => {
             // Initial sign always indicates an integer
             if (first_sign != null)
@@ -169,11 +183,17 @@ pub fn tryInteger(string: []const u8) Error!?SourceInt(16) {
     // Try to fit in the appropriate `Integer` variant
     // Always represent `0` as unsigned.
     return if (sign == .negative and integer != 0) .{
-        .signed = math.cast(SourceInt(16).Signed, -1 * integer) orelse
-            return error.InvalidInteger,
+        .radix = prefix.radix,
+        .value = .{
+            .signed = math.cast(SourceInt(16).Signed, -1 * integer) orelse
+                return error.InvalidInteger,
+        },
     } else .{
-        .unsigned = math.cast(SourceInt(16).Unsigned, integer) orelse
-            return error.InvalidInteger,
+        .radix = prefix.radix,
+        .value = .{
+            .unsigned = math.cast(SourceInt(16).Unsigned, integer) orelse
+                return error.InvalidInteger,
+        },
     };
 }
 
@@ -206,7 +226,7 @@ fn takePrefix(chars: *CharIter) !union(enum) {
     const peeked = chars.peek() orelse
         return if (leading_zeros) .single_zero else .non_integer;
 
-    const radix: Prefix.Radix, const next_char = switch (peeked) {
+    const radix: Radix, const next_char = switch (peeked) {
         'b', 'B' => .{ .binary, true },
         'o', 'O' => .{ .octal, true },
         'x', 'X' => .{ .hex, true },
@@ -217,7 +237,7 @@ fn takePrefix(chars: *CharIter) !union(enum) {
             .{ .decimal, true },
 
         // No prefix, caller can handle this character
-        '0'...'9' => .{ .decimal, false },
+        '0'...'9' => .{ .default, false },
 
         // Disallow "0-..." and "0+..." as well as "--...", "-+...", etc.
         // Caller should have already consumed any sign character before
