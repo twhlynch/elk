@@ -255,10 +255,10 @@ fn parseDirective(
 
         .stringz => {
             const string = try parser.tokens.expectArgument(.string);
-            const string_value = string.value.in(string.span).view(parser.source);
+            const contents = string.value.in(string.span);
 
             var is_escaped = false;
-            for (string_value) |char| {
+            for (contents.view(parser.source), 0..) |char, i| {
                 if (!is_escaped and char == '\\') {
                     is_escaped = true;
                     continue;
@@ -272,8 +272,13 @@ fn parseDirective(
                         't' => '\t',
                         'r' => '\r',
                         else => {
-                            parser.reporter.err(error.InvalidEscapeSequence, string.span) catch
-                                {}; // Keep parsing string
+                            try parser.reporter.report(.{ .invalid_string_escape = .{
+                                .string = string.span,
+                                .sequence = .{
+                                    .offset = contents.offset + i - 1,
+                                    .len = 2,
+                                },
+                            } }).handle();
                             is_escaped = false;
                             continue;
                         },

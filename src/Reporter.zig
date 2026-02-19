@@ -70,6 +70,10 @@ pub const Diagnostic = union(enum) {
     unexpected_negative_integer: struct {
         integer: Span,
     },
+    invalid_string_escape: struct {
+        string: Span,
+        sequence: Span,
+    },
 };
 
 pub const Response = enum {
@@ -124,6 +128,7 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
         .eof_label => standardResponse(reporter.mode),
         .unexpected_token_kind => .fatal,
         .unexpected_negative_integer => .fatal,
+        .invalid_string_escape => standardResponse(reporter.mode),
     };
 
     const level: Level = switch (response) {
@@ -211,6 +216,11 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
         .unexpected_negative_integer => |info| {
             ctx.printTitle("Integer operand cannot be negative", .{});
             ctx.deepen().printSourceNote("Operand: ", info.integer);
+        },
+        .invalid_string_escape => |info| {
+            ctx.printTitle("Invalid escape sequence", .{});
+            ctx.deepen().printSourceNote("String: ", info.string);
+            ctx.deepen().printSourceNote("Erroneous escape sequence: ", info.sequence);
         },
     }
 
