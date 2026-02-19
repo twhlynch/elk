@@ -390,18 +390,15 @@ fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
     return null;
 }
 
-fn calculateOffset(
-    comptime T: type,
-    definition: usize,
-    reference: usize,
-) ?T {
+fn calculateOffset(comptime T: type, definition: usize, reference: usize) ?T {
+    comptime assert(@typeInfo(T).int.signedness == .signed);
     return std.math.cast(
         T,
         std.math.sub(
-            usize,
-            definition,
-            reference +
-                1, // PC is at N+1 when instruction N is interpreted
+            isize,
+            @intCast(definition),
+            @intCast(reference +
+                1), // PC is at N+1 when instruction N is interpreted
         ) catch
             return null,
     );
