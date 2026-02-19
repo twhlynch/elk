@@ -57,7 +57,10 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
     const span = try tokens.getNextSpan();
     tokens.peeked = null;
     return tokens.parseToken(span) catch |err| {
-        try tokens.reporter.err(err, span);
+        try tokens.reporter.report(.{ .generic = .{
+            .code = err,
+            .span = span,
+        } }).abort();
     };
 }
 
@@ -171,7 +174,10 @@ pub fn expectArgument(
 ) error{ Reported, Eof }!Operand.Spanned(argument.Value()) {
     const token = try tokens.nextAny();
     const value = argument.convert(token.value) catch |err| {
-        try tokens.reporter.err(err, token.span);
+        try tokens.reporter.report(.{ .generic = .{
+            .code = err,
+            .span = token.span,
+        } }).abort();
     };
     try tokens.ensureSupported(token);
     return .{ .span = token.span, .value = value };

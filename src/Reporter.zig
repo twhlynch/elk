@@ -98,6 +98,12 @@ pub const Diagnostic = union(enum) {
         integer: Span,
         radix: @import("integers.zig").Radix,
     },
+
+    // TODO:
+    generic: struct {
+        code: anyerror,
+        span: Span,
+    },
 };
 
 pub const Response = enum {
@@ -149,6 +155,8 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
         .invalid_string_escape => reporter.mode.standardResponse(),
         .multiline_string => reporter.mode.standardResponse(),
         .nonstandard_integer_radix => reporter.mode.standardResponse(),
+
+        .generic => .fatal,
     };
 
     const level: Level = switch (response) {
@@ -254,6 +262,11 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
         .nonstandard_integer_radix => |info| {
             ctx.printTitle("Integer uses nonstandard radix '{t}'", .{info.radix});
             ctx.deepen().printSourceNote("Integer: ", info.integer);
+        },
+
+        .generic => |info| {
+            ctx.printTitle("Generic error: '{t}'", .{info.code});
+            ctx.deepen().printSourceNote("Token: ", info.span);
         },
     }
 
