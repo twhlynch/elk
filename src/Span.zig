@@ -16,6 +16,10 @@ pub fn emptyAt(offset: usize) Span {
     return .{ .offset = offset, .len = 0 };
 }
 
+pub fn fromSlice(slice: []const u8, source: []const u8) Span {
+    return .{ .offset = slice.ptr - source.ptr, .len = slice.len };
+}
+
 pub fn end(span: Span) usize {
     return span.offset + span.len;
 }

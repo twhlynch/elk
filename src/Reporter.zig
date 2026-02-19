@@ -60,44 +60,47 @@ pub fn err(
     reporter.print("\x1b[0m", .{});
     reporter.print("\n", .{});
 
-    const source = reporter.source orelse
-        unreachable;
-
-    {
-        const lines = token.getContainingLines(source);
-        var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
-        while (iter.next()) |line| {
-            reporter.print("\x1b[33m", .{});
-            reporter.print("  | ", .{});
-            reporter.print("\x1b[0m", .{});
-            reporter.print("\x1b[3m", .{});
-            reporter.print("{s}", .{line});
-            reporter.print("\x1b[0m", .{});
-            reporter.print("\n", .{});
-        }
-    }
-
-    const string = token.view(source);
-
-    reporter.print("\x1b[33m", .{});
-    reporter.print("  - Token: ", .{});
-    reporter.print("\x1b[0m", .{});
-    if (string.len == 0) {
-        reporter.print("<empty>", .{});
-    } else if (std.mem.eql(u8, string, "\n")) {
-        reporter.print("<newline>", .{});
-    } else {
-        reporter.print("\x1b[3m", .{});
-        reporter.print("{s}", .{string});
-        reporter.print("\x1b[0m", .{});
-    }
-    reporter.print("\n", .{});
-
-    // reporter.print("\n", .{});
+    reporter.printContext(token);
 
     reporter.flush();
 
     return error.Reported;
+}
+
+fn printContext(reporter: *Reporter, span: Span) void {
+    const source = reporter.source orelse
+        unreachable;
+
+    const lines = span.getContainingLines(source);
+    var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
+    while (iter.next()) |line_string| {
+        const line = Span.fromSlice(line_string, source);
+
+        reporter.print("\x1b[33m", .{});
+        reporter.print("  | ", .{});
+        reporter.print("\x1b[0m", .{});
+        reporter.print("\x1b[3m", .{});
+        reporter.print("{s}", .{line_string});
+        reporter.print("\x1b[0m", .{});
+        reporter.print("\n", .{});
+
+        if (std.mem.trim(u8, line_string, &std.ascii.whitespace).len == 0) {
+            continue;
+        }
+
+        reporter.print("\x1b[33m", .{});
+        reporter.print("  | ", .{});
+        for (0..line_string.len) |i| {
+            const index = line.offset + i;
+            if (index >= span.offset and index < span.end()) {
+                reporter.print("^", .{});
+            } else {
+                reporter.print(" ", .{});
+            }
+        }
+        reporter.print("\x1b[0m", .{});
+        reporter.print("\n", .{});
+    }
 }
 
 pub fn endSection(reporter: *Reporter) ?Level {
