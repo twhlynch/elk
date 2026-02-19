@@ -7,43 +7,40 @@ const assert = std.debug.assert;
 const Error = error{InvalidInteger};
 
 pub fn SourceInt(comptime bits: u16) type {
-    // TODO: Maybe should repr as
-    // struct {
-    //     is_signed: bool,
-    //     underlying: u16,
-    // }
-
     return struct {
         const Self = @This();
 
+        underlying: Unsigned,
+        signedness: std.builtin.Signedness,
         radix: ?Radix,
-        value: union(enum) {
-            unsigned: Unsigned,
-            signed: Signed,
-        },
 
         const Unsigned = @Int(.unsigned, bits);
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
 
         pub fn bitcastToUnsigned(integer: Self) Unsigned {
-            return switch (integer.value) {
-                .unsigned => |unsigned| unsigned,
-                .signed => |signed| @bitCast(signed),
-            };
+            return integer.underlying;
         }
 
         pub fn castToUnsigned(integer: Self) ?Unsigned {
-            return switch (integer.value) {
-                .unsigned => |unsigned| unsigned,
-                .signed => |signed| math.cast(Unsigned, signed),
+            return switch (integer.signedness) {
+                .unsigned => integer.underlying,
+                .signed => math.cast(
+                    Unsigned,
+                    @as(Signed, @bitCast(integer.underlying)),
+                ),
             };
         }
 
         pub fn castToSmaller(integer: Self, comptime T: type) error{IntegerTooLarge}!T {
             assert(@typeInfo(T).int.bits < bits);
-            return switch (integer.value) {
-                inline else => |inner| math.cast(T, inner) orelse
+            return switch (integer.signedness) {
+                .unsigned => math.cast(T, integer.underlying) orelse
+                    return error.IntegerTooLarge,
+                .signed => math.cast(
+                    T,
+                    @as(Signed, @bitCast(integer.underlying)),
+                ) orelse
                     return error.IntegerTooLarge,
             };
         }
@@ -53,21 +50,22 @@ pub fn SourceInt(comptime bits: u16) type {
             comptime new_bits: u16,
         ) error{IntegerTooLarge}!SourceInt(new_bits) {
             assert(new_bits < bits);
-            return switch (integer.value) {
-                .unsigned => |unsigned| .{
-                    .value = .{
-                        .unsigned = math.cast(SourceInt(new_bits).Unsigned, unsigned) orelse
-                            return error.IntegerTooLarge,
-                    },
-                    .radix = integer.radix,
-                },
-                .signed => |signed| .{
-                    .value = .{
-                        .signed = math.cast(SourceInt(new_bits).Signed, signed) orelse
-                            return error.IntegerTooLarge,
-                    },
-                    .radix = integer.radix,
-                },
+            const underlying = switch (integer.signedness) {
+                .unsigned => math.cast(
+                    SourceInt(new_bits).Unsigned,
+                    integer.underlying,
+                ) orelse
+                    return error.IntegerTooLarge,
+                .signed => math.cast(
+                    SourceInt(new_bits).Unsigned,
+                    @as(Signed, @bitCast(integer.underlying)),
+                ) orelse
+                    return error.IntegerTooLarge,
+            };
+            return .{
+                .underlying = underlying,
+                .signedness = integer.signedness,
+                .radix = integer.radix,
             };
         }
     };
@@ -148,8 +146,9 @@ pub fn tryInteger(string: []const u8) Error!?SourceInt(16) {
     const prefix = switch (try takePrefix(&chars)) {
         .regular => |prefix| prefix,
         .single_zero => return .{
+            .underlying = 0,
+            .signedness = .unsigned,
             .radix = .default,
-            .value = .{ .unsigned = 0 },
         },
         .non_integer => {
             // Initial sign always indicates an integer
@@ -183,17 +182,15 @@ pub fn tryInteger(string: []const u8) Error!?SourceInt(16) {
     // Try to fit in the appropriate `Integer` variant
     // Always represent `0` as unsigned.
     return if (sign == .negative and integer != 0) .{
+        .underlying = @bitCast(math.cast(SourceInt(16).Signed, -1 * integer) orelse
+            return error.InvalidInteger),
+        .signedness = .signed,
         .radix = prefix.radix,
-        .value = .{
-            .signed = math.cast(SourceInt(16).Signed, -1 * integer) orelse
-                return error.InvalidInteger,
-        },
     } else .{
+        .underlying = math.cast(SourceInt(16).Unsigned, integer) orelse
+            return error.InvalidInteger,
+        .signedness = .unsigned,
         .radix = prefix.radix,
-        .value = .{
-            .unsigned = math.cast(SourceInt(16).Unsigned, integer) orelse
-                return error.InvalidInteger,
-        },
     };
 }
 
