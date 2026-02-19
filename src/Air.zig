@@ -121,7 +121,7 @@ pub const Statement = union(enum) {
         base: Operand.Register,
     },
     jsr: struct {
-        base: Operand.PCOffset11,
+        dest: Operand.PCOffset11,
     },
     ldr: struct {
         dest: Operand.Register,
@@ -283,7 +283,7 @@ fn encode(statement: Statement) u16 {
         },
         .jsr => |operands| {
             var raw: u16 = 0x4800;
-            raw |= operands.base.value.bits();
+            raw |= operands.dest.value.bits();
             return raw;
         },
         .ldr => |operands| {

@@ -205,6 +205,7 @@ fn parseInstruction(
         .add,
         .@"and",
         .jmp,
+        .jsr,
         .lea,
         => |regular| {
             const Payload = @FieldType(Statement, @tagName(regular));
@@ -271,7 +272,7 @@ pub fn resolveLabels(parser: *Parser) void {
     for (parser.air.lines.items, 0..) |*line, index| {
         switch (line.statement) {
             .br => |*instruction| parser.resolveFieldLabel(&instruction.dest, index),
-            .jsr => |*instruction| parser.resolveFieldLabel(&instruction.base, index),
+            .jsr => |*instruction| parser.resolveFieldLabel(&instruction.dest, index),
             .lea => |*instruction| parser.resolveFieldLabel(&instruction.src, index),
             // TODO: Add rest.
             else => {},
