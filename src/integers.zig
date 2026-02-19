@@ -6,7 +6,7 @@ const assert = std.debug.assert;
 // TODO: Add more variants
 const Error = error{InvalidInteger};
 
-pub fn Integer(comptime bits: u16) type {
+pub fn SourceInt(comptime bits: u16) type {
     // TODO: Maybe should repr as
     // struct {
     //     is_signed: bool,
@@ -48,15 +48,15 @@ pub fn Integer(comptime bits: u16) type {
         pub fn shrink(
             integer: Self,
             comptime new_bits: u16,
-        ) error{IntegerTooLarge}!Integer(new_bits) {
+        ) error{IntegerTooLarge}!SourceInt(new_bits) {
             assert(new_bits < bits);
             return switch (integer) {
                 .unsigned => |unsigned| .{
-                    .unsigned = math.cast(Integer(new_bits).Unsigned, unsigned) orelse
+                    .unsigned = math.cast(SourceInt(new_bits).Unsigned, unsigned) orelse
                         return error.IntegerTooLarge,
                 },
                 .signed => |signed| .{
-                    .signed = math.cast(Integer(new_bits).Signed, signed) orelse
+                    .signed = math.cast(SourceInt(new_bits).Signed, signed) orelse
                         return error.IntegerTooLarge,
                 },
             };
@@ -126,7 +126,7 @@ const CharIter = struct {
     }
 };
 
-pub fn tryInteger(string: []const u8) Error!?Integer(16) {
+pub fn tryInteger(string: []const u8) Error!?SourceInt(16) {
     if (string.len == 0)
         return null;
 
@@ -154,25 +154,25 @@ pub fn tryInteger(string: []const u8) Error!?Integer(16) {
     if (chars.peek() == null)
         return endOfInteger(sign, prefix);
 
-    var integer: Integer(16).Oversize = 0;
+    var integer: SourceInt(16).Oversize = 0;
 
     while (chars.next()) |char| {
         const digit = prefix.radix.parse_digit(char) orelse
             return endOfInteger(sign, prefix);
 
-        integer = math.mul(Integer(16).Oversize, integer, @intFromEnum(prefix.radix)) catch
+        integer = math.mul(SourceInt(16).Oversize, integer, @intFromEnum(prefix.radix)) catch
             return error.InvalidInteger;
-        integer = math.add(Integer(16).Oversize, integer, digit) catch
+        integer = math.add(SourceInt(16).Oversize, integer, digit) catch
             return error.InvalidInteger;
     }
 
     // Try to fit in the appropriate `Integer` variant
     // Always represent `0` as unsigned.
     return if (sign == .negative and integer != 0) .{
-        .signed = math.cast(Integer(16).Signed, -1 * integer) orelse
+        .signed = math.cast(SourceInt(16).Signed, -1 * integer) orelse
             return error.InvalidInteger,
     } else .{
-        .unsigned = math.cast(Integer(16).Unsigned, integer) orelse
+        .unsigned = math.cast(SourceInt(16).Unsigned, integer) orelse
             return error.InvalidInteger,
     };
 }
@@ -249,7 +249,7 @@ fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Sign {
     }
 }
 
-fn endOfInteger(sign: ?Sign, prefix: Prefix) !?Integer(16) {
+fn endOfInteger(sign: ?Sign, prefix: Prefix) !?SourceInt(16) {
     // Any of these conditions indicate an invalid integer token (as opposed to
     // a possibly-valid non-integer token)
     // Note that a leading decimal digit (`^[0-9]`) will lead to a pre-prefix
@@ -327,7 +327,7 @@ test tryInteger {
 
     const cases = [_]struct {
         []const u8,
-        Error!?Integer(16),
+        Error!?SourceInt(16),
     }{
         // Non-integer and invalid
         .{ "", null },

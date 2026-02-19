@@ -7,7 +7,7 @@ const Operand = @import("Air.zig").Operand;
 const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const Span = @import("Span.zig");
-const Integer = @import("integers.zig").Integer;
+const Integer = @import("integers.zig").SourceInt;
 const Reporter = @import("Reporter.zig");
 
 lexer: Lexer,

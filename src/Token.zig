@@ -6,7 +6,7 @@ const assert = std.debug.assert;
 const testing = std.testing;
 
 const integers = @import("integers.zig");
-const Integer = integers.Integer;
+const Integer = integers.SourceInt;
 const Span = @import("Span.zig");
 
 span: Span,

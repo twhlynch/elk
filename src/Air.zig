@@ -7,7 +7,7 @@ const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
 
 const Span = @import("Span.zig");
-const Integer = @import("integers.zig").Integer;
+const Integer = @import("integers.zig").SourceInt;
 
 origin: ?u16,
 lines: ArrayList(Line),
