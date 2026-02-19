@@ -141,7 +141,7 @@ fn parseDirective(
             if (parser.air.origin != null) {
                 try parser.reporter.err(error.MultipleOrigins, origin.span);
             }
-            parser.air.origin = origin.value.asUnsigned() orelse {
+            parser.air.origin = origin.value.castToUnsigned() orelse {
                 try parser.reporter.err(error.IntegerTooLarge, origin.span);
             };
         },
@@ -149,7 +149,7 @@ fn parseDirective(
         .fill => {
             const word = try parser.tokens.expectArgument(.word);
             try parser.appendLine(
-                .{ .raw_word = word.value.bitcastUnsigned() },
+                .{ .raw_word = word.value.bitcastToUnsigned() },
                 word.span,
             );
         },

@@ -162,25 +162,25 @@ pub const Argument = union(enum) {
                 },
                 Operand.Value.RegImm5 => switch (value) {
                     .register => |register| .{ .register = register },
-                    .integer => |integer| .{ .immediate = try integer.castTo(u5) },
+                    .integer => |integer| .{ .immediate = try integer.castToSmaller(u5) },
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.Offset6 => switch (value) {
-                    .integer => |integer| .{ .inner = try integer.castTo(i6) },
+                    .integer => |integer| .{ .inner = try integer.castToSmaller(i6) },
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.PCOffset9 => switch (value) {
-                    .integer => |integer| .{ .resolved = try integer.castTo(i9) },
+                    .integer => |integer| .{ .resolved = try integer.castToSmaller(i9) },
                     .label => .unresolved,
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.PCOffset11 => switch (value) {
-                    .integer => |integer| .{ .resolved = try integer.castTo(i11) },
+                    .integer => |integer| .{ .resolved = try integer.castToSmaller(i11) },
                     .label => .unresolved,
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.TrapVect => switch (value) {
-                    .integer => |integer| .{ .inner = try integer.castTo(u8) },
+                    .integer => |integer| .{ .inner = try integer.castToSmaller(u8) },
                     else => error.UnexpectedTokenKind,
                 },
                 else => comptime unreachable,

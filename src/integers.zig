@@ -14,6 +14,8 @@ pub fn Integer(comptime bits: u16) type {
     // }
 
     return union(enum) {
+        const Self = @This();
+
         unsigned: Unsigned,
         signed: Signed,
 
@@ -21,23 +23,22 @@ pub fn Integer(comptime bits: u16) type {
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
 
-        // TODO: Rename
-        pub fn asUnsigned(integer: @This()) ?Unsigned {
-            return switch (integer) {
-                .unsigned => |unsigned| unsigned,
-                .signed => |signed| math.cast(Unsigned, signed),
-            };
-        }
-
-        // TODO: Rename
-        pub fn bitcastUnsigned(integer: @This()) Unsigned {
+        pub fn bitcastToUnsigned(integer: Self) Unsigned {
             return switch (integer) {
                 .unsigned => |unsigned| unsigned,
                 .signed => |signed| @bitCast(signed),
             };
         }
 
-        pub fn castTo(integer: @This(), comptime T: type) error{IntegerTooLarge}!T {
+        pub fn castToUnsigned(integer: Self) ?Unsigned {
+            return switch (integer) {
+                .unsigned => |unsigned| unsigned,
+                .signed => |signed| math.cast(Unsigned, signed),
+            };
+        }
+
+        pub fn castToSmaller(integer: Self, comptime T: type) error{IntegerTooLarge}!T {
+            assert(@typeInfo(T).int.bits < bits);
             return switch (integer) {
                 inline else => |inner| math.cast(T, inner) orelse
                     return error.IntegerTooLarge,
