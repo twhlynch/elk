@@ -54,7 +54,7 @@ pub fn parse(parser: *Parser) error{OutOfMemory}!void {
                 continue;
             },
             error.Eof => {
-                parser.reporter.report(.extension, error.ExpectedEnd, .emptyAt(parser.source.len)) catch
+                parser.reporter.reportOld(.extension, error.ExpectedEnd, .emptyAt(parser.source.len)) catch
                     {};
                 break;
             },
@@ -68,8 +68,7 @@ pub fn parse(parser: *Parser) error{OutOfMemory}!void {
     }
 
     if (parser.air.origin == null) {
-        parser.reporter.report(.extension, error.MissingOrigin, .emptyAt(0)) catch
-            {};
+        parser.reporter.report(.missing_origin).proceed();
         parser.air.origin = 0x3000;
     }
 }
@@ -82,7 +81,10 @@ fn parseLine(parser: *Parser) InnerError!Control {
             parser.ensureNoCurrentLabel();
 
             if (parser.getExistingLabel(token.span.view(parser.source))) |existing_label| {
-                try parser.reporter.err(error.DuplicateLabel, existing_label);
+                try parser.reporter.report(.{ .duplicate_label = .{
+                    .existing = existing_label,
+                    .new = token.span,
+                } }).abort();
             } else {
                 parser.current_label = token.span;
             }
@@ -332,7 +334,7 @@ fn parseInstruction(
 
 fn ensureNoCurrentLabel(parser: *Parser) void {
     if (parser.current_label) |label| {
-        parser.reporter.report(.standard, error.UselessLabel, label) catch
+        parser.reporter.reportOld(.standard, error.UselessLabel, label) catch
             {};
     }
 }

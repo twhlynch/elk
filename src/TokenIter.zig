@@ -68,12 +68,12 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
         .string => |string| {
             const value = string.in(token.span).view(tokens.source);
             if (std.mem.containsAtLeast(u8, value, 1, "\n"))
-                try tokens.reporter.report(.extension, error.MultilineString, token.span);
+                try tokens.reporter.reportOld(.extension, error.MultilineString, token.span);
         },
         .integer => |integer| {
             if (integer.radix) |radix| switch (radix) {
                 .binary, .octal => {
-                    try tokens.reporter.report(.extension, error.ExtensionRadix, token.span);
+                    try tokens.reporter.reportOld(.extension, error.ExtensionRadix, token.span);
                 },
                 else => {},
             };

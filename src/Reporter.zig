@@ -20,6 +20,7 @@ io: Io,
 
 mode: Mode,
 
+// TODO: Rename to `Policy`
 pub const Mode = enum {
     strict,
     normal,
@@ -28,11 +29,125 @@ pub const Mode = enum {
 
 const Level = enum { err, warn };
 
-// TODO:
-pub const Diagnostic = struct {
-    string: []const u8,
-    code: Token.Error,
+pub const Diagnostic = union(enum) {
+    missing_origin,
+    duplicate_label: struct {
+        existing: Span,
+        new: Span,
+    },
 };
+
+pub const Response = enum {
+    /// Must be handled immediately.
+    fatal,
+    /// Must be handled in this pass.
+    major,
+
+    minor,
+    pass,
+
+    pub fn abort(response: Response) error{Reported}!noreturn {
+        return switch (response) {
+            .fatal, .major => error.Reported,
+            .minor, .pass => unreachable,
+        };
+    }
+    pub fn handle(response: Response) error{Reported}!void {
+        return switch (response) {
+            .fatal, .major => error.Reported,
+            .minor, .pass => {},
+        };
+    }
+    pub fn proceed(response: Response) void {
+        switch (response) {
+            .fatal => unreachable,
+            .major, .minor, .pass => {},
+        }
+    }
+};
+
+pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
+    const response: Response = switch (diag) {
+        .missing_origin => switch (reporter.mode) {
+            .strict => .major,
+            .normal => .minor,
+            .quiet => .pass,
+        },
+        .duplicate_label => .major,
+    };
+
+    const level: Level = switch (response) {
+        .fatal, .major => .err,
+        .minor => .warn,
+        .pass => return .pass,
+    };
+
+    reporter.count.getPtr(level).* += 1;
+
+    switch (diag) {
+        .missing_origin => {
+            reporter.printTitle("Missing .ORIG directive", level, 0);
+        },
+        .duplicate_label => |info| {
+            reporter.printTitle("Label already declared", level, 0);
+            reporter.printNote("First declared here:", info.existing, level, 1);
+            reporter.printNote("Tried to redeclare here:", info.new, level, 1);
+        },
+    }
+
+    reporter.flush();
+
+    assert(response != .pass);
+    return response;
+}
+
+fn printTitle(
+    reporter: *Reporter,
+    title: []const u8,
+    level: Level,
+    depth: usize,
+) void {
+    reporter.printDepth(depth);
+    switch (level) {
+        .err => {
+            reporter.print("\x1b[31m", .{});
+            reporter.print("Error: ", .{});
+            reporter.print("\x1b[0m", .{});
+        },
+        .warn => {
+            reporter.print("\x1b[33m", .{});
+            reporter.print("Warning: ", .{});
+            reporter.print("\x1b[0m", .{});
+        },
+    }
+    reporter.print("{s}", .{title});
+    reporter.print("\n", .{});
+}
+
+fn printNote(
+    reporter: *Reporter,
+    note: []const u8,
+    span: Span,
+    level: Level,
+    depth: usize,
+) void {
+    _ = level;
+
+    reporter.print("  " ** 1, .{});
+    reporter.print("\x1b[36m", .{});
+    reporter.print("Note: ", .{});
+    reporter.print("\x1b[0m", .{});
+    reporter.print("{s}", .{note});
+    reporter.print("\n", .{});
+
+    reporter.printContext(span, depth + 1);
+}
+
+fn printDepth(reporter: *Reporter, depth: usize) void {
+    for (0..depth) |_| {
+        reporter.print("  ", .{});
+    }
+}
 
 pub fn new(io: Io) Reporter {
     return .{
@@ -76,7 +191,7 @@ pub fn err(
     reporter.print("\x1b[0m", .{});
     reporter.print("\n", .{});
 
-    reporter.printContext(token);
+    reporter.printContext(token, 0);
 
     reporter.flush();
     return error.Reported;
@@ -97,7 +212,7 @@ pub fn warn(
     reporter.print("\x1b[0m", .{});
     reporter.print("\n", .{});
 
-    reporter.printContext(token);
+    reporter.printContext(token, 0);
 
     reporter.flush();
 }
@@ -108,7 +223,7 @@ pub const Category = enum {
 };
 
 // TODO: Rename
-pub fn report(
+pub fn reportOld(
     reporter: *Reporter,
     category: Category,
     code: anyerror,
@@ -128,7 +243,7 @@ pub fn report(
     }
 }
 
-fn printContext(reporter: *Reporter, span: Span) void {
+fn printContext(reporter: *Reporter, span: Span, depth: usize) void {
     const source = reporter.source orelse
         unreachable;
 
@@ -137,6 +252,7 @@ fn printContext(reporter: *Reporter, span: Span) void {
     while (iter.next()) |line_string| {
         const line = Span.fromSlice(line_string, source);
 
+        reporter.printDepth(depth);
         reporter.print("\x1b[36m", .{});
         reporter.print("  | ", .{});
         reporter.print("\x1b[0m", .{});
@@ -149,6 +265,7 @@ fn printContext(reporter: *Reporter, span: Span) void {
             continue;
         }
 
+        reporter.printDepth(depth);
         reporter.print("\x1b[36m", .{});
         reporter.print("  | ", .{});
         for (0..line_string.len) |i| {
