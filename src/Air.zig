@@ -12,90 +12,6 @@ const Integer = @import("integers.zig").Integer;
 origin: ?u16,
 lines: ArrayList(Line),
 
-pub const Operand = struct {
-    // Shorthand
-    pub const Register = Spanned(Value.Register);
-    pub const RegImm5 = Spanned(Value.RegImm5);
-    pub const TrapVect = Spanned(Value.TrapVect);
-    pub const Offset6 = Spanned(Value.Offset6);
-    pub const PCOffset9 = Spanned(Value.PCOffset9);
-    pub const PCOffset11 = Spanned(Value.PCOffset11);
-    pub const ConditionMask = Spanned(Value.ConditionMask);
-
-    pub fn Spanned(comptime K: type) type {
-        return struct {
-            span: Span,
-            value: K,
-        };
-    }
-
-    pub const Value = struct {
-        pub const Register = struct {
-            inner: u3,
-            pub fn bits(self: @This()) u16 {
-                return self.inner;
-            }
-        };
-
-        pub const RegImm5 = union(enum) {
-            register: u3,
-            immediate: u5,
-            pub fn bits(self: @This()) u16 {
-                return switch (self) {
-                    .register => |register| register,
-                    .immediate => |immediate| 0b100000 + @as(u16, immediate),
-                };
-            }
-        };
-
-        pub const TrapVect = struct {
-            inner: u8,
-            pub fn bits(self: @This()) u16 {
-                return self.inner;
-            }
-        };
-
-        pub const Offset6 = struct {
-            inner: i6,
-            pub fn bits(self: @This()) u16 {
-                return @as(u6, @bitCast(self.inner));
-            }
-        };
-
-        pub const PCOffset9 = union(enum) {
-            unresolved,
-            resolved: i9,
-            pub fn bits(self: @This()) u16 {
-                assert(self == .resolved);
-                return @as(u9, @bitCast(self.resolved));
-            }
-        };
-
-        pub const PCOffset11 = union(enum) {
-            unresolved,
-            resolved: i11,
-            pub fn bits(self: @This()) u16 {
-                assert(self == .resolved);
-                return @as(u11, @bitCast(self.resolved));
-            }
-        };
-
-        // TODO: Rename ?
-        pub const ConditionMask = enum(u3) {
-            n = 0b100,
-            z = 0b010,
-            p = 0b001,
-            nz = 0b110,
-            zp = 0b011,
-            np = 0b101,
-            nzp = 0b111,
-            pub fn bits(self: @This()) u16 {
-                return @intFromEnum(self);
-            }
-        };
-    };
-};
-
 pub const Line = struct {
     label: ?Span,
     statement: Statement,
@@ -262,6 +178,90 @@ pub const Statement = union(enum) {
                 }
             }
         }
+    };
+};
+
+pub const Operand = struct {
+    // Shorthand
+    pub const Register = Spanned(Value.Register);
+    pub const RegImm5 = Spanned(Value.RegImm5);
+    pub const TrapVect = Spanned(Value.TrapVect);
+    pub const Offset6 = Spanned(Value.Offset6);
+    pub const PCOffset9 = Spanned(Value.PCOffset9);
+    pub const PCOffset11 = Spanned(Value.PCOffset11);
+    pub const ConditionMask = Spanned(Value.ConditionMask);
+
+    pub fn Spanned(comptime K: type) type {
+        return struct {
+            span: Span,
+            value: K,
+        };
+    }
+
+    pub const Value = struct {
+        pub const Register = struct {
+            inner: u3,
+            pub fn bits(self: @This()) u16 {
+                return self.inner;
+            }
+        };
+
+        pub const RegImm5 = union(enum) {
+            register: u3,
+            immediate: u5,
+            pub fn bits(self: @This()) u16 {
+                return switch (self) {
+                    .register => |register| register,
+                    .immediate => |immediate| 0b100000 + @as(u16, immediate),
+                };
+            }
+        };
+
+        pub const TrapVect = struct {
+            inner: u8,
+            pub fn bits(self: @This()) u16 {
+                return self.inner;
+            }
+        };
+
+        pub const Offset6 = struct {
+            inner: i6,
+            pub fn bits(self: @This()) u16 {
+                return @as(u6, @bitCast(self.inner));
+            }
+        };
+
+        pub const PCOffset9 = union(enum) {
+            unresolved,
+            resolved: i9,
+            pub fn bits(self: @This()) u16 {
+                assert(self == .resolved);
+                return @as(u9, @bitCast(self.resolved));
+            }
+        };
+
+        pub const PCOffset11 = union(enum) {
+            unresolved,
+            resolved: i11,
+            pub fn bits(self: @This()) u16 {
+                assert(self == .resolved);
+                return @as(u11, @bitCast(self.resolved));
+            }
+        };
+
+        // TODO: Rename ?
+        pub const ConditionMask = enum(u3) {
+            n = 0b100,
+            z = 0b010,
+            p = 0b001,
+            nz = 0b110,
+            zp = 0b011,
+            np = 0b101,
+            nzp = 0b111,
+            pub fn bits(self: @This()) u16 {
+                return @intFromEnum(self);
+            }
+        };
     };
 };
 
