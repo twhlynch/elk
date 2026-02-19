@@ -9,7 +9,7 @@ const assert = std.debug.assert;
 const Span = @import("Span.zig");
 const Integer = @import("integers.zig").SourceInt;
 
-origin: ?u16,
+origin: u16,
 lines: ArrayList(Line),
 
 pub const Line = struct {
@@ -269,7 +269,7 @@ pub const Operand = struct {
 
 pub fn init() Air {
     return .{
-        .origin = null,
+        .origin = 0x3000,
         .lines = .empty,
     };
 }
@@ -286,7 +286,7 @@ pub fn getFirstSpan(air: *const Air) ?Span {
 }
 
 pub fn emit(air: *const Air, writer: *Io.Writer) !void {
-    try writer.writeInt(u16, air.origin.?, .big);
+    try writer.writeInt(u16, air.origin, .big);
 
     for (air.lines.items) |line| {
         const raw = encode(line.statement);

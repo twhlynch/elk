@@ -18,6 +18,7 @@ allocator: Allocator,
 
 tokens: TokenIter,
 current_label: ?Span,
+origin: ?Span,
 
 source: []const u8,
 reporter: *Reporter,
@@ -33,6 +34,7 @@ pub fn new(
         .allocator = allocator,
         .tokens = .new(source, reporter),
         .current_label = null,
+        .origin = null,
         .source = source,
         .reporter = reporter,
     };
@@ -68,11 +70,10 @@ pub fn parse(parser: *Parser) error{OutOfMemory}!void {
         }
     }
 
-    if (parser.air.origin == null) {
+    if (parser.origin == null) {
         parser.reporter.report(.{ .missing_origin = .{
             .first_token = parser.air.getFirstSpan(),
         } }).proceed();
-        parser.air.origin = 0x3000;
     }
 
     if (parser.current_label) |existing| {
@@ -214,16 +215,10 @@ fn parseDirective(
             }
 
             const origin = try parser.tokens.expectArgument(.word);
-            if (parser.air.origin != null) {
+            if (parser.origin) |existing| {
                 try parser.reporter.report(.{ .multiple_origins = .{
-                    .existing = origin.span,
+                    .existing = existing,
                     .new = origin.span,
-                } }).abort();
-            }
-            if (parser.air.lines.items.len > 0) {
-                try parser.reporter.report(.{ .late_origin = .{
-                    .origin = origin.span,
-                    .first_token = parser.air.getFirstSpan(),
                 } }).abort();
             }
             parser.air.origin = origin.value.castToUnsigned() orelse {
@@ -231,6 +226,14 @@ fn parseDirective(
                     .integer = origin.span,
                 } }).abort();
             };
+            parser.origin = origin.span;
+
+            if (parser.air.lines.items.len > 0) {
+                try parser.reporter.report(.{ .late_origin = .{
+                    .origin = origin.span,
+                    .first_token = parser.air.getFirstSpan(),
+                } }).abort();
+            }
         },
 
         .fill => {
