@@ -44,6 +44,23 @@ pub fn Integer(comptime bits: u16) type {
                     return error.IntegerTooLarge,
             };
         }
+
+        pub fn shrink(
+            integer: Self,
+            comptime new_bits: u16,
+        ) error{IntegerTooLarge}!Integer(new_bits) {
+            assert(new_bits < bits);
+            return switch (integer) {
+                .unsigned => |unsigned| .{
+                    .unsigned = math.cast(Integer(new_bits).Unsigned, unsigned) orelse
+                        return error.IntegerTooLarge,
+                },
+                .signed => |signed| .{
+                    .signed = math.cast(Integer(new_bits).Signed, signed) orelse
+                        return error.IntegerTooLarge,
+                },
+            };
+        }
     };
 }
 

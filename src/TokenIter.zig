@@ -162,11 +162,11 @@ pub const Argument = union(enum) {
                 },
                 Operand.Value.RegImm5 => switch (value) {
                     .register => |register| .{ .register = register },
-                    .integer => |integer| .{ .immediate = try integer.castToSmaller(u5) },
+                    .integer => |integer| .{ .immediate = try integer.shrink(5) },
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.Offset6 => switch (value) {
-                    .integer => |integer| .{ .inner = try integer.castToSmaller(i6) },
+                    .integer => |integer| .{ .inner = try integer.shrink(6) },
                     else => error.UnexpectedTokenKind,
                 },
                 Operand.Value.PCOffset9 => switch (value) {

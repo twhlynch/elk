@@ -207,12 +207,14 @@ pub const Operand = struct {
         };
 
         pub const RegImm5 = union(enum) {
+            // TODO: Use `Register`
             register: u3,
-            immediate: u5,
+            immediate: Integer(5),
             pub fn bits(self: @This()) u16 {
                 return switch (self) {
                     .register => |register| register,
-                    .immediate => |immediate| 0b100000 + @as(u16, immediate),
+                    .immediate => |immediate| 0b100000 +
+                        @as(u16, immediate.bitcastToUnsigned()),
                 };
             }
         };
@@ -225,9 +227,9 @@ pub const Operand = struct {
         };
 
         pub const Offset6 = struct {
-            inner: i6,
+            inner: Integer(6),
             pub fn bits(self: @This()) u16 {
-                return @as(u6, @bitCast(self.inner));
+                return @as(u6, self.inner.bitcastToUnsigned());
             }
         };
 
