@@ -33,6 +33,9 @@ pub const Diagnostic = union(enum) {
     missing_origin: struct {
         first_token: ?Span,
     },
+    missing_end: struct {
+        last_token: ?Span,
+    },
     duplicate_label: struct {
         existing: Span,
         new: Span,
@@ -76,6 +79,11 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
             .normal => .minor,
             .quiet => .pass,
         },
+        .missing_end => switch (reporter.mode) {
+            .strict => .major,
+            .normal => .minor,
+            .quiet => .pass,
+        },
         .duplicate_label => .major,
     };
 
@@ -88,13 +96,24 @@ pub fn report(reporter: *Reporter, diag: Diagnostic) Response {
     reporter.count.getPtr(level).* += 1;
 
     const ctx: Ctx = .{ .reporter = reporter, .level = level };
+    const source = reporter.source orelse
+        unreachable;
 
     switch (diag) {
         .missing_origin => |info| {
             ctx.printTitle("Missing .ORIG directive");
             ctx.deepen().printNote(
-                "Origin should be declared at start of file:",
+                "Origin should be declared before any instructions:",
                 info.first_token orelse .{ .offset = 0, .len = 1 },
+            );
+        },
+        .missing_end => |info| {
+            ctx.printTitle("Missing .END directive");
+            ctx.deepen().printNote(
+                "End should be declared after included instructions:",
+                info.last_token orelse
+                    // -1, then -1 in case of trailing newline
+                    .{ .offset = source.len - 2, .len = 2 },
             );
         },
         .duplicate_label => |info| {

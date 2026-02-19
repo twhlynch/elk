@@ -278,7 +278,7 @@ pub fn deinit(air: *Air, allocator: Allocator) void {
     air.lines.deinit(allocator);
 }
 
-pub fn getFirstToken(air: *const Air) ?Span {
+pub fn getFirstSpan(air: *const Air) ?Span {
     if (air.lines.items.len == 0)
         return null;
     return air.lines.items[0].label orelse

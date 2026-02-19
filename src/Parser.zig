@@ -54,8 +54,9 @@ pub fn parse(parser: *Parser) error{OutOfMemory}!void {
                 continue;
             },
             error.Eof => {
-                parser.reporter.reportOld(.extension, error.ExpectedEnd, .emptyAt(parser.source.len)) catch
-                    {};
+                parser.reporter.report(.{ .missing_end = .{
+                    .last_token = null,
+                } }).proceed();
                 break;
             },
             error.OutOfMemory => |other| return other,
@@ -69,7 +70,7 @@ pub fn parse(parser: *Parser) error{OutOfMemory}!void {
 
     if (parser.air.origin == null) {
         parser.reporter.report(.{ .missing_origin = .{
-            .first_token = parser.air.getFirstToken(),
+            .first_token = parser.air.getFirstSpan(),
         } }).proceed();
         parser.air.origin = 0x3000;
     }
