@@ -5,7 +5,7 @@ const Air = @import("Air.zig");
 const Parser = @import("Parser.zig");
 const Reporter = @import("Reporter.zig");
 
-pub fn main(init: std.process.Init) !void {
+pub fn main(init: std.process.Init) !u8 {
     const io, const gpa = .{ init.io, init.gpa };
 
     var reporter = Reporter.new(io);
@@ -48,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
 
     parser.resolveLabels();
 
-    // if (false) //
+    if (false) //
     {
         var was_raw_word = false;
         for (air.lines.items, 0..) |line, i| {
@@ -71,9 +71,12 @@ pub fn main(init: std.process.Init) !void {
 
     // if (true) return;
 
-    if (reporter.endSection() == .err) {
-        std.log.info("stop", .{});
-        return;
+    // if (false) //
+    {
+        if (reporter.endSection() == .err) {
+            std.log.info("stop", .{});
+            return 1;
+        }
     }
 
     {
@@ -88,6 +91,8 @@ pub fn main(init: std.process.Init) !void {
         try air.emit(&writer.interface);
         try writer.flush();
     }
+
+    return 0;
 }
 
 comptime {
