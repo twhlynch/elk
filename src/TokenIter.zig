@@ -173,13 +173,7 @@ pub fn expectArgument(
     comptime argument: Argument,
 ) error{ Reported, Eof }!Operand.Spanned(argument.Value()) {
     const token = try tokens.nextAny();
-    const value = argument.convert(token, tokens.reporter) catch |err| {
-        // TODO: Remove
-        try tokens.reporter.report(.generic, .{
-            .code = err,
-            .span = token.span,
-        }).abort();
-    };
+    const value = try argument.convert(token, tokens.reporter);
     try tokens.ensureSupported(token);
     return .{ .span = token.span, .value = value };
 }
@@ -197,16 +191,11 @@ pub const Argument = union(enum) {
         };
     }
 
-    const ConvertError = error{
-        IntegerTooLarge,
-        Reported,
-    };
-
     fn convert(
         comptime argument: Argument,
         token: Token,
         reporter: *Reporter,
-    ) ConvertError!argument.Value() {
+    ) error{Reported}!argument.Value() {
         // TODO: Remove
         const value = token.value;
 
@@ -230,6 +219,9 @@ pub const Argument = union(enum) {
                 Operand.Value.RegImm5 => switch (value) {
                     .register => |register| .{ .register = register },
                     .integer => |integer| .{
+                        // TODO: Allow +1 bit for unsigned literals, which will
+                        // be later bitcast to negative. Warn for this!
+                        // Same with Offset6, but probably not with PCOffset*
                         .immediate = try shrink(reporter, token, integer, i5),
                     },
                     else => try unexpected(reporter, token, &.{ .register, .integer }),
