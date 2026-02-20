@@ -230,34 +230,40 @@ pub const Argument = union(enum) {
                 Operand.Value.RegImm5 => switch (value) {
                     .register => |register| .{ .register = register },
                     .integer => |integer| .{
-                        .immediate = try integer.castToSmaller(i5),
+                        .immediate = try shrink(reporter, token, integer, i5),
                     },
                     else => try unexpected(reporter, token, &.{ .register, .integer }),
                 },
 
                 Operand.Value.Offset6 => switch (value) {
                     .integer => |integer| .{
-                        .inner = try integer.castToSmaller(i6),
+                        .inner = try shrink(reporter, token, integer, i6),
                     },
                     else => try unexpected(reporter, token, &.{.integer}),
                 },
 
                 Operand.Value.PCOffset9 => switch (value) {
                     // TODO: Integer literals here may be non-standard; warn
-                    .integer => |integer| .{ .resolved = try integer.castToSmaller(i9) },
+                    .integer => |integer| .{
+                        .resolved = try shrink(reporter, token, integer, i9),
+                    },
                     .label => .unresolved,
                     else => try unexpected(reporter, token, &.{ .label, .integer }),
                 },
 
                 Operand.Value.PCOffset11 => switch (value) {
                     // TODO: Integer literals here may be non-standard; warn
-                    .integer => |integer| .{ .resolved = try integer.castToSmaller(i11) },
+                    .integer => |integer| .{
+                        .resolved = try shrink(reporter, token, integer, i11),
+                    },
                     .label => .unresolved,
                     else => try unexpected(reporter, token, &.{ .label, .integer }),
                 },
 
                 Operand.Value.TrapVect => switch (value) {
-                    .integer => |integer| .{ .inner = try integer.castToSmaller(u8) },
+                    .integer => |integer| .{
+                        .inner = try shrink(reporter, token, integer, u8),
+                    },
                     else => try unexpected(reporter, token, &.{.integer}),
                 },
 
@@ -266,6 +272,22 @@ pub const Argument = union(enum) {
         };
     }
 };
+
+fn shrink(
+    reporter: *Reporter,
+    token: Token,
+    integer: SourceInt(16),
+    comptime T: type,
+) error{Reported}!T {
+    return integer.castToSmaller(T) catch |err| switch (err) {
+        error.IntegerTooLarge => {
+            try reporter.report(.integer_too_large, .{
+                .integer = token,
+                .bits = @typeInfo(T).int.bits,
+            }).abort();
+        },
+    };
+}
 
 fn unexpected(
     reporter: *Reporter,
