@@ -264,7 +264,10 @@ fn endOfInteger(sign: ?Sign, prefix: Prefix) !?Word {
     // zero, or an implicit decimal radix
     return if (sign != null or
         prefix.leading_zeros or
-        prefix.radix == .decimal) error.InvalidInteger else null;
+        (prefix.radix orelse .decimal) == .decimal)
+        error.InvalidInteger
+    else
+        null;
 }
 
 test takeSign {
