@@ -16,12 +16,9 @@ pub fn main(init: std.process.Init) !u8 {
     const source = try Io.Dir.cwd().readFileAlloc(io, asm_path, gpa, .unlimited);
     defer gpa.free(source);
 
-    const strictness: Reporter.Strictness = .normal;
-    const verbosity: Reporter.Verbosity = .quiet;
-
     reporter.setSource(source);
-    reporter.setStrictness(strictness);
-    reporter.setVerbosity(verbosity);
+    reporter.options.strictness = .normal;
+    reporter.options.verbosity = .normal;
 
     var air: Air = .init();
     defer air.deinit(gpa);

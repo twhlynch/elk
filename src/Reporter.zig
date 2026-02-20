@@ -9,10 +9,7 @@ const Span = @import("Span.zig");
 
 const BUFFER_SIZE = 1024;
 
-// TODO: Group as `Options`
-strictness: Strictness,
-verbosity: Verbosity,
-
+options: Options,
 source: ?[]const u8,
 count: std.EnumArray(Level, usize),
 
@@ -23,25 +20,30 @@ io: Io,
 
 const Level = enum { err, warn };
 
-// TODO: Rename
-pub const Strictness = enum {
-    strict,
-    normal,
-    relaxed,
+pub const Options = struct {
+    strictness: Strictness = .normal,
+    verbosity: Verbosity = .normal,
 
-    fn standardResponse(strictness: Strictness) Response {
-        return switch (strictness) {
-            .strict => .major,
-            .normal => .minor,
-            .relaxed => .pass,
-        };
-    }
-};
+    // TODO: Rename
+    pub const Strictness = enum {
+        strict,
+        normal,
+        relaxed,
 
-pub const Verbosity = enum {
-    verbose,
-    normal,
-    quiet,
+        fn standardResponse(strictness: Strictness) Response {
+            return switch (strictness) {
+                .strict => .major,
+                .normal => .minor,
+                .relaxed => .pass,
+            };
+        }
+    };
+
+    pub const Verbosity = enum {
+        verbose,
+        normal,
+        quiet,
+    };
 };
 
 pub const Diagnostic = union(enum) {
@@ -160,8 +162,7 @@ pub const Response = enum {
 
 pub fn new(io: Io) Reporter {
     return .{
-        .strictness = .normal,
-        .verbosity = .normal,
+        .options = .{},
         .source = null,
         .count = .initFill(0),
         .file = undefined,
@@ -179,13 +180,6 @@ pub fn init(reporter: *Reporter) !void {
 pub fn setSource(reporter: *Reporter, source: []const u8) void {
     assert(reporter.source == null);
     reporter.source = source;
-}
-
-pub fn setStrictness(reporter: *Reporter, strictness: Strictness) void {
-    reporter.strictness = strictness;
-}
-pub fn setVerbosity(reporter: *Reporter, verbosity: Verbosity) void {
-    reporter.verbosity = verbosity;
 }
 
 pub fn endSection(reporter: *Reporter) ?Level {
@@ -227,15 +221,15 @@ pub fn report(
 
 fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
     const response: Response = switch (diag) {
-        .missing_origin => reporter.strictness.standardResponse(),
+        .missing_origin => reporter.options.strictness.standardResponse(),
         .multiple_origins => .fatal,
         .late_origin => .fatal,
-        .missing_end => reporter.strictness.standardResponse(),
+        .missing_end => reporter.options.strictness.standardResponse(),
         .duplicate_label => .fatal,
         .unexpected_label => .major,
-        .shadowed_label => reporter.strictness.standardResponse(),
-        .useless_label => reporter.strictness.standardResponse(),
-        .eof_label => reporter.strictness.standardResponse(),
+        .shadowed_label => reporter.options.strictness.standardResponse(),
+        .useless_label => reporter.options.strictness.standardResponse(),
+        .eof_label => reporter.options.strictness.standardResponse(),
         .undeclared_label => .fatal,
         .offset_too_large => .fatal,
         .unexpected_token_kind => .fatal,
@@ -245,9 +239,9 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .unmatched_quote => .fatal,
         .unexpected_negative_integer => .fatal,
         .integer_too_large => .fatal,
-        .invalid_string_escape => reporter.strictness.standardResponse(),
-        .multiline_string => reporter.strictness.standardResponse(),
-        .nonstandard_integer_radix => reporter.strictness.standardResponse(),
+        .invalid_string_escape => reporter.options.strictness.standardResponse(),
+        .multiline_string => reporter.options.strictness.standardResponse(),
+        .nonstandard_integer_radix => reporter.options.strictness.standardResponse(),
 
         .generic_debug => .fatal,
     };
@@ -389,7 +383,7 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         },
     }
 
-    switch (ctx.reporter.verbosity) {
+    switch (ctx.reporter.options.verbosity) {
         .verbose, .normal => {
             ctx.print("\n", .{});
         },
@@ -496,7 +490,7 @@ const Ctx = struct {
 
         ctx.print(fmt, args);
 
-        switch (ctx.reporter.verbosity) {
+        switch (ctx.reporter.options.verbosity) {
             .verbose, .normal => {
                 ctx.print("\n", .{});
             },
@@ -505,7 +499,7 @@ const Ctx = struct {
     }
 
     pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
-        switch (ctx.reporter.verbosity) {
+        switch (ctx.reporter.options.verbosity) {
             .verbose, .normal => {},
             .quiet => return,
         }
@@ -532,7 +526,7 @@ const Ctx = struct {
         const source = ctx.reporter.source orelse
             unreachable;
 
-        switch (ctx.reporter.verbosity) {
+        switch (ctx.reporter.options.verbosity) {
             .verbose, .normal => {},
             .quiet => {
                 const line_number = span.getLineNumber(source);
