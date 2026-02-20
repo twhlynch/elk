@@ -493,7 +493,7 @@ const Ctx = struct {
         span: Span,
     ) void {
         ctx.printNote(fmt, args);
-        ctx.deepen().printSource(span);
+        ctx.printSource(span);
     }
 
     fn printSource(ctx: Ctx, span: Span) void {
@@ -504,10 +504,11 @@ const Ctx = struct {
         var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
         while (iter.next()) |line_string| {
             const line = Span.fromSlice(line_string, source);
+            const line_number = line.getLineNumber(source);
 
-            // TODO: Print line numbers
             ctx.printDepth();
             ctx.print("\x1b[36m", .{});
+            ctx.print("{:3} ", .{line_number});
             ctx.print("| ", .{});
             ctx.print("\x1b[0m", .{});
             ctx.print("\x1b[3m", .{});
@@ -521,7 +522,7 @@ const Ctx = struct {
 
             ctx.printDepth();
             ctx.print("\x1b[36m", .{});
-            ctx.print("| ", .{});
+            ctx.print("    | ", .{});
             for (0..line_string.len) |i| {
                 const index = line.offset + i;
                 if (index >= span.offset and index < span.end()) {
