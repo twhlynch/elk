@@ -21,16 +21,21 @@ pub fn fromSlice(slice: []const u8, source: []const u8) Span {
 }
 
 pub fn firstCharOf(source: []const u8) Span {
-    // TODO: Scan for first NON-WHITESPACE character!
-    // TODO: Handle len==0
-    _ = source;
-    return .{ .offset = 0, .len = 1 };
+    var offset: usize = 0;
+    while (offset < source.len) : (offset += 1) {
+        if (!std.ascii.isWhitespace(source[offset]))
+            break;
+    }
+    return .{ .offset = offset, .len = 0 };
 }
 
 pub fn lastCharOf(source: []const u8) Span {
-    // TODO: Scan for last NON-WHITESPACE character!
-    // TODO: Handle len==0
-    return .{ .offset = source.len - 2, .len = 1 };
+    var offset: usize = source.len -| 1;
+    while (offset > 0) : (offset -= 1) {
+        if (!std.ascii.isWhitespace(source[offset]))
+            break;
+    }
+    return .{ .offset = offset, .len = 0 };
 }
 
 pub fn end(span: Span) usize {
