@@ -143,6 +143,7 @@ fn parseLine(parser: *Parser) InnerError!Control {
         else => {
             try parser.reporter.report(.unexpected_token_kind, .{
                 .token = token,
+                .expected = &.{ .label, .instruction, .directive },
             }).abort();
         },
     }

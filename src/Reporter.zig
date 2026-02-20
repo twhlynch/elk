@@ -79,6 +79,7 @@ pub const Diagnostic = union(enum) {
     },
     unexpected_token_kind: struct {
         token: Token,
+        expected: []const TokenKinds.Kind,
     },
     unexpected_token: struct {
         token: Token,
@@ -237,19 +238,21 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.printTitle("Missing .ORIG directive", .{});
             ctx.deepen().printSourceNote(
                 "Origin should be declared before any instructions:",
+                .{},
                 info.first_token orelse .firstCharOf(source),
             );
         },
         .multiple_origins => |info| {
             ctx.printTitle("Multiple .ORIG directives", .{});
-            ctx.deepen().printSourceNote("First declared here:", info.existing);
-            ctx.deepen().printSourceNote("Tried to redeclare here:", info.new);
+            ctx.deepen().printSourceNote("First declared here:", .{}, info.existing);
+            ctx.deepen().printSourceNote("Tried to redeclare here:", .{}, info.new);
         },
         .late_origin => |info| {
             ctx.printTitle("Origin declared after statements", .{});
-            ctx.deepen().printSourceNote("Origin declared here:", info.origin);
+            ctx.deepen().printSourceNote("Origin declared here:", .{}, info.origin);
             ctx.deepen().printSourceNote(
                 "Origin must be declared at start of file",
+                .{},
                 info.first_token orelse .firstCharOf(source),
             );
         },
@@ -257,77 +260,79 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.printTitle("Missing .END directive", .{});
             ctx.deepen().printSourceNote(
                 "End should be declared after included all instructions:",
+                .{},
                 info.last_token orelse .lastCharOf(source),
             );
         },
         .duplicate_label => |info| {
             ctx.printTitle("Label already declared", .{});
-            ctx.deepen().printSourceNote("Label is first declared here:", info.existing);
-            ctx.deepen().printSourceNote("Tried to redeclare here:", info.new);
+            ctx.deepen().printSourceNote("Label is first declared here:", .{}, info.existing);
+            ctx.deepen().printSourceNote("Tried to redeclare here:", .{}, info.new);
         },
         .unexpected_label => |info| {
             ctx.printTitle("Multiple labels cannot be declared on the same line", .{});
-            ctx.deepen().printSourceNote("First label declared here:", info.existing);
-            ctx.deepen().printSourceNote("Another label declared on the same line:", info.new);
+            ctx.deepen().printSourceNote("First label declared here:", .{}, info.existing);
+            ctx.deepen().printSourceNote("Another label declared on the same line:", .{}, info.new);
         },
         .shadowed_label => |info| {
             ctx.printTitle("Shadowed label has no use", .{});
-            ctx.deepen().printSourceNote("First label declared here:", info.existing);
-            ctx.deepen().printSourceNote("Another label declared in the same position:", info.new);
+            ctx.deepen().printSourceNote("First label declared here:", .{}, info.existing);
+            ctx.deepen().printSourceNote("Another label declared in the same position:", .{}, info.new);
         },
         .useless_label => |info| {
             ctx.printTitle("Label is useless in this position", .{});
-            ctx.deepen().printSourceNote("Label declared here:", info.label);
-            ctx.deepen().printSourceNote("Token cannot be annotated with label", info.token);
+            ctx.deepen().printSourceNote("Label declared here:", .{}, info.label);
+            ctx.deepen().printSourceNote("Token cannot be annotated with label", .{}, info.token);
         },
         .undeclared_label => |info| {
             ctx.printTitle("Label is not declared", .{});
-            ctx.deepen().printSourceNote("Label used here:", info.label);
+            ctx.deepen().printSourceNote("Label used here:", .{}, info.label);
         },
         .offset_too_large => |info| {
             ctx.printTitle("Label offset is too large", .{});
-            ctx.deepen().printSourceNote("Label declared here:", info.definition);
-            ctx.deepen().printSourceNote("Label used here:", info.reference);
+            ctx.deepen().printSourceNote("Label declared here:", .{}, info.definition);
+            ctx.deepen().printSourceNote("Label used here:", .{}, info.reference);
         },
         .eof_label => |info| {
             ctx.printTitle("Label is useless in this position", .{});
-            ctx.deepen().printSourceNote("Label declared here:", info.label);
+            ctx.deepen().printSourceNote("Label declared here:", .{}, info.label);
             ctx.deepen().printSourceNote(
                 "Label is not followed by any token",
+                .{},
                 .lastCharOf(source),
             );
         },
         .unexpected_token_kind => |info| {
-            ctx.printTitle("Unexpected {s}", .{tokenKind(info.token)});
-            ctx.deepen().printSourceNote("Token:", info.token.span);
-            ctx.deepen().printNote("Expected label, instruction, or directive");
+            ctx.printTitle("Unexpected {s}", .{TokenKinds.name(info.token.value)});
+            ctx.deepen().printSourceNote("Token:", .{}, info.token.span);
+            ctx.deepen().printNote("Expected {f}", .{TokenKinds{ .kinds = info.expected }});
         },
         .unexpected_token => |info| {
-            ctx.printTitle("Unexpected {s}", .{tokenKind(info.token)});
-            ctx.deepen().printSourceNote("Token:", info.token.span);
-            ctx.deepen().printNote("Expected end of line");
+            ctx.printTitle("Unexpected {s}", .{TokenKinds.name(info.token.value)});
+            ctx.deepen().printSourceNote("Token:", .{}, info.token.span);
+            ctx.deepen().printNote("Expected end of line", .{});
         },
         .unexpected_negative_integer => |info| {
             ctx.printTitle("Integer operand cannot be negative", .{});
-            ctx.deepen().printSourceNote("Operand: ", info.integer);
+            ctx.deepen().printSourceNote("Operand: ", .{}, info.integer);
         },
         .invalid_string_escape => |info| {
             ctx.printTitle("Invalid escape sequence", .{});
-            ctx.deepen().printSourceNote("String: ", info.string);
-            ctx.deepen().printSourceNote("Erroneous escape sequence: ", info.sequence);
+            ctx.deepen().printSourceNote("String: ", .{}, info.string);
+            ctx.deepen().printSourceNote("Erroneous escape sequence: ", .{}, info.sequence);
         },
         .multiline_string => |info| {
             ctx.printTitle("String covers multiple lines", .{});
-            ctx.deepen().printSourceNote("String: ", info.string);
+            ctx.deepen().printSourceNote("String: ", .{}, info.string);
         },
         .nonstandard_integer_radix => |info| {
             ctx.printTitle("Integer uses nonstandard radix '{t}'", .{info.radix});
-            ctx.deepen().printSourceNote("Integer: ", info.integer);
+            ctx.deepen().printSourceNote("Integer: ", .{}, info.integer);
         },
 
         .generic => |info| {
             ctx.printTitle("Generic error: '{t}'", .{info.code});
-            ctx.deepen().printSourceNote("Token: ", info.span);
+            ctx.deepen().printSourceNote("Token: ", .{}, info.span);
         },
     }
 
@@ -337,19 +342,36 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
     return response;
 }
 
-fn tokenKind(token: Token) []const u8 {
-    return switch (token.value) {
-        .newline => "newline",
-        .comma => "comma `,`",
-        .colon => "colon `:`",
-        .directive => "directive",
-        .instruction => "instruction",
-        .label => "label",
-        .register => "register",
-        .integer => "integer literal",
-        .string => "string literal",
-    };
-}
+const TokenKinds = struct {
+    kinds: []const Kind,
+
+    const Kind = std.meta.Tag(Token.Value);
+
+    pub fn format(self: *const @This(), writer: *Io.Writer) !void {
+        for (self.kinds, 0..) |kind, i| {
+            if (i + 1 >= self.kinds.len)
+                try writer.print(", or ", .{})
+            else if (i > 0)
+                try writer.print(", ", .{});
+
+            try writer.print("{s}", .{name(kind)});
+        }
+    }
+
+    pub fn name(kind: Kind) []const u8 {
+        return switch (kind) {
+            .newline => "newline",
+            .comma => "comma `,`",
+            .colon => "colon `:`",
+            .directive => "directive",
+            .instruction => "instruction",
+            .label => "label",
+            .register => "register",
+            .integer => "integer literal",
+            .string => "string literal",
+        };
+    }
+};
 
 const Ctx = struct {
     reporter: *Reporter,
@@ -413,17 +435,22 @@ const Ctx = struct {
         ctx.print("\n", .{});
     }
 
-    pub fn printNote(ctx: Ctx, note: []const u8) void {
+    pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
         ctx.printDepth();
         ctx.print("\x1b[36m", .{});
         ctx.print("Note: ", .{});
         ctx.print("\x1b[0m", .{});
-        ctx.print("{s}", .{note});
+        ctx.print(fmt, args);
         ctx.print("\n", .{});
     }
 
-    pub fn printSourceNote(ctx: Ctx, note: []const u8, span: Span) void {
-        ctx.printNote(note);
+    pub fn printSourceNote(
+        ctx: Ctx,
+        comptime fmt: []const u8,
+        args: anytype,
+        span: Span,
+    ) void {
+        ctx.printNote(fmt, args);
         ctx.deepen().printSource(span);
     }
 
