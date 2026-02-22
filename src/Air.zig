@@ -127,7 +127,7 @@ pub const Statement = union(enum) {
                                 Operand.Value.RegImm5 => {
                                     try writer.print("Reg/Imm = ", .{});
                                     switch (operand.value) {
-                                        .register => |register| try writer.print("r{}", .{register}),
+                                        .register => |register| try writer.print("r{}", .{register.code}),
                                         .immediate => |immediate| try writer.print("0x{x:02}", .{immediate}),
                                     }
                                 },
@@ -199,20 +199,18 @@ pub const Operand = struct {
 
     pub const Value = struct {
         pub const Register = struct {
-            // TODO: Rename
-            inner: u3,
+            code: u3,
             pub fn bits(self: @This()) u16 {
-                return self.inner;
+                return self.code;
             }
         };
 
         pub const RegImm5 = union(enum) {
-            // TODO: Use `Register`
-            register: u3,
+            register: Value.Register,
             immediate: i5,
             pub fn bits(self: @This()) u16 {
                 return switch (self) {
-                    .register => |register| register,
+                    .register => |register| register.bits(),
                     .immediate => |immediate| 0b100000 +
                         @as(u16, @as(u5, @bitCast(immediate))),
                 };

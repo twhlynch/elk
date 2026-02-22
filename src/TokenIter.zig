@@ -234,12 +234,12 @@ pub const Argument = union(enum) {
 
             .operand => |operand| switch (operand) {
                 Operand.Value.Register => switch (token.value) {
-                    .register => |register| .{ .inner = register },
+                    .register => |register| .{ .code = register },
                     else => try unexpected(reporter, token, &.{.register}),
                 },
 
                 Operand.Value.RegImm5 => switch (token.value) {
-                    .register => |register| .{ .register = register },
+                    .register => |register| .{ .register = .{ .code = register } },
                     .integer => |integer| .{
                         // TODO: Allow +1 bit for unsigned literals, which will
                         // be later bitcast to negative. Warn for this!
