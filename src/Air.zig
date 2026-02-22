@@ -156,7 +156,6 @@ pub const Operand = struct {
             }
         };
 
-        // TODO: Rename ?
         pub const ConditionMask = enum(u3) {
             n = 0b100,
             z = 0b010,

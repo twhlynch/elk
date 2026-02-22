@@ -24,7 +24,6 @@ pub const Options = struct {
     strictness: Strictness = .normal,
     verbosity: Verbosity = .normal,
 
-    // TODO: Rename
     pub const Strictness = enum {
         strict,
         normal,
@@ -97,7 +96,6 @@ pub const Diagnostic = union(enum) {
     },
     invalid_token: struct {
         token: Span,
-        // TODO: Rename
         kind: ?TokenKinds.Kind,
     },
     unknown_directive: struct {
@@ -460,7 +458,6 @@ const Ctx = struct {
     reporter: *Reporter,
     level: ?Level,
     depth: usize,
-    // TODO: Add color/style fields
 
     pub fn new(reporter: *Reporter, level: ?Level) Ctx {
         return .{
@@ -480,7 +477,6 @@ const Ctx = struct {
             std.debug.panic("failed to flush reporter file", .{});
     }
 
-    // TODO: Rename
     pub fn deepen(ctx: Ctx) Ctx {
         var new_ctx = ctx;
         new_ctx.depth += 1;

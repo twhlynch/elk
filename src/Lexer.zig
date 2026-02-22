@@ -32,9 +32,6 @@ pub fn next(lexer: *Lexer) ?Span {
     return .fromBounds(start, lexer.getIndex());
 }
 
-// TODO: Consolidate verbs in methods
-// discard, consume, take
-
 fn discardWhitespaceAndComments(lexer: *Lexer) void {
     while (lexer.peekChar()) |char| {
         if (char.value == ';') {

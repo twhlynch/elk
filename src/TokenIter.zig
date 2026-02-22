@@ -159,7 +159,6 @@ pub fn nextExcluding(
     comptime unreachable;
 }
 
-// TODO: Rename
 pub fn nextMatching(
     tokens: *TokenIter,
     comptime match: TokenKind,

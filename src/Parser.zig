@@ -451,7 +451,6 @@ fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
     for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
             continue;
-        // TODO: should it be case insensitive ?
         if (std.mem.eql(u8, label.view(parser.source), reference))
             return index;
     }
