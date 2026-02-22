@@ -58,19 +58,6 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
     tokens.peeked = null;
     return tokens.parseToken(span) catch |err| {
         switch (err) {
-
-            // TODO: Handle with specific branches
-            error.InvalidDigit,
-            error.MalformedInteger,
-            error.ExpectedDigit,
-            error.IntegerTooLarge,
-            => {
-                try tokens.reporter.report(.generic_debug, .{
-                    .code = err,
-                    .span = span,
-                }).abort();
-            },
-
             inline error.InvalidLabel,
             error.InvalidDirective,
             error.InvalidToken,
@@ -93,6 +80,28 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
             error.UnmatchedQuote => {
                 try tokens.reporter.report(.unmatched_quote, .{
                     .string = span,
+                }).abort();
+            },
+
+            error.MalformedInteger => {
+                try tokens.reporter.report(.malformed_integer, .{
+                    .integer = span,
+                }).abort();
+            },
+            error.ExpectedDigit => {
+                try tokens.reporter.report(.expected_digit, .{
+                    .integer = span,
+                }).abort();
+            },
+            error.InvalidDigit => {
+                try tokens.reporter.report(.invalid_digit, .{
+                    .integer = span,
+                }).abort();
+            },
+            error.IntegerTooLarge => {
+                try tokens.reporter.report(.integer_too_large, .{
+                    .integer = span,
+                    .bits = 16,
                 }).abort();
             },
         }

@@ -5,8 +5,8 @@ const testing = std.testing;
 const assert = std.debug.assert;
 
 pub const Error = error{
-    InvalidDigit,
     MalformedInteger,
+    InvalidDigit,
     ExpectedDigit,
     IntegerTooLarge,
 };

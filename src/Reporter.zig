@@ -109,6 +109,15 @@ pub const Diagnostic = union(enum) {
     unexpected_negative_integer: struct {
         integer: Span,
     },
+    malformed_integer: struct {
+        integer: Span,
+    },
+    expected_digit: struct {
+        integer: Span,
+    },
+    invalid_digit: struct {
+        integer: Span,
+    },
     integer_too_large: struct {
         integer: Span,
         bits: u16,
@@ -238,6 +247,9 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .unknown_directive => .fatal,
         .unmatched_quote => .fatal,
         .unexpected_negative_integer => .fatal,
+        .malformed_integer => .fatal,
+        .expected_digit => .fatal,
+        .invalid_digit => .fatal,
         .integer_too_large => .fatal,
         .invalid_string_escape => reporter.options.strictness.standardResponse(),
         .multiline_string => reporter.options.strictness.standardResponse(),
@@ -358,6 +370,21 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.printTitle("Integer operand cannot be negative", .{});
             ctx.deepen().printSourceNote("Operand ", .{}, info.integer);
         },
+        .malformed_integer => |info| {
+            ctx.printTitle("Malformed integer operand", .{});
+            ctx.deepen().printSourceNote("Operand ", .{}, info.integer);
+            ctx.deepen().printNote("Integer token is not in an valid form", .{});
+        },
+        .expected_digit => |info| {
+            ctx.printTitle("Expected digit in integer operand", .{});
+            ctx.deepen().printSourceNote("Operand ", .{}, info.integer);
+            ctx.deepen().printNote("Integer token ended unexpectedly", .{});
+        },
+        .invalid_digit => |info| {
+            ctx.printTitle("Invalid digit in integer operand", .{});
+            ctx.deepen().printSourceNote("Operand ", .{}, info.integer);
+            ctx.deepen().printNote("Integer token contains a character which is not valid in the base", .{});
+        },
         .integer_too_large => |info| {
             ctx.printTitle("Integer operand is too large", .{});
             ctx.deepen().printSourceNote("Operand ", .{}, info.integer);
@@ -373,7 +400,7 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.deepen().printSourceNote("String ", .{}, info.string);
         },
         .nonstandard_integer_radix => |info| {
-            ctx.printTitle("Integer uses nonstandard radix '{t}'", .{info.radix});
+            ctx.printTitle("Integer uses nonstandard base '{t}'", .{info.radix});
             ctx.deepen().printSourceNote("Integer ", .{}, info.integer);
         },
 
