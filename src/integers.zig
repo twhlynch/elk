@@ -15,29 +15,32 @@ pub fn SourceInt(comptime bits: u16) type {
     return struct {
         const Self = @This();
 
-        pub const Form = union(enum) {
-            bare,
-            only_radix: Radix,
-            sign_radix: Radix,
-            sign_zero_radix: Radix,
-            radix_sign: Radix,
-
-            pub fn getRadix(form: Form) ?Radix {
-                return switch (form) {
-                    .bare => null,
-                    inline else => |radix| radix,
-                };
-            }
-        };
-
         /// Do not use without considering `signedness`.
         underlying: Unsigned,
+        // TODO: Redundant, if can use `form.sign` ??
         signedness: Signedness,
         form: Form,
 
         const Unsigned = @Int(.unsigned, bits);
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
+
+        pub const Form = struct {
+            radix: ?Radix,
+            sign: ?SignInfo,
+            leading_zero: bool,
+
+            // TODO: Rename
+            const SignInfo = struct {
+                value: Sign,
+                position: enum { pre_radix, post_radix },
+            };
+
+            pub fn signValue(form: Form) ?Sign {
+                const sign = form.sign orelse return null;
+                return sign.value;
+            }
+        };
 
         fn asUnsigned(integer: Self) Unsigned {
             assert(integer.signedness == .unsigned);
@@ -69,7 +72,7 @@ pub fn SourceInt(comptime bits: u16) type {
 
 const Word = SourceInt(16);
 
-const Sign = enum(i2) {
+pub const Sign = enum(i2) {
     negative = -1,
     positive = 1,
 };
@@ -143,7 +146,14 @@ pub fn tryInteger(string: []const u8) Error!?Word {
     const prefix = switch (try takePrefix(&chars)) {
         .regular => |prefix| prefix,
         .single_zero => {
-            return try makeWord(0, null, null);
+            // This early return is necessary since this zero was consumed as a
+            // leading zero. If we continue with the remaining empty string, it
+            // will incorrectly fail as an invalid integer.
+            return try makeWord(0, .{
+                .radix = null,
+                .sign = null,
+                .leading_zero = false,
+            });
         },
         .non_integer => {
             // Initial sign always indicates an integer
@@ -162,22 +172,28 @@ pub fn tryInteger(string: []const u8) Error!?Word {
     const second_sign = takeSign(&chars);
     const sign = try reconcileSigns(first_sign, second_sign);
 
+    const form: Word.Form = .{
+        .radix = prefix.radix,
+        .sign = sign,
+        .leading_zero = prefix.leading_zeros,
+    };
+
     // Check if anything follows prefix (also covers "" case)
     // Otherwise loop would be skipped and value assumed to be `0`
     if (chars.peek() == null)
-        return endOfInteger(sign, prefix, null);
+        return endOfInteger(form, null);
 
     var oversize: Word.Oversize = 0;
     const real_radix = prefix.radix orelse Radix.default;
 
     while (chars.next()) |char| {
         const digit = real_radix.parse_digit(char) orelse
-            return endOfInteger(sign, prefix, char);
+            return endOfInteger(form, char);
         appendDigit(&oversize, real_radix, digit) catch
             return error.IntegerTooLarge;
     }
 
-    return try makeWord(oversize, sign, prefix.radix);
+    return try makeWord(oversize, form);
 }
 
 fn appendDigit(
@@ -189,10 +205,11 @@ fn appendDigit(
     oversize.* = try math.add(Word.Oversize, oversize.*, digit);
 }
 
-fn makeWord(oversize: Word.Oversize, sign: ?Sign, radix_opt: ?Radix) Error!Word {
+// TODO: Move to method of `SourceInt`
+fn makeWord(oversize: Word.Oversize, form: Word.Form) Error!Word {
     // Always represent `0` as unsigned.
     const signedness: Signedness =
-        if (sign == .negative and oversize != 0) .signed else .unsigned;
+        if (form.signValue() == .negative and oversize != 0) .signed else .unsigned;
 
     // Try to fit in the appropriate `SourceInt` variant
     const underlying: Word.Unsigned = switch (signedness) {
@@ -201,11 +218,6 @@ fn makeWord(oversize: Word.Oversize, sign: ?Sign, radix_opt: ?Radix) Error!Word 
         .signed => @bitCast(math.cast(Word.Signed, -1 * oversize) orelse
             return error.IntegerTooLarge),
     };
-
-    const form: Word.Form = if (radix_opt) |radix|
-        .{ .only_radix = radix }
-    else
-        .bare;
 
     return .{
         .underlying = underlying,
@@ -234,6 +246,7 @@ fn takePrefix(chars: *CharIter) !union(enum) {
 } {
     // Only take ONE leading zero here
     // Caller can disallow "00x..." etc.
+    // TODO: Rename to `zero` in ALL places
     const leading_zeros =
         if (chars.peek() == '0') blk: {
             _ = chars.next();
@@ -277,23 +290,29 @@ fn takePrefix(chars: *CharIter) !union(enum) {
     } };
 }
 
-fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Sign {
+fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Word.Form.SignInfo {
     if (first_opt) |first| {
-        // Disallow multiple sign characters: "-x-...", "++...", etc
-        return if (second_opt) |_| error.MalformedInteger else first;
+        if (second_opt) |_|
+            // Disallow multiple sign characters: "-x-...", "++...", etc
+            return error.MalformedInteger
+        else
+            return .{ .value = first, .position = .pre_radix };
     } else {
-        return if (second_opt) |second| second else null;
+        if (second_opt) |second|
+            return .{ .value = second, .position = .post_radix }
+        else
+            return null;
     }
 }
 
-fn endOfInteger(sign: ?Sign, prefix: Prefix, char: ?u8) !?Word {
+fn endOfInteger(form: Word.Form, char: ?u8) !?Word {
     // Any of these conditions indicate an invalid integer token (as opposed to
     // a possibly-valid non-integer token)
     // Note that a leading decimal digit (`^[0-9]`) will lead to a pre-prefix
     // zero, or an implicit decimal radix
-    if (sign != null or
-        prefix.leading_zeros or
-        (prefix.radix orelse .decimal) == .decimal)
+    if (form.signValue() != null or
+        form.leading_zero or
+        (form.radix orelse .decimal) == .decimal)
     {
         return if (char == null) error.ExpectedDigit else error.InvalidDigit;
     } else {
