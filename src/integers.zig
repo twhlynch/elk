@@ -82,6 +82,7 @@ pub const Form = struct {
     sign: ?SignInfo,
     /// Pre-radix leading zero (or any leading zero, if `radix==null`).
     /// Not affected by post-radix leading zeros.
+    /// Note that `zero==false` for `"0"`, but not for `"00"`, `"000"`, etc.
     zero: bool,
 
     pub const Radix = enum(u8) {
@@ -125,9 +126,19 @@ pub const Form = struct {
     // TODO: Rename
     pub const SignInfo = struct {
         value: Sign,
+        /// Note that `position==.pre_radix` when `radix==null`.
         position: enum { pre_radix, post_radix },
 
-        fn from(pre_radix: ?Form.Sign, post_radix: ?Form.Sign) !?Form.SignInfo {
+        fn fromSingle(pre_radix: ?Form.Sign) ?Form.SignInfo {
+            const value = pre_radix orelse
+                return null;
+            return .{
+                .value = value,
+                .position = .pre_radix,
+            };
+        }
+
+        fn fromPair(pre_radix: ?Form.Sign, post_radix: ?Form.Sign) !?Form.SignInfo {
             if (pre_radix) |first| {
                 if (post_radix) |_|
                     // Disallow multiple sign characters: "-x-...", "++...", etc
@@ -190,7 +201,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
             // will incorrectly fail as an invalid integer.
             return try Word.from(0, .{
                 .radix = null,
-                .sign = null,
+                .sign = Form.SignInfo.fromSingle(first_sign),
                 .zero = false,
             });
         },
@@ -209,7 +220,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
     };
 
     const second_sign = takeSign(&chars);
-    const sign = try Form.SignInfo.from(first_sign, second_sign);
+    const sign = try Form.SignInfo.fromPair(first_sign, second_sign);
 
     const form: Form = .{
         .radix = prefix.radix,
