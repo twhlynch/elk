@@ -42,6 +42,26 @@ pub fn SourceInt(comptime bits: u16) type {
             }
         };
 
+        fn from(oversize: Oversize, form: Form) Error!Self {
+            // Always represent `0` as unsigned.
+            const signedness: Signedness =
+                if (form.signValue() == .negative and oversize != 0) .signed else .unsigned;
+
+            // Try to fit in the appropriate `SourceInt` variant
+            const underlying: Unsigned = switch (signedness) {
+                .unsigned => @bitCast(math.cast(Unsigned, oversize) orelse
+                    return error.IntegerTooLarge),
+                .signed => @bitCast(math.cast(Signed, -1 * oversize) orelse
+                    return error.IntegerTooLarge),
+            };
+
+            return .{
+                .underlying = underlying,
+                .signedness = signedness,
+                .form = form,
+            };
+        }
+
         fn asUnsigned(integer: Self) Unsigned {
             assert(integer.signedness == .unsigned);
             return integer.underlying;
@@ -149,7 +169,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
             // This early return is necessary since this zero was consumed as a
             // leading zero. If we continue with the remaining empty string, it
             // will incorrectly fail as an invalid integer.
-            return try makeWord(0, .{
+            return try Word.from(0, .{
                 .radix = null,
                 .sign = null,
                 .leading_zero = false,
@@ -193,7 +213,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
             return error.IntegerTooLarge;
     }
 
-    return try makeWord(oversize, form);
+    return try Word.from(oversize, form);
 }
 
 fn appendDigit(
@@ -203,27 +223,6 @@ fn appendDigit(
 ) error{Overflow}!void {
     oversize.* = try math.mul(Word.Oversize, oversize.*, @intFromEnum(radix));
     oversize.* = try math.add(Word.Oversize, oversize.*, digit);
-}
-
-// TODO: Move to method of `SourceInt`
-fn makeWord(oversize: Word.Oversize, form: Word.Form) Error!Word {
-    // Always represent `0` as unsigned.
-    const signedness: Signedness =
-        if (form.signValue() == .negative and oversize != 0) .signed else .unsigned;
-
-    // Try to fit in the appropriate `SourceInt` variant
-    const underlying: Word.Unsigned = switch (signedness) {
-        .unsigned => @bitCast(math.cast(Word.Unsigned, oversize) orelse
-            return error.IntegerTooLarge),
-        .signed => @bitCast(math.cast(Word.Signed, -1 * oversize) orelse
-            return error.IntegerTooLarge),
-    };
-
-    return .{
-        .underlying = underlying,
-        .signedness = signedness,
-        .form = form,
-    };
 }
 
 fn takeSign(chars: *CharIter) ?Sign {
