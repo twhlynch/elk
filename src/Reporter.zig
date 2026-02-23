@@ -131,6 +131,13 @@ pub const Diagnostic = union(enum) {
         integer: Span,
         radix: @import("integers.zig").Form.Radix,
     },
+    nonstandard_integer_form: struct {
+        integer: Span,
+        reason: enum {
+            post_radix_sign,
+            missing_zero,
+        },
+    },
 
     generic_debug: struct {
         code: anyerror,
@@ -252,6 +259,7 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .invalid_string_escape => reporter.options.strictness.standardResponse(),
         .multiline_string => reporter.options.strictness.standardResponse(),
         .nonstandard_integer_radix => reporter.options.strictness.standardResponse(),
+        .nonstandard_integer_form => reporter.options.strictness.standardResponse(),
 
         .generic_debug => .fatal,
     };
@@ -398,8 +406,16 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.deepen().printSourceNote("String", .{}, info.string);
         },
         .nonstandard_integer_radix => |info| {
-            ctx.printTitle("Integer uses nonstandard base '{t}'", .{info.radix});
+            ctx.printTitle("Integer uses nonstandard base specifier '{t}'", .{info.radix});
             ctx.deepen().printSourceNote("Integer", .{}, info.integer);
+        },
+        .nonstandard_integer_form => |info| {
+            ctx.printTitle("Integer uses nonstandard syntax", .{});
+            ctx.deepen().printSourceNote("Integer", .{}, info.integer);
+            ctx.deepen().printNote("{s}", .{switch (info.reason) {
+                .post_radix_sign => "Sign character should appear before base specifier",
+                .missing_zero => "Leading zero should appear before base specifier",
+            }});
         },
 
         .generic_debug => |info| {

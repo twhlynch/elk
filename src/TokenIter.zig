@@ -129,15 +129,35 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
             }
         },
         .integer => |integer| {
-            if (integer.form.radix) |radix| switch (radix) {
-                .binary, .octal => {
-                    try tokens.reporter.report(.nonstandard_integer_radix, .{
+            // TODO: ALWAYS report all errors, then return `Reported`
+            if (integer.form.radix) |radix| {
+                switch (radix) {
+                    .octal => {
+                        try tokens.reporter.report(.nonstandard_integer_radix, .{
+                            .integer = token.span,
+                            .radix = radix,
+                        }).handle();
+                    },
+                    else => {},
+                }
+                switch (radix) {
+                    .hex, .octal, .binary => if (!integer.form.zero) {
+                        try tokens.reporter.report(.nonstandard_integer_form, .{
+                            .integer = token.span,
+                            .reason = .missing_zero,
+                        }).handle();
+                    },
+                    else => assert(!integer.form.zero),
+                }
+            }
+            if (integer.form.sign) |sign| {
+                if (sign.position == .post_radix) {
+                    try tokens.reporter.report(.nonstandard_integer_form, .{
                         .integer = token.span,
-                        .radix = radix,
+                        .reason = .post_radix_sign,
                     }).handle();
-                },
-                else => {},
-            };
+                }
+            }
         },
         else => {},
     }
