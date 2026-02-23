@@ -1,6 +1,5 @@
 const std = @import("std");
 const math = std.math;
-const Signedness = std.builtin.Signedness;
 const testing = std.testing;
 const assert = std.debug.assert;
 
@@ -15,7 +14,7 @@ pub fn SourceInt(comptime bits: u16) type {
     return struct {
         const Self = @This();
 
-        /// Do not use without considering `signedness()`.
+        /// Do not use without considering `getSign()`.
         underlying: Unsigned,
         form: Form,
 
@@ -23,35 +22,18 @@ pub fn SourceInt(comptime bits: u16) type {
         const Signed = @Int(.signed, bits);
         const Oversize = @Int(.signed, bits + 1);
 
-        pub const Form = struct {
-            radix: ?Radix,
-            sign: ?SignInfo,
-            /// Pre-radix leading zero (or any leading zero, if `radix==null`).
-            /// Not affected by post-radix leading zeros.
-            zero: bool,
-
-            // TODO: Rename
-            const SignInfo = struct {
-                value: Sign,
-                position: enum { pre_radix, post_radix },
-            };
-
-            pub fn signValue(form: Form) ?Sign {
-                const sign = form.sign orelse return null;
-                return sign.value;
-            }
-        };
-
         fn from(oversize: Oversize, form: Form) Error!Self {
-            // Always represent `0` as unsigned.
-            const signedness_: Signedness =
-                if (form.signValue() == .negative and oversize != 0) .signed else .unsigned;
+            const sign =
+                (if (oversize != 0) // Always represent `0` as positive.
+                    form.signValue()
+                else
+                    null) orelse .positive;
 
             // Try to fit in the appropriate `SourceInt` variant
-            const underlying: Unsigned = switch (signedness_) {
-                .unsigned => @bitCast(math.cast(Unsigned, oversize) orelse
+            const underlying: Unsigned = switch (sign) {
+                .positive => @bitCast(math.cast(Unsigned, oversize) orelse
                     return error.IntegerTooLarge),
-                .signed => @bitCast(math.cast(Signed, -1 * oversize) orelse
+                .negative => @bitCast(math.cast(Signed, -1 * oversize) orelse
                     return error.IntegerTooLarge),
             };
 
@@ -61,36 +43,32 @@ pub fn SourceInt(comptime bits: u16) type {
             };
         }
 
-        // TODO: Use `Sign` instead of `Signedness`
-        fn signedness(integer: Self) Signedness {
-            return switch (integer.form.signValue() orelse .positive) {
-                .positive => .unsigned,
-                .negative => .signed,
-            };
+        fn getSign(integer: Self) Sign {
+            return integer.form.signValue() orelse .positive;
         }
 
-        fn asUnsigned(integer: Self) Unsigned {
-            assert(integer.signedness() == .unsigned);
+        fn asPositive(integer: Self) Unsigned {
+            assert(integer.getSign() == .positive);
             return integer.underlying;
         }
 
-        fn asSigned(integer: Self) Signed {
-            assert(integer.signedness() == .signed);
+        fn asNegative(integer: Self) Signed {
+            assert(integer.getSign() == .negative);
             return @as(Signed, @bitCast(integer.underlying));
         }
 
         pub fn castToUnsigned(integer: Self) ?Unsigned {
-            return switch (integer.signedness()) {
-                .unsigned => integer.asUnsigned(),
-                .signed => math.cast(Unsigned, integer.asSigned()),
+            return switch (integer.getSign()) {
+                .positive => integer.asPositive(),
+                .negative => math.cast(Unsigned, integer.asNegative()),
             };
         }
 
         pub fn castToSmaller(integer: Self, comptime T: type) error{IntegerTooLarge}!T {
             assert(@typeInfo(T).int.bits < bits);
-            return switch (integer.signedness()) {
-                .unsigned => math.cast(T, integer.asUnsigned()),
-                .signed => math.cast(T, integer.asSigned()),
+            return switch (integer.getSign()) {
+                .positive => math.cast(T, integer.asPositive()),
+                .negative => math.cast(T, integer.asNegative()),
             } orelse
                 return error.IntegerTooLarge;
         }
@@ -98,6 +76,25 @@ pub fn SourceInt(comptime bits: u16) type {
 }
 
 const Word = SourceInt(16);
+
+pub const Form = struct {
+    radix: ?Radix,
+    sign: ?SignInfo,
+    /// Pre-radix leading zero (or any leading zero, if `radix==null`).
+    /// Not affected by post-radix leading zeros.
+    zero: bool,
+
+    // TODO: Rename
+    pub const SignInfo = struct {
+        value: Sign,
+        position: enum { pre_radix, post_radix },
+    };
+
+    pub fn signValue(form: Form) ?Sign {
+        return (form.sign orelse
+            return null).value;
+    }
+};
 
 pub const Sign = enum(i2) {
     negative = -1,
@@ -199,7 +196,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
     const second_sign = takeSign(&chars);
     const sign = try reconcileSigns(first_sign, second_sign);
 
-    const form: Word.Form = .{
+    const form: Form = .{
         .radix = prefix.radix,
         .sign = sign,
         .zero = prefix.zero,
@@ -295,7 +292,7 @@ fn takePrefix(chars: *CharIter) !union(enum) {
     } };
 }
 
-fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Word.Form.SignInfo {
+fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Form.SignInfo {
     if (first_opt) |first| {
         if (second_opt) |_|
             // Disallow multiple sign characters: "-x-...", "++...", etc
@@ -310,7 +307,7 @@ fn reconcileSigns(first_opt: ?Sign, second_opt: ?Sign) !?Word.Form.SignInfo {
     }
 }
 
-fn endOfInteger(form: Word.Form, char: ?u8) !?Word {
+fn endOfInteger(form: Form, char: ?u8) !?Word {
     // Any of these conditions indicate an invalid integer token (as opposed to
     // a possibly-valid non-integer token)
     // Note that a leading decimal digit (`^[0-9]`) will lead to a pre-prefix
@@ -478,140 +475,140 @@ test tryInteger {
         .{ "++#4", error.MalformedInteger },
         .{ "+-#4", error.MalformedInteger },
         // Decimal
-        .{ "0", .{ .underlying = 0, .signedness = .unsigned, .radix = null } },
-        .{ "00", .{ .underlying = 0, .signedness = .unsigned, .radix = null } },
-        .{ "#0", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#00", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "-#0", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "+#0", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "-#00", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#-0", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#+0", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#-00", .{ .underlying = 0, .signedness = .unsigned, .radix = .decimal } },
-        .{ "4", .{ .underlying = 4, .signedness = .unsigned, .radix = null } },
-        .{ "+4", .{ .underlying = 4, .signedness = .unsigned, .radix = null } },
-        .{ "4284", .{ .underlying = 4284, .signedness = .unsigned, .radix = null } },
-        .{ "004284", .{ .underlying = 4284, .signedness = .unsigned, .radix = null } },
-        .{ "#4", .{ .underlying = 4, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#4284", .{ .underlying = 4284, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#004284", .{ .underlying = 4284, .signedness = .unsigned, .radix = .decimal } },
-        .{ "-4", .{ .underlying = @bitCast(@as(i16, -4)), .signedness = .signed, .radix = null } },
-        .{ "-4284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = null } },
-        .{ "-004284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = null } },
-        .{ "-#4", .{ .underlying = @bitCast(@as(i16, -4)), .signedness = .signed, .radix = .decimal } },
-        .{ "+#4", .{ .underlying = 4, .signedness = .unsigned, .radix = .decimal } },
-        .{ "-#4284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = .decimal } },
-        .{ "-#004284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = .decimal } },
-        .{ "#-4", .{ .underlying = @bitCast(@as(i16, -4)), .signedness = .signed, .radix = .decimal } },
-        .{ "#+4", .{ .underlying = 4, .signedness = .unsigned, .radix = .decimal } },
-        .{ "#-4284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = .decimal } },
-        .{ "#-004284", .{ .underlying = @bitCast(@as(i16, -4284)), .signedness = .signed, .radix = .decimal } },
+        .{ "0", .{ .underlying = 0, .getSign = .unsigned, .radix = null } },
+        .{ "00", .{ .underlying = 0, .getSign = .unsigned, .radix = null } },
+        .{ "#0", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#00", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "-#0", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "+#0", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "-#00", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#-0", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#+0", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#-00", .{ .underlying = 0, .getSign = .unsigned, .radix = .decimal } },
+        .{ "4", .{ .underlying = 4, .getSign = .unsigned, .radix = null } },
+        .{ "+4", .{ .underlying = 4, .getSign = .unsigned, .radix = null } },
+        .{ "4284", .{ .underlying = 4284, .getSign = .unsigned, .radix = null } },
+        .{ "004284", .{ .underlying = 4284, .getSign = .unsigned, .radix = null } },
+        .{ "#4", .{ .underlying = 4, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#4284", .{ .underlying = 4284, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#004284", .{ .underlying = 4284, .getSign = .unsigned, .radix = .decimal } },
+        .{ "-4", .{ .underlying = @bitCast(@as(i16, -4)), .getSign = .signed, .radix = null } },
+        .{ "-4284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = null } },
+        .{ "-004284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = null } },
+        .{ "-#4", .{ .underlying = @bitCast(@as(i16, -4)), .getSign = .signed, .radix = .decimal } },
+        .{ "+#4", .{ .underlying = 4, .getSign = .unsigned, .radix = .decimal } },
+        .{ "-#4284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = .decimal } },
+        .{ "-#004284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = .decimal } },
+        .{ "#-4", .{ .underlying = @bitCast(@as(i16, -4)), .getSign = .signed, .radix = .decimal } },
+        .{ "#+4", .{ .underlying = 4, .getSign = .unsigned, .radix = .decimal } },
+        .{ "#-4284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = .decimal } },
+        .{ "#-004284", .{ .underlying = @bitCast(@as(i16, -4284)), .getSign = .signed, .radix = .decimal } },
         // // Hex
-        .{ "x0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "x00", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x00", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "-x0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "+x0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "-x00", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x-0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x-00", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x-4", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x0", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "-0x00", .{ .underlying = 0x0, .signedness = .unsigned, .radix = .hex } },
-        .{ "x4", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "x004", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "x429", .{ .underlying = 0x429, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x4", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x004", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "0x429", .{ .underlying = 0x429, .signedness = .unsigned, .radix = .hex } },
-        .{ "-x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "+x4", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "-x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "-x429", .{ .underlying = @bitCast(@as(i16, -0x429)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "+0x4", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "-0x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x429", .{ .underlying = @bitCast(@as(i16, -0x429)), .signedness = .signed, .radix = .hex } },
-        .{ "x-4", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "x-004", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "x+004", .{ .underlying = 0x4, .signedness = .unsigned, .radix = .hex } },
-        .{ "x-429", .{ .underlying = @bitCast(@as(i16, -0x429)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .signedness = .signed, .radix = .hex } },
-        .{ "-0x4af", .{ .underlying = @bitCast(@as(i16, -0x4af)), .signedness = .signed, .radix = .hex } },
-        .{ "+0x4af", .{ .underlying = 0x4af, .signedness = .unsigned, .radix = .hex } },
+        .{ "x0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "x00", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x00", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "-x0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "+x0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "-x00", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x-0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x-00", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x-4", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x0", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "-0x00", .{ .underlying = 0x0, .getSign = .unsigned, .radix = .hex } },
+        .{ "x4", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "x004", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "x429", .{ .underlying = 0x429, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x4", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x004", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "0x429", .{ .underlying = 0x429, .getSign = .unsigned, .radix = .hex } },
+        .{ "-x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "+x4", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "-x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "-x429", .{ .underlying = @bitCast(@as(i16, -0x429)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "+0x4", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "-0x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x429", .{ .underlying = @bitCast(@as(i16, -0x429)), .getSign = .signed, .radix = .hex } },
+        .{ "x-4", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "x-004", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "x+004", .{ .underlying = 0x4, .getSign = .unsigned, .radix = .hex } },
+        .{ "x-429", .{ .underlying = @bitCast(@as(i16, -0x429)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x4", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x004", .{ .underlying = @bitCast(@as(i16, -0x4)), .getSign = .signed, .radix = .hex } },
+        .{ "-0x4af", .{ .underlying = @bitCast(@as(i16, -0x4af)), .getSign = .signed, .radix = .hex } },
+        .{ "+0x4af", .{ .underlying = 0x4af, .getSign = .unsigned, .radix = .hex } },
         // // Octal
-        .{ "o0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "o00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "-o0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "-o00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "o-0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "o-00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "-0o0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "-0o00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "0o-0", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o-00", .{ .underlying = 0o0, .signedness = .unsigned, .radix = .octal } },
-        .{ "o4", .{ .underlying = 0o4, .signedness = .unsigned, .radix = .octal } },
-        .{ "o004", .{ .underlying = 0o4, .signedness = .unsigned, .radix = .octal } },
-        .{ "o427", .{ .underlying = 0o427, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o4", .{ .underlying = 0o4, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o004", .{ .underlying = 0o4, .signedness = .unsigned, .radix = .octal } },
-        .{ "0o427", .{ .underlying = 0o427, .signedness = .unsigned, .radix = .octal } },
-        .{ "-o4", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "-o004", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "-o427", .{ .underlying = @bitCast(@as(i16, -0o427)), .signedness = .signed, .radix = .octal } },
-        .{ "-0o4", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "-0o004", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "-0o427", .{ .underlying = @bitCast(@as(i16, -0o427)), .signedness = .signed, .radix = .octal } },
-        .{ "o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "o-004", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "o-427", .{ .underlying = @bitCast(@as(i16, -0o427)), .signedness = .signed, .radix = .octal } },
-        .{ "0o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "0o-004", .{ .underlying = @bitCast(@as(i16, -0o4)), .signedness = .signed, .radix = .octal } },
-        .{ "0o-427", .{ .underlying = @bitCast(@as(i16, -0o427)), .signedness = .signed, .radix = .octal } },
+        .{ "o0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "o00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "-o0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "-o00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "o-0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "o-00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "-0o0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "-0o00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "0o-0", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o-00", .{ .underlying = 0o0, .getSign = .unsigned, .radix = .octal } },
+        .{ "o4", .{ .underlying = 0o4, .getSign = .unsigned, .radix = .octal } },
+        .{ "o004", .{ .underlying = 0o4, .getSign = .unsigned, .radix = .octal } },
+        .{ "o427", .{ .underlying = 0o427, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o4", .{ .underlying = 0o4, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o004", .{ .underlying = 0o4, .getSign = .unsigned, .radix = .octal } },
+        .{ "0o427", .{ .underlying = 0o427, .getSign = .unsigned, .radix = .octal } },
+        .{ "-o4", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "-o004", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "-o427", .{ .underlying = @bitCast(@as(i16, -0o427)), .getSign = .signed, .radix = .octal } },
+        .{ "-0o4", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "-0o004", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "-0o427", .{ .underlying = @bitCast(@as(i16, -0o427)), .getSign = .signed, .radix = .octal } },
+        .{ "o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "o-004", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "o-427", .{ .underlying = @bitCast(@as(i16, -0o427)), .getSign = .signed, .radix = .octal } },
+        .{ "0o-4", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "0o-004", .{ .underlying = @bitCast(@as(i16, -0o4)), .getSign = .signed, .radix = .octal } },
+        .{ "0o-427", .{ .underlying = @bitCast(@as(i16, -0o427)), .getSign = .signed, .radix = .octal } },
         // // Binary
-        .{ "b0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "b00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "-b0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "-b00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "b-0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "b-00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "-0b0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "-0b00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b-0", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b-00", .{ .underlying = 0b0, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "b1", .{ .underlying = 0b1, .signedness = .unsigned, .radix = .binary } },
-        .{ "b101", .{ .underlying = 0b101, .signedness = .unsigned, .radix = .binary } },
-        .{ "b00101", .{ .underlying = 0b101, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b1", .{ .underlying = 0b1, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b101", .{ .underlying = 0b101, .signedness = .unsigned, .radix = .binary } },
-        .{ "0b00101", .{ .underlying = 0b101, .signedness = .unsigned, .radix = .binary } },
-        .{ "-b1", .{ .underlying = @bitCast(@as(i16, -0b1)), .signedness = .signed, .radix = .binary } },
-        .{ "-b101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "-b00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "b-1", .{ .underlying = @bitCast(@as(i16, -0b1)), .signedness = .signed, .radix = .binary } },
-        .{ "b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "b-00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "-0b1", .{ .underlying = @bitCast(@as(i16, -0b1)), .signedness = .signed, .radix = .binary } },
-        .{ "-0b101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "-0b00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "0b-1", .{ .underlying = @bitCast(@as(i16, -0b1)), .signedness = .signed, .radix = .binary } },
-        .{ "0b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
-        .{ "0b-00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .signedness = .signed, .radix = .binary } },
+        .{ "b0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "b00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "-b0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "-b00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "b-0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "b-00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "-0b0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "-0b00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b-0", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b-00", .{ .underlying = 0b0, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "b1", .{ .underlying = 0b1, .getSign = .unsigned, .radix = .binary } },
+        .{ "b101", .{ .underlying = 0b101, .getSign = .unsigned, .radix = .binary } },
+        .{ "b00101", .{ .underlying = 0b101, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b1", .{ .underlying = 0b1, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b101", .{ .underlying = 0b101, .getSign = .unsigned, .radix = .binary } },
+        .{ "0b00101", .{ .underlying = 0b101, .getSign = .unsigned, .radix = .binary } },
+        .{ "-b1", .{ .underlying = @bitCast(@as(i16, -0b1)), .getSign = .signed, .radix = .binary } },
+        .{ "-b101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "-b00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "b-1", .{ .underlying = @bitCast(@as(i16, -0b1)), .getSign = .signed, .radix = .binary } },
+        .{ "b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "b-00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "-0b1", .{ .underlying = @bitCast(@as(i16, -0b1)), .getSign = .signed, .radix = .binary } },
+        .{ "-0b101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "-0b00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "0b-1", .{ .underlying = @bitCast(@as(i16, -0b1)), .getSign = .signed, .radix = .binary } },
+        .{ "0b-101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
+        .{ "0b-00101", .{ .underlying = @bitCast(@as(i16, -0b101)), .getSign = .signed, .radix = .binary } },
         // // Bounds checking
-        .{ "0xffff", .{ .underlying = 0xffff, .signedness = .unsigned, .radix = .hex } },
-        .{ "65535", .{ .underlying = 0xffff, .signedness = .unsigned, .radix = null } },
+        .{ "0xffff", .{ .underlying = 0xffff, .getSign = .unsigned, .radix = .hex } },
+        .{ "65535", .{ .underlying = 0xffff, .getSign = .unsigned, .radix = null } },
         .{ "0x10000", error.IntegerTooLarge },
         .{ "65536", error.IntegerTooLarge },
-        .{ "-0x8000", .{ .underlying = @bitCast(@as(i16, -0x8000)), .signedness = .signed, .radix = .hex } },
-        .{ "-32768", .{ .underlying = @bitCast(@as(i16, -32768)), .signedness = .signed, .radix = null } },
+        .{ "-0x8000", .{ .underlying = @bitCast(@as(i16, -0x8000)), .getSign = .signed, .radix = .hex } },
+        .{ "-32768", .{ .underlying = @bitCast(@as(i16, -32768)), .getSign = .signed, .radix = null } },
         .{ "-0x8001", error.IntegerTooLarge },
         .{ "-32769", error.IntegerTooLarge },
     };
