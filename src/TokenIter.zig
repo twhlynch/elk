@@ -140,15 +140,6 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                     },
                     else => {},
                 }
-                switch (radix) {
-                    .hex, .octal, .binary => if (!integer.form.zero) {
-                        tokens.reporter.report(.nonstandard_integer_form, .{
-                            .integer = token.span,
-                            .reason = .missing_zero,
-                        }).collect(&result);
-                    },
-                    else => assert(!integer.form.zero),
-                }
             }
             if (integer.form.sign) |sign| {
                 if (sign.position == .post_radix) {

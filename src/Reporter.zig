@@ -135,7 +135,6 @@ pub const Diagnostic = union(enum) {
         integer: Span,
         reason: enum {
             post_radix_sign,
-            missing_zero,
         },
     },
 
@@ -422,7 +421,6 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.deepen().printSourceNote("Integer", .{}, info.integer);
             ctx.deepen().printNote("{s}", .{switch (info.reason) {
                 .post_radix_sign => "Sign character should appear before base specifier",
-                .missing_zero => "Leading zero should appear before base specifier",
             }});
         },
 
