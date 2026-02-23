@@ -119,48 +119,49 @@ fn peekAny(tokens: *TokenIter) error{ InvalidTokenPeeked, Eof }!Token {
 }
 
 fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void {
+    var result: error{Reported}!void = {};
     switch (token.value) {
         .string => |string| {
             const value = string.in(token.span).view(tokens.source);
             if (std.mem.containsAtLeast(u8, value, 1, "\n")) {
-                try tokens.reporter.report(.multiline_string, .{
+                tokens.reporter.report(.multiline_string, .{
                     .string = token.span,
-                }).handle();
+                }).collect(&result);
             }
         },
         .integer => |integer| {
-            // TODO: ALWAYS report all errors, then return `Reported`
             if (integer.form.radix) |radix| {
                 switch (radix) {
                     .octal => {
-                        try tokens.reporter.report(.nonstandard_integer_radix, .{
+                        tokens.reporter.report(.nonstandard_integer_radix, .{
                             .integer = token.span,
                             .radix = radix,
-                        }).handle();
+                        }).collect(&result);
                     },
                     else => {},
                 }
                 switch (radix) {
                     .hex, .octal, .binary => if (!integer.form.zero) {
-                        try tokens.reporter.report(.nonstandard_integer_form, .{
+                        tokens.reporter.report(.nonstandard_integer_form, .{
                             .integer = token.span,
                             .reason = .missing_zero,
-                        }).handle();
+                        }).collect(&result);
                     },
                     else => assert(!integer.form.zero),
                 }
             }
             if (integer.form.sign) |sign| {
                 if (sign.position == .post_radix) {
-                    try tokens.reporter.report(.nonstandard_integer_form, .{
+                    tokens.reporter.report(.nonstandard_integer_form, .{
                         .integer = token.span,
                         .reason = .post_radix_sign,
-                    }).handle();
+                    }).collect(&result);
                 }
             }
         },
         else => {},
     }
+    return result;
 }
 
 pub fn nextExcluding(
