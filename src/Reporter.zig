@@ -23,6 +23,7 @@ const Level = enum { err, warn };
 pub const Options = struct {
     strictness: Strictness = .normal,
     verbosity: Verbosity = .normal,
+    features: Features = .{},
 
     pub const Strictness = enum {
         strict,
@@ -43,6 +44,25 @@ pub const Options = struct {
         normal,
         quiet,
     };
+
+    pub const Features = struct {
+        extension_implicit_origin: bool = true,
+        extension_implicit_end: bool = true,
+        extension_string_multiline: bool = true,
+        extension_integer_radix: bool = true,
+        extension_integer_syntax: bool = true,
+    };
+
+    fn standardResponse(options: Options, comptime feature: @EnumLiteral()) Response {
+        const enabled = @field(options.features, @tagName(feature));
+        if (enabled)
+            return .pass;
+        return switch (options.strictness) {
+            .strict => .major,
+            .normal => .minor,
+            .relaxed => .pass,
+        };
+    }
 };
 
 pub const Diagnostic = union(enum) {
@@ -242,10 +262,10 @@ pub fn report(
 
 fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
     const response: Response = switch (diag) {
-        .missing_origin => reporter.options.strictness.standardResponse(),
+        .missing_origin => reporter.options.standardResponse(.extension_implicit_origin),
         .multiple_origins => .fatal,
         .late_origin => .fatal,
-        .missing_end => reporter.options.strictness.standardResponse(),
+        .missing_end => reporter.options.standardResponse(.extension_implicit_end),
         .duplicate_label => .fatal,
         .unexpected_label => .major,
         .shadowed_label => reporter.options.strictness.standardResponse(),
@@ -264,9 +284,9 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .invalid_digit => .fatal,
         .integer_too_large => .fatal,
         .invalid_string_escape => reporter.options.strictness.standardResponse(),
-        .multiline_string => reporter.options.strictness.standardResponse(),
-        .nonstandard_integer_radix => reporter.options.strictness.standardResponse(),
-        .nonstandard_integer_form => reporter.options.strictness.standardResponse(),
+        .multiline_string => reporter.options.standardResponse(.extension_string_multiline),
+        .nonstandard_integer_radix => reporter.options.standardResponse(.extension_integer_radix),
+        .nonstandard_integer_form => reporter.options.standardResponse(.extension_integer_syntax),
 
         .generic_debug => .fatal,
     };
