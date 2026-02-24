@@ -51,7 +51,10 @@ pub const Options = struct {
             implicit_end: bool = true,
             string_multiline: bool = true,
             integer_radix: bool = true,
-            integer_syntax: bool = true,
+            integer_form: bool = true,
+        } = .{},
+        style: struct {
+            integer_form: bool = true,
         } = .{},
     };
 
@@ -161,6 +164,12 @@ pub const Diagnostic = union(enum) {
         integer: Span,
         reason: enum {
             post_radix_sign,
+        },
+    },
+    undesirable_integer_form: struct {
+        integer: Span,
+        reason: enum {
+            missing_zero,
         },
     },
 
@@ -292,7 +301,8 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .invalid_string_escape => reporter.options.strictness.standardResponse(),
         .multiline_string => reporter.options.standardResponse(.extension, .string_multiline),
         .nonstandard_integer_radix => reporter.options.standardResponse(.extension, .integer_radix),
-        .nonstandard_integer_form => reporter.options.standardResponse(.extension, .integer_syntax),
+        .nonstandard_integer_form => reporter.options.standardResponse(.extension, .integer_form),
+        .undesirable_integer_form => reporter.options.standardResponse(.style, .integer_form),
 
         .generic_debug => .fatal,
     };
@@ -447,6 +457,13 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
             ctx.deepen().printSourceNote("Integer", .{}, info.integer);
             ctx.deepen().printNote("{s}", .{switch (info.reason) {
                 .post_radix_sign => "Sign character should appear before base specifier",
+            }});
+        },
+        .undesirable_integer_form => |info| {
+            ctx.printTitle("Integer uses undesirable syntax", .{});
+            ctx.deepen().printSourceNote("Integer", .{}, info.integer);
+            ctx.deepen().printNote("{s}", .{switch (info.reason) {
+                .missing_zero => "Leading zero should appear before base specifier",
             }});
         },
 

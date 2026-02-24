@@ -130,17 +130,15 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
             }
         },
         .integer => |integer| {
-            if (integer.form.radix) |radix| {
-                switch (radix) {
-                    .octal => {
-                        tokens.reporter.report(.nonstandard_integer_radix, .{
-                            .integer = token.span,
-                            .radix = radix,
-                        }).collect(&result);
-                    },
-                    else => {},
-                }
-            }
+            if (integer.form.radix) |radix| switch (radix) {
+                .octal => {
+                    tokens.reporter.report(.nonstandard_integer_radix, .{
+                        .integer = token.span,
+                        .radix = radix,
+                    }).collect(&result);
+                },
+                else => {},
+            };
             if (integer.form.sign) |sign| {
                 if (sign.position == .post_radix) {
                     tokens.reporter.report(.nonstandard_integer_form, .{
@@ -149,6 +147,15 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                     }).collect(&result);
                 }
             }
+            if (integer.form.radix) |radix| switch (radix) {
+                .hex, .octal, .binary => if (!integer.form.zero) {
+                    tokens.reporter.report(.undesirable_integer_form, .{
+                        .integer = token.span,
+                        .reason = .missing_zero,
+                    }).collect(&result);
+                },
+                else => assert(!integer.form.zero),
+            };
         },
         else => {},
     }
