@@ -49,19 +49,19 @@ pub const Options = struct {
         extension: struct {
             implicit_origin: bool = true,
             implicit_end: bool = true,
-            string_multiline: bool = true,
-            integer_radix: bool = true,
-            integer_form: bool = true,
+            multiline_strings: bool = true,
+            more_integer_radixes: bool = true,
+            more_integer_forms: bool = true,
         } = .{},
         style: struct {
-            integer_form: bool = true,
+            allow_undesirable_integer_forms: bool = false,
         } = .{},
     };
 
     fn standardResponse(
         options: Options,
-        comptime category: @EnumLiteral(),
-        comptime feature: @EnumLiteral(),
+        comptime category: std.meta.FieldEnum(Features),
+        comptime feature: std.meta.FieldEnum(@FieldType(Features, @tagName(category))),
     ) Response {
         const enabled = @field(@field(options.features, @tagName(category)), @tagName(feature));
         if (enabled)
@@ -299,10 +299,10 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
         .invalid_digit => .fatal,
         .integer_too_large => .fatal,
         .invalid_string_escape => reporter.options.strictness.standardResponse(),
-        .multiline_string => reporter.options.standardResponse(.extension, .string_multiline),
-        .nonstandard_integer_radix => reporter.options.standardResponse(.extension, .integer_radix),
-        .nonstandard_integer_form => reporter.options.standardResponse(.extension, .integer_form),
-        .undesirable_integer_form => reporter.options.standardResponse(.style, .integer_form),
+        .multiline_string => reporter.options.standardResponse(.extension, .multiline_strings),
+        .nonstandard_integer_radix => reporter.options.standardResponse(.extension, .more_integer_radixes),
+        .nonstandard_integer_form => reporter.options.standardResponse(.extension, .more_integer_forms),
+        .undesirable_integer_form => reporter.options.standardResponse(.style, .allow_undesirable_integer_forms),
 
         .generic_debug => .fatal,
     };
