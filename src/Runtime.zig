@@ -112,6 +112,19 @@ pub fn run(runtime: *Runtime) Error!void {
                 runtime.setRegister(dest_reg, ~runtime.registers[src_reg]);
             },
 
+            .br => {
+                const mask: u3 = bitmask.apply(.condition_mask, instr);
+                // Cannot have NO flags. `BR` is assembled as `BRnzp`
+                if (mask == 0b000) {
+                    std.log.warn("invalid condition mask for `br*`", .{});
+                    continue;
+                }
+                const pc_offset = bitmask.apply(.pc_offset_9, instr);
+                if (@intFromEnum(runtime.condition) & mask != 0) {
+                    runtime.pc +%= pc_offset;
+                }
+            },
+
             .lea => {
                 const dest_reg = bitmask.apply(.reg_a, instr);
                 const pc_offset = bitmask.apply(.pc_offset_9, instr);
@@ -184,6 +197,7 @@ const bitmask = struct {
         pub const imm_5: Mask = .new(0, 4);
         pub const trap_vect: Mask = .new(0, 8);
         pub const pc_offset_9: Mask = .new(0, 8);
+        pub const condition_mask: Mask = .new(9, 11);
 
         fn new(lowest: u4, highest: u4) Mask {
             return .{ .lowest = lowest, .highest = highest };
