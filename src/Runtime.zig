@@ -84,14 +84,20 @@ pub fn run(runtime: *Runtime) Error!void {
 
         // TODO:
         switch (opcode) {
-            .add => {
+            inline .add, .@"and" => |arith_opcode| {
                 const dest_reg = bitmask.apply(.reg_a, instr);
                 const src_reg = bitmask.apply(.reg_b, instr);
                 const rhs = if (bitmask.apply(.arith_flag, instr) == 0)
                     runtime.registers[bitmask.apply(.reg_c, instr)]
                 else
                     bitmask.apply(.imm_5, instr);
-                runtime.setRegister(dest_reg, runtime.registers[src_reg] +% rhs);
+                const lhs = runtime.registers[src_reg];
+                const result = switch (arith_opcode) {
+                    .add => lhs +% rhs,
+                    .@"and" => lhs & rhs,
+                    else => comptime unreachable,
+                };
+                runtime.setRegister(dest_reg, result);
             },
 
             .lea => {
