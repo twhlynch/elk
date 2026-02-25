@@ -198,10 +198,11 @@ pub fn emitWriter(air: *const Air, writer: *Io.Writer) !void {
     }
 }
 
-pub fn emitMemory(air: *const Air, memory: *[Runtime.MEMORY_SIZE]u16) !void {
+pub fn emitRuntime(air: *const Air, runtime: *Runtime) !void {
+    runtime.pc = air.origin;
     for (air.lines.items, 0..) |line, i| {
         const raw = encode(line.statement);
-        memory[air.origin + i] = raw;
+        runtime.memory[air.origin + i] = raw;
     }
 }
 
@@ -288,7 +289,7 @@ fn encode(statement: Statement) u16 {
             return raw;
         },
         .sti => |operands| {
-            var raw: u16 = 0xB000;
+            var raw: u16 = 0xb000;
             raw |= operands.dest.value.bits() << 9;
             raw |= operands.src.value.bits();
             return raw;

@@ -38,17 +38,6 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     {
-        const runtime = try Runtime.init(gpa);
-        defer runtime.deinit(gpa);
-
-        try air.emitMemory(runtime.memory);
-
-        for (runtime.memory[air.origin..][0..20]) |raw| {
-            std.debug.print("0x{x:04}\n", .{raw});
-        }
-    }
-
-    {
         const bin_path = "hw.obj";
 
         var file = try Io.Dir.cwd().createFile(io, bin_path, .{});
@@ -59,6 +48,15 @@ pub fn main(init: std.process.Init) !u8 {
 
         try air.emitWriter(&writer.interface);
         try writer.flush();
+    }
+
+    {
+        var runtime = try Runtime.init(gpa);
+        defer runtime.deinit(gpa);
+
+        try air.emitRuntime(&runtime);
+
+        try runtime.run();
     }
 
     return 0;
