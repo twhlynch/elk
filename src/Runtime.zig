@@ -139,7 +139,14 @@ pub fn run(runtime: *Runtime) Error!void {
 
 fn setRegister(runtime: *Runtime, register: u3, value: u16) void {
     runtime.registers[register] = value;
-    // TODO: Set condition
+
+    runtime.condition =
+        if (value < 0)
+            .negative
+        else if (value == 0)
+            .zero
+        else
+            .positive;
 }
 
 const bitmask = struct {
