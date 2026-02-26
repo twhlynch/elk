@@ -275,7 +275,8 @@ pub fn run(runtime: *Runtime) Error!void {
 
                         // TODO: Move to field of runtime
                         // TODO: Lazy-initialize
-                        var tty = try Tty.new();
+                        var tty = Tty.uninit;
+                        try tty.init();
 
                         try tty.enableRawMode();
 
@@ -319,26 +320,33 @@ const Tty = struct {
     const HANDLE = posix.STDIN_FILENO;
 
     state: union(enum) {
+        uninit,
+        not_a_tty,
         /// Original `termios` state.
         modified: posix.termios,
         /// Original (and current) `termios` state.
         unmodified: posix.termios,
-        not_a_tty,
     },
 
-    pub fn new() error{TermiosFailed}!Tty {
+    const uninit: Tty = .{ .state = .uninit };
+
+    pub fn init(tty: *Tty) error{TermiosFailed}!void {
+        assert(tty.state == .uninit);
         const termios = posix.tcgetattr(HANDLE) catch |err| switch (err) {
-            error.NotATerminal => return .{ .state = .not_a_tty },
+            error.NotATerminal => {
+                tty.state = .not_a_tty;
+                return;
+            },
             error.Unexpected => return error.TermiosFailed,
         };
-        return .{ .state = .{ .unmodified = termios } };
+        tty.state = .{ .unmodified = termios };
     }
 
     pub fn enableRawMode(tty: *Tty) error{TermiosFailed}!void {
         const termios = switch (tty.state) {
-            .modified => unreachable,
-            .unmodified => |termios| termios,
             .not_a_tty => return,
+            .uninit, .modified => unreachable,
+            .unmodified => |termios| termios,
         };
         try setTermios(applyRawMode(termios));
         tty.state = .{ .modified = termios };
@@ -346,9 +354,9 @@ const Tty = struct {
 
     pub fn disableRawMode(tty: *Tty) error{TermiosFailed}!void {
         const termios = switch (tty.state) {
-            .modified => |termios| termios,
-            .unmodified => unreachable,
             .not_a_tty => return,
+            .uninit, .unmodified => unreachable,
+            .modified => |termios| termios,
         };
         try setTermios(termios);
         tty.state = .{ .unmodified = termios };
