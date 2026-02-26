@@ -149,6 +149,12 @@ pub fn run(runtime: *Runtime) Error!void {
                 }
             },
 
+            .ld => {
+                const dest_reg = bitmask.operand.reg_high.apply(instr);
+                const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
+                runtime.setRegister(dest_reg, runtime.memory[runtime.pc +% pc_offset]);
+            },
+
             .lea => {
                 const dest_reg = bitmask.operand.reg_high.apply(instr);
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
