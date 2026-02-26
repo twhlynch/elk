@@ -14,6 +14,7 @@ pc: u16,
 condition: Condition,
 
 newline: bool,
+tty: Tty,
 io: Io,
 
 const Condition = enum(u3) {
@@ -32,6 +33,7 @@ pub fn init(io: Io, allocator: Allocator) !Runtime {
         .pc = 0x0000,
         .condition = .zero,
         .newline = true,
+        .tty = .uninit,
         .io = io,
     };
 }
@@ -273,12 +275,9 @@ pub fn run(runtime: *Runtime) Error!void {
 
                         try runtime.ensureNewline();
 
-                        // TODO: Move to field of runtime
-                        // TODO: Lazy-initialize
-                        var tty = Tty.uninit;
-                        try tty.init();
-
-                        try tty.enableRawMode();
+                        if (runtime.tty.state == .uninit)
+                            try runtime.tty.init();
+                        try runtime.tty.enableRawMode();
 
                         // TODO: Extract as method
                         var reader = Io.File.stdin().reader(runtime.io, &.{});
@@ -286,7 +285,7 @@ pub fn run(runtime: *Runtime) Error!void {
                         reader.interface.readSliceAll(@ptrCast(&char)) catch
                             return error.ReadFailed;
 
-                        try tty.disableRawMode();
+                        try runtime.tty.disableRawMode();
 
                         try runtime.writeChar(char);
                         try runtime.ensureNewline();
