@@ -106,10 +106,8 @@ fn setRegister(runtime: *Runtime, register: u3, value: u16) void {
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
-        // TODO: Check pc in bounds
-
         const instr = runtime.memory[runtime.pc];
-        runtime.pc += 1;
+        runtime.pc +%= 1;
 
         // Conversion cannot fail
         const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(instr));
