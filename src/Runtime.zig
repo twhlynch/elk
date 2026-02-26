@@ -163,6 +163,14 @@ pub fn run(runtime: *Runtime) Error!void {
                 runtime.setRegister(dest_reg, runtime.memory[address]);
             },
 
+            .ldr => {
+                const dest_reg = bitmask.operand.reg_high.apply(instr);
+                const base_reg = bitmask.operand.reg_mid.apply(instr);
+                const offset = bitmask.operand.offset_6.apply(instr);
+                const address = runtime.registers[base_reg] + offset;
+                runtime.setRegister(dest_reg, runtime.memory[address]);
+            },
+
             .lea => {
                 const dest_reg = bitmask.operand.reg_high.apply(instr);
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
@@ -241,6 +249,7 @@ const bitmask = struct {
         pub const reg_low: Mask = .new(0, 2);
         pub const imm_5: Mask = .new(0, 4);
         pub const trap_vect: Mask = .new(0, 8);
+        pub const offset_6: Mask = .new(0, 5);
         pub const pc_offset_9: Mask = .new(0, 8);
         pub const pc_offset_11: Mask = .new(0, 10);
         pub const condition_mask: Mask = .new(9, 11);
