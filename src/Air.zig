@@ -40,29 +40,29 @@ pub const Statement = union(enum) {
     },
     br: struct {
         condition: Operand.ConditionMask,
-        dest: Operand.PCOffset9,
+        dest: Operand.PcOffset9,
     },
     jmp: struct {
         base: Operand.Register,
     },
     ret: struct {},
     jsr: struct {
-        dest: Operand.PCOffset11,
+        dest: Operand.PcOffset11,
     },
     jsrr: struct {
         base: Operand.Register,
     },
     lea: struct {
         dest: Operand.Register,
-        src: Operand.PCOffset9,
+        src: Operand.PcOffset9,
     },
     ld: struct {
         dest: Operand.Register,
-        src: Operand.PCOffset9,
+        src: Operand.PcOffset9,
     },
     ldi: struct {
         dest: Operand.Register,
-        src: Operand.PCOffset9,
+        src: Operand.PcOffset9,
     },
     ldr: struct {
         dest: Operand.Register,
@@ -71,11 +71,11 @@ pub const Statement = union(enum) {
     },
     st: struct {
         src: Operand.Register,
-        dest: Operand.PCOffset9,
+        dest: Operand.PcOffset9,
     },
     sti: struct {
         src: Operand.Register,
-        dest: Operand.PCOffset9,
+        dest: Operand.PcOffset9,
     },
     str: struct {
         src: Operand.Register,
@@ -94,8 +94,8 @@ pub const Operand = struct {
     pub const RegImm5 = Spanned(Value.RegImm5);
     pub const TrapVect = Spanned(Value.TrapVect);
     pub const Offset6 = Spanned(Value.Offset6);
-    pub const PCOffset9 = Spanned(Value.PCOffset9);
-    pub const PCOffset11 = Spanned(Value.PCOffset11);
+    pub const PcOffset9 = Spanned(Value.PcOffset9);
+    pub const PcOffset11 = Spanned(Value.PcOffset11);
     pub const ConditionMask = Spanned(Value.ConditionMask);
 
     pub fn Spanned(comptime K: type) type {
@@ -139,7 +139,7 @@ pub const Operand = struct {
             }
         };
 
-        pub const PCOffset9 = union(enum) {
+        pub const PcOffset9 = union(enum) {
             unresolved,
             resolved: i9,
             pub fn bits(self: @This()) u16 {
@@ -148,7 +148,7 @@ pub const Operand = struct {
             }
         };
 
-        pub const PCOffset11 = union(enum) {
+        pub const PcOffset11 = union(enum) {
             unresolved,
             resolved: i11,
             pub fn bits(self: @This()) u16 {

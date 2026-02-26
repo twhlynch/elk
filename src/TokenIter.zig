@@ -280,7 +280,7 @@ pub const Argument = union(enum) {
                     .integer => |integer| .{
                         // TODO: Allow +1 bit for unsigned literals, which will
                         // be later bitcast to negative. Warn for this!
-                        // Same with Offset6, but probably not with PCOffset*
+                        // Same with Offset6, but probably not with PcOffset*
                         .immediate = try shrink(reporter, token.span, integer, i5),
                     },
                     else => try unexpected(reporter, token, &.{ .register, .integer }),
@@ -300,7 +300,7 @@ pub const Argument = union(enum) {
                     else => try unexpected(reporter, token, &.{.integer}),
                 },
 
-                Operand.Value.PCOffset9 => switch (token.value) {
+                Operand.Value.PcOffset9 => switch (token.value) {
                     // TODO: Integer literals here may be non-standard; warn
                     .integer => |integer| .{
                         .resolved = try shrink(reporter, token.span, integer, i9),
@@ -309,7 +309,7 @@ pub const Argument = union(enum) {
                     else => try unexpected(reporter, token, &.{ .label, .integer }),
                 },
 
-                Operand.Value.PCOffset11 => switch (token.value) {
+                Operand.Value.PcOffset11 => switch (token.value) {
                     // TODO: Integer literals here may be non-standard; warn
                     .integer => |integer| .{
                         .resolved = try shrink(reporter, token.span, integer, i11),
