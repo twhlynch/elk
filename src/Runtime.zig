@@ -153,6 +153,12 @@ pub fn run(runtime: *Runtime) Error!void {
                 }
             },
 
+            .lea => {
+                const dest_reg = bitmask.operand.reg_high.apply(instr);
+                const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
+                runtime.setRegister(dest_reg, runtime.pc +% pc_offset);
+            },
+
             .ld => {
                 const dest_reg = bitmask.operand.reg_high.apply(instr);
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
@@ -175,10 +181,26 @@ pub fn run(runtime: *Runtime) Error!void {
                 runtime.setRegister(dest_reg, runtime.memory[address]);
             },
 
-            .lea => {
-                const dest_reg = bitmask.operand.reg_high.apply(instr);
+            .st => {
+                const src_reg = bitmask.operand.reg_high.apply(instr);
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
-                runtime.setRegister(dest_reg, runtime.pc +% pc_offset);
+                const address = runtime.pc +% pc_offset;
+                runtime.memory[address] = runtime.registers[src_reg];
+            },
+
+            .sti => {
+                const src_reg = bitmask.operand.reg_high.apply(instr);
+                const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
+                const address = runtime.memory[runtime.pc +% pc_offset];
+                runtime.memory[address] = runtime.registers[src_reg];
+            },
+
+            .str => {
+                const src_reg = bitmask.operand.reg_high.apply(instr);
+                const base_reg = bitmask.operand.reg_mid.apply(instr);
+                const offset = bitmask.operand.offset_6.apply(instr);
+                const address = runtime.registers[base_reg] + offset;
+                runtime.memory[address] = runtime.registers[src_reg];
             },
 
             .trap => {
