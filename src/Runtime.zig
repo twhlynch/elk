@@ -273,15 +273,7 @@ pub fn run(runtime: *Runtime) Error!void {
 
                         try runtime.ensureNewline();
 
-                        // TODO: Extract as method
-                        // TODO: If not a tty, continue without raw mode
-                        const termios_original = posix.tcgetattr(posix.STDIN_FILENO) catch
-                            return error.TermiosFailed;
-                        var termios = termios_original;
-                        termios.lflag.ICANON = false;
-                        termios.lflag.ECHO = false;
-                        posix.tcsetattr(posix.STDIN_FILENO, .NOW, termios) catch
-                            return error.TermiosFailed;
+                        var tty = try Tty.enableRawMode();
 
                         // TODO: Extract as method
                         var reader = Io.File.stdin().reader(runtime.io, &.{});
@@ -289,9 +281,7 @@ pub fn run(runtime: *Runtime) Error!void {
                         reader.interface.readSliceAll(@ptrCast(&char)) catch
                             return error.ReadFailed;
 
-                        // TODO: Extract as method
-                        posix.tcsetattr(posix.STDIN_FILENO, .NOW, termios_original) catch
-                            return error.TermiosFailed;
+                        try tty.disableRawMode();
 
                         try runtime.writeChar(char);
                         try runtime.ensureNewline();
@@ -320,6 +310,42 @@ pub fn run(runtime: *Runtime) Error!void {
         }
     }
 }
+
+const Tty = struct {
+    const HANDLE = posix.STDIN_FILENO;
+
+    /// `null` if `handle` is not a terminal.
+    termios: ?posix.termios,
+
+    pub fn enableRawMode() error{TermiosFailed}!Tty {
+        const termios = posix.tcgetattr(HANDLE) catch |err| switch (err) {
+            error.NotATerminal => return .{ .termios = null },
+            error.Unexpected => return error.TermiosFailed,
+        };
+
+        var termios_raw = termios;
+        termios_raw.lflag.ICANON = false;
+        termios_raw.lflag.ECHO = false;
+        try setTermios(termios);
+
+        return .{ .termios = termios_raw };
+    }
+
+    pub fn disableRawMode(tty: *Tty) error{TermiosFailed}!void {
+        if (tty.termios) |termios|
+            try setTermios(termios);
+    }
+
+    fn setTermios(termios: posix.termios) error{TermiosFailed}!void {
+        posix.tcsetattr(HANDLE, .NOW, termios) catch |err| switch (err) {
+            // If stdin is not a terminal, we wouldn't have the termios value.
+            error.NotATerminal => unreachable,
+            error.Unexpected,
+            error.ProcessOrphaned,
+            => return error.TermiosFailed,
+        };
+    }
+};
 
 const bitmask = struct {
     pub const opcode: Mask = .new(12, 15);
