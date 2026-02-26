@@ -82,7 +82,6 @@ pub fn run(runtime: *Runtime) Error!void {
 
         std.log.info("{t}", .{opcode});
 
-        // TODO:
         switch (opcode) {
             inline .add, .@"and" => |arith_opcode| {
                 const dest_reg = bitmask.operand.reg_high.apply(instr);
@@ -232,9 +231,11 @@ pub fn run(runtime: *Runtime) Error!void {
                 }
             },
 
-            else => {
-                std.log.warn("unimplemented opcode: {t}", .{opcode});
-                break;
+            .rti => {
+                std.log.warn("encountered unsupported instruction rti", .{});
+            },
+            .reserved => {
+                std.log.warn("encountered instruction with reserved opcode 0x{x}", .{opcode});
             },
         }
     }
