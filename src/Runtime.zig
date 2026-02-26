@@ -88,20 +88,24 @@ pub fn run(runtime: *Runtime) Error!void {
                 const dest_reg = bitmask.operand.reg_high.apply(instr);
                 const src_reg = bitmask.operand.reg_mid.apply(instr);
 
-                const rhs = if (bitmask.flag.add_and.apply(instr) == 0) blk: {
-                    if (bitmask.padding.add_and.apply(instr) != 0)
-                        std.log.warn("invalid padding for {t}", .{arith_opcode});
-                    const rhs_reg = bitmask.operand.reg_low.apply(instr);
-                    break :blk runtime.registers[rhs_reg];
-                } else bitmask.operand.imm_5.applySext(instr);
-
                 const lhs = runtime.registers[src_reg];
-                const result = switch (arith_opcode) {
+                const rhs = rhs: switch (bitmask.flag.add_and.apply(instr)) {
+                    0 => { // Register
+                        if (bitmask.padding.add_and.apply(instr) != 0)
+                            std.log.warn("invalid padding for {t}", .{arith_opcode});
+                        const rhs_reg = bitmask.operand.reg_low.apply(instr);
+                        break :rhs runtime.registers[rhs_reg];
+                    },
+                    1 => { // Immediate
+                        break :rhs bitmask.operand.imm_5.applySext(instr);
+                    },
+                };
+
+                runtime.setRegister(dest_reg, switch (arith_opcode) {
                     .add => lhs +% rhs,
                     .@"and" => lhs & rhs,
                     else => comptime unreachable,
-                };
-                runtime.setRegister(dest_reg, result);
+                });
             },
 
             .not => {
@@ -120,9 +124,8 @@ pub fn run(runtime: *Runtime) Error!void {
                     continue;
                 }
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
-                if (@intFromEnum(runtime.condition) & mask != 0) {
+                if (@intFromEnum(runtime.condition) & mask != 0)
                     runtime.pc +%= pc_offset;
-                }
             },
 
             .jmp_ret => {
@@ -135,17 +138,18 @@ pub fn run(runtime: *Runtime) Error!void {
 
             .jsr_jsrr => {
                 runtime.registers[7] = runtime.pc;
-                if (bitmask.flag.jsr_jsrr.apply(instr) == 0) {
-                    // JSR
-                    const pc_offset = bitmask.operand.pc_offset_11.applySext(instr);
-                    runtime.pc +%= pc_offset;
-                } else {
-                    // JSRR
-                    if (bitmask.padding.jsrr_high.apply(instr) != 0 or
-                        bitmask.padding.jsrr_low.apply(instr) != 0)
-                        std.log.warn("invalid padding for jsrr", .{});
-                    const base_reg = bitmask.operand.reg_mid.apply(instr);
-                    runtime.pc = runtime.registers[base_reg];
+                switch (bitmask.flag.jsr_jsrr.apply(instr)) {
+                    0 => { // JSR
+                        const pc_offset = bitmask.operand.pc_offset_11.applySext(instr);
+                        runtime.pc +%= pc_offset;
+                    },
+                    1 => { // JSRR
+                        if (bitmask.padding.jsrr_high.apply(instr) != 0 or
+                            bitmask.padding.jsrr_low.apply(instr) != 0)
+                            std.log.warn("invalid padding for jsrr", .{});
+                        const base_reg = bitmask.operand.reg_mid.apply(instr);
+                        runtime.pc = runtime.registers[base_reg];
+                    },
                 }
             },
 
