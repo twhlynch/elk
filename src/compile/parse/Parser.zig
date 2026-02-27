@@ -427,14 +427,10 @@ fn resolveFieldLabel(
     operand: anytype,
     index: usize,
 ) error{Reported}!void {
-    // Check generic param
-    const Int = switch (@TypeOf(operand)) {
-        // TODO: This can be done better!
-        *Operand.Spanned(Operand.Value.PcOffset(9)) => i9,
-        *Operand.Spanned(Operand.Value.PcOffset(10)) => i10,
-        *Operand.Spanned(Operand.Value.PcOffset(11)) => i11,
-        else => comptime unreachable,
-    };
+    // Extract integer type from operand argument type
+    const Spanned = @typeInfo(@TypeOf(operand)).pointer.child;
+    const Value = @FieldType(Spanned, "value");
+    const Int = @FieldType(Value, "resolved");
 
     switch (operand.value) {
         .unresolved => {},
