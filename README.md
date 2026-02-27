@@ -16,8 +16,8 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 ## Optional Extension Features
 
 - [x] Debug traps (compatible with [Lace](https://github.com/rozukke/lace))
-- [ ] Stack instructions (compatible with [Lace](https://github.com/rozukke/lace))
-- [ ] Extra-permissive syntax
+- [x] Stack instructions (compatible with [Lace](https://github.com/rozukke/lace))
+- [x] Extra-permissive syntax
 - [ ] Preprocessor metaprogramming
 
 # Usage
