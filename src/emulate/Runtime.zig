@@ -521,7 +521,7 @@ pub const Mask = struct {
 
     pub fn apply(comptime mask: Mask, word: u16) @Int(
         .unsigned,
-        mask.highest - mask.lowest + 1,
+        @as(u16, mask.highest) - mask.lowest + 1,
     ) {
         assert(mask.lowest <= mask.highest);
         return @truncate(word >> mask.lowest);
@@ -542,8 +542,8 @@ pub const Mask = struct {
 
         try expect(signExtend(@as(u1, 0b1)) == 0b1111_1111_1111_1111);
         try expect(signExtend(@as(u2, 0b01)) == 0b0000_0000_0000_0001);
-        try expect(signExtend(@as(u2, 0b101)) == 0b1111_1111_1111_1101);
-        try expect(signExtend(@as(u3, 0b0101)) == 0b0000_0000_0000_0101);
+        try expect(signExtend(@as(u3, 0b101)) == 0b1111_1111_1111_1101);
+        try expect(signExtend(@as(u4, 0b0101)) == 0b0000_0000_0000_0101);
     }
 
     test apply {
