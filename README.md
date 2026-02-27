@@ -10,7 +10,15 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 - [x] Assembler
 - [x] Emulator
 - [ ] Debugger
+- [ ] Formatter
 - [ ] and more coming...
+
+## Optional Extension Features
+
+- [x] Debug traps (compatible with [Lace](https://github.com/rozukke/lace))
+- [ ] Stack instructions (compatible with [Lace](https://github.com/rozukke/lace))
+- [ ] Extra-permissive syntax
+- [ ] Preprocessor metaprogramming
 
 # Usage
 
