@@ -17,6 +17,7 @@ tty: Tty,
 writer: Writer,
 io: Io,
 
+// TODO: Rename
 const Writer = struct {
     is_newline: bool,
     inner: Io.File.Writer,
@@ -36,9 +37,18 @@ const Writer = struct {
     }
 
     pub fn drain(io_w: *Io.Writer, data: []const []const u8, splat: usize) Io.Writer.Error!usize {
-        const w: *Writer = @alignCast(@fieldParentPtr("interface", io_w));
-        // TODO: Set `is_newline`
-        return w.inner.interface.vtable.drain(&w.inner.interface, data, splat);
+        const writer: *Writer = @alignCast(@fieldParentPtr("interface", io_w));
+
+        assert(data.len <= 1);
+        if (data.len == 0)
+            return 0;
+
+        const count = try writer.inner.interface.vtable.drain(&writer.inner.interface, data, splat);
+        if (count > 0) {
+            const index = (count / splat) - 1; // Probably correct
+            writer.is_newline = data[0][index] == '\n';
+        }
+        return count;
     }
 
     pub fn ensureNewline(writer: *Writer) Io.Writer.Error!void {
