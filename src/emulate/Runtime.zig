@@ -195,10 +195,9 @@ pub fn run(runtime: *Runtime) Error!void {
 
             .br => {
                 const mask: u3 = bitmask.operand.condition_mask.apply(instr);
-                // Cannot have NO flags. `BR` is assembled as `BRnzp`
-                if (mask == 0b000) {
-                    return error.InvalidOperand;
-                }
+                // No-op case
+                if (mask == 0b000)
+                    continue;
                 const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
                 if (@intFromEnum(runtime.condition) & mask != 0)
                     runtime.pc +%= pc_offset;
