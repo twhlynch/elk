@@ -49,32 +49,23 @@ pub const Options = struct {
             more_integer_radixes: bool,
             more_integer_forms: bool,
 
-            pub const none: @This() = .{
-                .implicit_origin = false,
-                .implicit_end = false,
-                .multiline_strings = false,
-                .more_integer_radixes = false,
-                .more_integer_forms = false,
-            };
-            pub const all: @This() = .{
-                .implicit_origin = true,
-                .implicit_end = true,
-                .multiline_strings = true,
-                .more_integer_radixes = true,
-                .more_integer_forms = true,
-            };
+            pub const none = fillFields(@This(), false);
+            pub const all = fillFields(@This(), true);
         },
 
         style: struct {
             allow_undesirable_integer_forms: bool,
 
-            pub const none: @This() = .{
-                .allow_undesirable_integer_forms = false,
-            };
-            pub const all: @This() = .{
-                .allow_undesirable_integer_forms = true,
-            };
+            pub const none = fillFields(@This(), false);
+            pub const all = fillFields(@This(), true);
         },
+
+        fn fillFields(comptime T: type, comptime value: bool) T {
+            var filled: T = undefined;
+            for (@typeInfo(T).@"struct".fields) |field|
+                @field(filled, field.name) = value;
+            return filled;
+        }
     };
 
     fn strictnessResponse(options: Options) Response {
