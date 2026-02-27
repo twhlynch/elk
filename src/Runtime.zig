@@ -17,6 +17,8 @@ tty: Tty,
 writer: Writer,
 io: Io,
 
+// TODO: Implement `Io.Writer` and use interface methods !
+// Wrap inner writer just to track newline
 const Writer = struct {
     is_newline: bool,
     inner: Io.File.Writer,
@@ -37,6 +39,15 @@ const Writer = struct {
         try writer.inner.interface.writeAll(bytes);
         if (bytes.len > 0)
             writer.is_newline = bytes[bytes.len - 1] == '\n';
+    }
+
+    pub fn print(
+        writer: *Writer,
+        comptime fmt: []const u8,
+        args: anytype,
+    ) error{WriteFailed}!void {
+        try writer.inner.interface.print(fmt, args);
+        writer.is_newline = true; // Meaningless and hazardous assumption!
     }
 
     pub fn flush(writer: *Writer) error{WriteFailed}!void {
@@ -272,6 +283,10 @@ pub fn run(runtime: *Runtime) Error!void {
                 const trap_vect: TrapVect = @enumFromInt(bitmask.operand.trap_vect.apply(instr));
 
                 switch (trap_vect) {
+                    .halt => {
+                        break;
+                    },
+
                     .puts => {
                         var i: usize = runtime.registers[0];
                         while (true) : (i += 1) {
@@ -327,8 +342,32 @@ pub fn run(runtime: *Runtime) Error!void {
                         runtime.registers[0] = char;
                     },
 
-                    .halt => {
-                        break;
+                    .reg => {
+                        try runtime.writer.ensureNewline();
+
+                        try runtime.writer.print("+------------------------------------+\n", .{});
+                        try runtime.writer.print("|        hex     int     uint    chr |\n", .{});
+
+                        for (runtime.registers, 0..8) |word, i| {
+                            try runtime.writer.print(
+                                "| R{}  0x{x:04}  {:6}  {:7}    ",
+                                .{ i, word, word, @as(i16, @bitCast(word)) },
+                            );
+                            // TODO: Print character
+                            try runtime.writer.print("---", .{});
+                            try runtime.writer.print(" |\n", .{});
+                        }
+
+                        try runtime.writer.print("+------------------+-----------------+\n", .{});
+
+                        try runtime.writer.print(
+                            "|    PC  0x{x:04}    |     CC  {b:03}     |\n",
+                            .{ runtime.pc, @intFromEnum(runtime.condition) },
+                        );
+
+                        try runtime.writer.print("+------------------+-----------------+\n", .{});
+
+                        try runtime.writer.flush();
                     },
 
                     else => {
