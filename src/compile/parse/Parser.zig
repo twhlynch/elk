@@ -22,14 +22,13 @@ origin: ?Span,
 
 pub fn new(
     air: *Air,
-    source_: []const u8,
-    reporter_: *Reporter,
+    tokens: TokenIter,
     allocator: Allocator,
 ) Parser {
     return .{
         .air = air,
         .allocator = allocator,
-        .tokens = .new(source_, reporter_),
+        .tokens = tokens,
         .current_label = null,
         .origin = null,
     };
