@@ -40,11 +40,11 @@ pub const Options = struct {
 
     pub const Features = struct {
         extension: struct {
-            implicit_origin: bool = true,
-            implicit_end: bool = true,
-            multiline_strings: bool = true,
-            more_integer_radixes: bool = true,
-            more_integer_forms: bool = true,
+            implicit_origin: bool = false,
+            implicit_end: bool = false,
+            multiline_strings: bool = false,
+            more_integer_radixes: bool = false,
+            more_integer_forms: bool = false,
         } = .{},
         style: struct {
             allow_undesirable_integer_forms: bool = false,
