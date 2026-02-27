@@ -685,7 +685,7 @@ const Ctx = struct {
             ctx.print("    | ", .{});
             ctx.print("\x1b[22m", .{});
             ctx.print("\x1b[36m", .{});
-            for (0..line_string.len) |i| {
+            for (0..line_string.len + 1) |i| {
                 const index = line.offset + i;
                 if (span.containsIndex(index) or
                     // Still highlight first character if len==0
