@@ -83,6 +83,8 @@ const bitmask = struct {
     pub const flag = struct {
         pub const add_and: Mask = .new(5, 5);
         pub const jsr_jsrr: Mask = .new(11, 11);
+        pub const stack: Mask = .new(11, 11);
+        pub const pop_push: Mask = .new(10, 10);
     };
 
     pub const padding = struct {
@@ -149,10 +151,38 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
     // Conversion cannot fail
     const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(instr));
 
+    // TODO: Extract magic numbers
+
     switch (opcode) {
         .rti => return error.UnsupportedRti,
-        // TODO: Support lace stack extension (behind feature flag)
-        .reserved => return error.ReservedOpcode,
+
+        .reserved => {
+            // TODO: Enable with feature flag (separately)
+
+            switch (bitmask.flag.stack.apply(instr)) {
+                0 => { // PUSH/POP
+                    const reg = bitmask.operand.reg_high.apply(instr);
+                    switch (bitmask.flag.pop_push.apply(instr)) {
+                        0 => { // POP
+                            const stack_ptr = runtime.registers[7];
+                            const value = runtime.memory[stack_ptr];
+                            runtime.registers[7] +%= 1;
+                            runtime.registers[reg] = value;
+                        },
+                        1 => { // PUSH
+                            const value = runtime.registers[reg];
+                            runtime.registers[7] -%= 1;
+                            const stack_ptr = runtime.registers[7];
+                            runtime.memory[stack_ptr] = value;
+                        },
+                    }
+                },
+                1 => { // CALL/RET
+                    // TODO:
+                    return error.ReservedOpcode;
+                },
+            }
+        },
 
         inline .add, .@"and" => |arith_opcode| {
             const dest_reg = bitmask.operand.reg_high.apply(instr);
