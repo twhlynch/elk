@@ -414,6 +414,7 @@ pub fn resolveLabels(parser: *Parser) void {
             .lea => |*operands| parser.resolveFieldLabel(&operands.src, index),
             .st => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             .sti => |*operands| parser.resolveFieldLabel(&operands.dest, index),
+            .call => |*operands| parser.resolveFieldLabel(&operands.dest, index),
             else => {},
         } catch |err| switch (err) {
             error.Reported => continue,
@@ -430,6 +431,7 @@ fn resolveFieldLabel(
     const Int = switch (@TypeOf(operand)) {
         // TODO: This can be done better!
         *Operand.Spanned(Operand.Value.PcOffset(9)) => i9,
+        *Operand.Spanned(Operand.Value.PcOffset(10)) => i10,
         *Operand.Spanned(Operand.Value.PcOffset(11)) => i11,
         else => comptime unreachable,
     };
