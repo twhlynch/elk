@@ -297,10 +297,12 @@ pub fn run(runtime: *Runtime) Error!void {
                         try runtime.writer.flush();
                     },
 
-                    .in => {
-                        try runtime.writer.ensureNewline();
-                        try runtime.writer.writeAll("Input> ");
-                        try runtime.writer.flush();
+                    inline .in, .getc => {
+                        if (trap_vect == .in) {
+                            try runtime.writer.ensureNewline();
+                            try runtime.writer.writeAll("Input> ");
+                            try runtime.writer.flush();
+                        }
 
                         if (runtime.tty.state == .uninit)
                             try runtime.tty.init();
@@ -310,9 +312,11 @@ pub fn run(runtime: *Runtime) Error!void {
 
                         try runtime.tty.disableRawMode();
 
-                        try runtime.writer.writeByte(char);
-                        try runtime.writer.ensureNewline();
-                        try runtime.writer.flush();
+                        if (trap_vect == .in) {
+                            try runtime.writer.writeByte(char);
+                            try runtime.writer.ensureNewline();
+                            try runtime.writer.flush();
+                        }
 
                         runtime.registers[0] = char;
                     },
