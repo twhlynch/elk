@@ -62,7 +62,7 @@ const Opcode = enum(u4) {
     str = 0x7,
     trap = 0xf,
     rti = 0x8,
-    reserved = 0xd,
+    reserved_stack = 0xd,
 };
 
 const TrapVect = enum(u8) {
@@ -85,7 +85,7 @@ const bitmask = struct {
         pub const jsr_jsrr: Mask = .new(11, 11);
         pub const stack: Mask = .new(11, 11);
         pub const pop_push: Mask = .new(10, 10);
-        pub const ret_call: Mask = .new(10, 10);
+        pub const rets_call: Mask = .new(10, 10);
     };
 
     pub const padding = struct {
@@ -171,7 +171,7 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
     switch (opcode) {
         .rti => return error.UnsupportedRti,
 
-        .reserved => {
+        .reserved_stack => {
             // TODO: Enable with single feature flag
 
             switch (bitmask.flag.stack.apply(instr)) {
@@ -188,9 +188,9 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                         },
                     }
                 },
-                1 => { // RET/CALL
-                    switch (bitmask.flag.ret_call.apply(instr)) {
-                        0 => { // RET
+                1 => { // RETS/CALL
+                    switch (bitmask.flag.rets_call.apply(instr)) {
+                        0 => { // RETS
                             runtime.pc = runtime.stackPop();
                         },
                         1 => { // CALL
