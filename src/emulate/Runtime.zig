@@ -159,7 +159,7 @@ pub fn run(runtime: *Runtime) Error!void {
         }
 
         const instr = runtime.memory[runtime.pc];
-        runtime.pc +%= 1;
+        runtime.pc += 1;
 
         // Conversion cannot fail
         const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(instr));
