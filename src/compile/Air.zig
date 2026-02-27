@@ -40,29 +40,29 @@ pub const Statement = union(enum) {
     },
     br: struct {
         condition: Operand.ConditionMask,
-        dest: Operand.PcOffset9,
+        dest: Operand.PcOffset(9),
     },
     jmp: struct {
         base: Operand.Register,
     },
     ret: struct {},
     jsr: struct {
-        dest: Operand.PcOffset11,
+        dest: Operand.PcOffset(11),
     },
     jsrr: struct {
         base: Operand.Register,
     },
     lea: struct {
         dest: Operand.Register,
-        src: Operand.PcOffset9,
+        src: Operand.PcOffset(9),
     },
     ld: struct {
         dest: Operand.Register,
-        src: Operand.PcOffset9,
+        src: Operand.PcOffset(9),
     },
     ldi: struct {
         dest: Operand.Register,
-        src: Operand.PcOffset9,
+        src: Operand.PcOffset(9),
     },
     ldr: struct {
         dest: Operand.Register,
@@ -71,11 +71,11 @@ pub const Statement = union(enum) {
     },
     st: struct {
         src: Operand.Register,
-        dest: Operand.PcOffset9,
+        dest: Operand.PcOffset(9),
     },
     sti: struct {
         src: Operand.Register,
-        dest: Operand.PcOffset9,
+        dest: Operand.PcOffset(9),
     },
     str: struct {
         src: Operand.Register,
@@ -92,7 +92,7 @@ pub const Statement = union(enum) {
         dest: Operand.Register,
     },
     call: struct {
-        dest: Operand.PcOffset10,
+        dest: Operand.PcOffset(10),
     },
     rets: struct {},
     rti: struct {},
@@ -104,10 +104,10 @@ pub const Operand = struct {
     pub const RegImm5 = Spanned(Value.RegImm5);
     pub const TrapVect = Spanned(Value.TrapVect);
     pub const Offset6 = Spanned(Value.Offset6);
-    pub const PcOffset9 = Spanned(Value.PcOffset9);
-    pub const PcOffset10 = Spanned(Value.PcOffset10);
-    pub const PcOffset11 = Spanned(Value.PcOffset11);
     pub const ConditionMask = Spanned(Value.ConditionMask);
+    pub fn PcOffset(comptime size: u4) type {
+        return Spanned(Value.PcOffset(size));
+    }
 
     pub fn Spanned(comptime K: type) type {
         return struct {
@@ -150,32 +150,20 @@ pub const Operand = struct {
             }
         };
 
-        pub const PcOffset9 = union(enum) {
-            unresolved,
-            resolved: i9,
-            pub fn bits(self: @This()) u16 {
-                assert(self == .resolved);
-                return @as(u9, @bitCast(self.resolved));
+        pub fn PcOffset(comptime size: u4) type {
+            switch (size) {
+                9, 10, 11 => {},
+                else => comptime unreachable,
             }
-        };
-
-        pub const PcOffset10 = union(enum) {
-            unresolved,
-            resolved: i10,
-            pub fn bits(self: @This()) u16 {
-                assert(self == .resolved);
-                return @as(u10, @bitCast(self.resolved));
-            }
-        };
-
-        pub const PcOffset11 = union(enum) {
-            unresolved,
-            resolved: i11,
-            pub fn bits(self: @This()) u16 {
-                assert(self == .resolved);
-                return @as(u11, @bitCast(self.resolved));
-            }
-        };
+            return union(enum) {
+                unresolved,
+                resolved: @Int(.signed, size),
+                pub fn bits(self: @This()) u16 {
+                    assert(self == .resolved);
+                    return @as(@Int(.unsigned, size), @bitCast(self.resolved));
+                }
+            };
+        }
 
         pub const ConditionMask = enum(u3) {
             n = 0b100,

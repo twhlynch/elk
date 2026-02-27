@@ -280,7 +280,7 @@ pub const Argument = union(enum) {
                     .integer => |integer| .{
                         // TODO: Allow +1 bit for unsigned literals, which will
                         // be later bitcast to negative. Warn for this!
-                        // Same with Offset6, but probably not with PcOffset*
+                        // Same with Offset6, but probably not with PcOffset(_)
                         .immediate = try shrink(reporter, token.span, integer, i5),
                     },
                     else => try unexpected(reporter, token, &.{ .register, .integer }),
@@ -300,7 +300,7 @@ pub const Argument = union(enum) {
                     else => try unexpected(reporter, token, &.{.integer}),
                 },
 
-                Operand.Value.PcOffset9 => switch (token.value) {
+                Operand.Value.PcOffset(9) => switch (token.value) {
                     // TODO: Integer literals here may be non-standard; warn
                     .integer => |integer| .{
                         .resolved = try shrink(reporter, token.span, integer, i9),
@@ -309,7 +309,7 @@ pub const Argument = union(enum) {
                     else => try unexpected(reporter, token, &.{ .label, .integer }),
                 },
 
-                Operand.Value.PcOffset10 => switch (token.value) {
+                Operand.Value.PcOffset(10) => switch (token.value) {
                     // TODO: Integer literals here may be non-standard; warn
                     .integer => |integer| .{
                         .resolved = try shrink(reporter, token.span, integer, i10),
@@ -318,7 +318,7 @@ pub const Argument = union(enum) {
                     else => try unexpected(reporter, token, &.{ .label, .integer }),
                 },
 
-                Operand.Value.PcOffset11 => switch (token.value) {
+                Operand.Value.PcOffset(11) => switch (token.value) {
                     // TODO: Integer literals here may be non-standard; warn
                     .integer => |integer| .{
                         .resolved = try shrink(reporter, token.span, integer, i11),

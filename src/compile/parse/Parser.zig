@@ -356,7 +356,9 @@ fn parseInstruction(
                 else => comptime unreachable,
             };
             parser.tokens.discardOptional(.comma);
-            const dest = try parser.tokens.expectArgument(.{ .operand = Operand.Value.PcOffset9 });
+            const dest = try parser.tokens.expectArgument(.{
+                .operand = Operand.Value.PcOffset(9),
+            });
             return .{ .br = .{
                 .condition = .{ .span = span, .value = condition },
                 .dest = dest,
@@ -426,8 +428,9 @@ fn resolveFieldLabel(
 ) error{Reported}!void {
     // Check generic param
     const Int = switch (@TypeOf(operand)) {
-        *Operand.Spanned(Operand.Value.PcOffset9) => i9,
-        *Operand.Spanned(Operand.Value.PcOffset11) => i11,
+        // TODO: This can be done better!
+        *Operand.Spanned(Operand.Value.PcOffset(9)) => i9,
+        *Operand.Spanned(Operand.Value.PcOffset(11)) => i11,
         else => comptime unreachable,
     };
 
