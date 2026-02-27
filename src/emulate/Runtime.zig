@@ -85,6 +85,7 @@ const bitmask = struct {
         pub const jsr_jsrr: Mask = .new(11, 11);
         pub const stack: Mask = .new(11, 11);
         pub const pop_push: Mask = .new(10, 10);
+        pub const ret_call: Mask = .new(10, 10);
     };
 
     pub const padding = struct {
@@ -104,6 +105,7 @@ const bitmask = struct {
         pub const trap_vect: Mask = .new(0, 8);
         pub const offset_6: Mask = .new(0, 5);
         pub const pc_offset_9: Mask = .new(0, 8);
+        pub const pc_offset_10: Mask = .new(0, 9);
         pub const pc_offset_11: Mask = .new(0, 10);
         pub const condition_mask: Mask = .new(9, 11);
     };
@@ -170,7 +172,7 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .rti => return error.UnsupportedRti,
 
         .reserved => {
-            // TODO: Enable with feature flag (separately)
+            // TODO: Enable with single feature flag
 
             switch (bitmask.flag.stack.apply(instr)) {
                 0 => { // PUSH/POP
@@ -186,9 +188,17 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                         },
                     }
                 },
-                1 => { // CALL/RET
-                    // TODO:
-                    return error.ReservedOpcode;
+                1 => { // RET/CALL
+                    switch (bitmask.flag.ret_call.apply(instr)) {
+                        0 => { // RET
+                            runtime.pc = runtime.stackPop();
+                        },
+                        1 => { // CALL
+                            runtime.stackPush(runtime.pc);
+                            const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
+                            runtime.pc +%= pc_offset;
+                        },
+                    }
                 },
             }
         },
