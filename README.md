@@ -7,10 +7,10 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 
 # Features
 
-[x] Assembler
-[x] Emulator
-[ ] Debugger
-[ ] and more coming...
+- [x] Assembler
+- [x] Emulator
+- [ ] Debugger
+- [ ] and more coming...
 
 # Usage
 
