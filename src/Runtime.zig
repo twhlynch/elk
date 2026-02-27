@@ -351,36 +351,7 @@ pub fn run(runtime: *Runtime) Error!void {
                     },
 
                     .reg => {
-                        try runtime.writer.ensureNewline();
-
-                        try runtime.writer.interface.print("+------------------------------------+\n", .{});
-                        try runtime.writer.interface.print("|        hex     int     uint    chr |\n", .{});
-
-                        for (runtime.registers, 0..8) |word, i| {
-                            try runtime.writer.interface.print(
-                                "| R{}  0x{x:04}  {:6}  {:7}    ",
-                                .{ i, word, word, @as(i16, @bitCast(word)) },
-                            );
-                            try runtime.printCharDisplay(word);
-                            try runtime.writer.interface.print(" |\n", .{});
-                        }
-
-                        try runtime.writer.interface.print("+------------------+-----------------+\n", .{});
-
-                        try runtime.writer.interface.print(
-                            "|    PC  0x{x:04}    |   CC {s}   |\n",
-                            .{
-                                runtime.pc,
-                                switch (runtime.condition) {
-                                    .negative => "NEGATIVE",
-                                    .zero => "  ZERO  ",
-                                    .positive => "POSITIVE",
-                                },
-                            },
-                        );
-
-                        try runtime.writer.interface.print("+------------------+-----------------+\n", .{});
-
+                        try runtime.printRegisters();
                         try runtime.writer.interface.flush();
                     },
                 }
@@ -389,7 +360,38 @@ pub fn run(runtime: *Runtime) Error!void {
     }
 }
 
-fn printCharDisplay(runtime: *Runtime, word: u16) error{WriteFailed}!void {
+fn printRegisters(runtime: *Runtime) error{WriteFailed}!void {
+    try runtime.writer.ensureNewline();
+    try runtime.writer.interface.print("+------------------------------------+\n", .{});
+    try runtime.writer.interface.print("|        hex     int     uint    chr |\n", .{});
+
+    for (runtime.registers, 0..8) |word, i| {
+        try runtime.writer.interface.print("| R{}  ", .{i});
+        try runtime.printIntegerForms(word);
+        try runtime.writer.interface.print(" |\n", .{});
+    }
+
+    try runtime.writer.interface.print("+------------------+-----------------+\n", .{});
+    try runtime.writer.interface.print(
+        "|    PC  0x{x:04}    |   CC {s}   |\n",
+        .{ runtime.pc, switch (runtime.condition) {
+            .negative => "NEGATIVE",
+            .zero => "  ZERO  ",
+            .positive => "POSITIVE",
+        } },
+    );
+    try runtime.writer.interface.print("+------------------+-----------------+\n", .{});
+}
+
+fn printIntegerForms(runtime: *Runtime, word: u16) error{WriteFailed}!void {
+    try runtime.writer.interface.print(
+        "0x{x:04}  {:6}  {:7}    ",
+        .{ word, word, @as(i16, @bitCast(word)) },
+    );
+    try runtime.printDisplayChar(word);
+}
+
+fn printDisplayChar(runtime: *Runtime, word: u16) error{WriteFailed}!void {
     const display = switch (word) {
         // Non-ascii and unimportant ascii
         else => "---",
