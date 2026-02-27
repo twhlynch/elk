@@ -1,0 +1,166 @@
+const Ctx = @This();
+
+const std = @import("std");
+
+const Span = @import("../compile/Span.zig");
+const Reporter = @import("Reporter.zig");
+
+reporter: *Reporter,
+level: ?Reporter.Level,
+depth: usize,
+
+pub fn new(reporter: *Reporter, level: ?Reporter.Level) Ctx {
+    return .{
+        .reporter = reporter,
+        .level = level,
+        .depth = 0,
+    };
+}
+
+pub fn print(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
+    ctx.reporter.writer.interface.print(fmt, args) catch
+        std.debug.panic("failed to write to reporter file", .{});
+}
+
+pub fn flush(ctx: Ctx) void {
+    ctx.reporter.writer.interface.flush() catch
+        std.debug.panic("failed to flush reporter file", .{});
+}
+
+pub fn deepen(ctx: Ctx) Ctx {
+    var new_ctx = ctx;
+    new_ctx.depth += 1;
+    return new_ctx;
+}
+
+fn printDepth(ctx: Ctx) void {
+    for (0..ctx.depth) |_|
+        ctx.print(" " ** 4, .{});
+}
+
+pub fn printTitle(
+    ctx: *const Ctx,
+    comptime fmt: []const u8,
+    args: anytype,
+) void {
+    const level = ctx.level orelse
+        unreachable;
+    ctx.printDepth();
+    switch (level) {
+        .err => {
+            ctx.print("\x1b[31m", .{});
+            ctx.print("\x1b[1m", .{});
+            ctx.print("Error: ", .{});
+            ctx.print("\x1b[0m", .{});
+        },
+        .warn => {
+            ctx.print("\x1b[33m", .{});
+            ctx.print("\x1b[1m", .{});
+            ctx.print("Warning: ", .{});
+            ctx.print("\x1b[0m", .{});
+        },
+    }
+
+    ctx.print(fmt, args);
+
+    switch (ctx.reporter.options.verbosity) {
+        .verbose, .normal => {
+            ctx.print("\n", .{});
+        },
+        .quiet => {},
+    }
+}
+
+pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
+    switch (ctx.reporter.options.verbosity) {
+        .verbose, .normal => {},
+        .quiet => return,
+    }
+
+    ctx.printDepth();
+    ctx.print("\x1b[36m", .{});
+    ctx.print("Note: ", .{});
+    ctx.print("\x1b[0m", .{});
+    ctx.print(fmt, args);
+    ctx.print("\n", .{});
+}
+
+pub fn printSourceNote(
+    ctx: Ctx,
+    comptime fmt: []const u8,
+    args: anytype,
+    span: Span,
+) void {
+    ctx.printNote(fmt ++ ": ", args);
+    ctx.printSource(span);
+}
+
+fn printSource(ctx: Ctx, span: Span) void {
+    const source = ctx.reporter.source orelse
+        unreachable;
+
+    switch (ctx.reporter.options.verbosity) {
+        .verbose, .normal => {},
+        .quiet => {
+            const line_number = span.getLineNumber(source);
+            ctx.print(" (Line {})", .{line_number});
+            ctx.print("\n", .{});
+            return;
+        },
+    }
+
+    const lines = span.getSurroundingLines(source);
+    var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
+    while (iter.next()) |line_string| {
+        const line = Span.fromSlice(line_string, source);
+        const line_number = line.getLineNumber(source);
+
+        ctx.printDepth();
+        ctx.print("\x1b[2m", .{});
+        ctx.print("{:3} ", .{line_number});
+        ctx.print("| ", .{});
+        ctx.print("\x1b[0m", .{});
+        ctx.print("\x1b[3m", .{});
+        ctx.print("\x1b[2m", .{});
+
+        {
+            var was_in_span = false;
+            for (line_string, 0..) |char, i| {
+                const index = line.offset + i;
+                const in_span = span.containsIndex(index);
+                if (in_span and !was_in_span)
+                    ctx.print("\x1b[22m", .{})
+                else if (!in_span and was_in_span)
+                    ctx.print("\x1b[2m", .{});
+                ctx.print("{c}", .{char});
+                was_in_span = in_span;
+            }
+        }
+
+        ctx.print("\x1b[0m", .{});
+        ctx.print("\n", .{});
+
+        if (!line.overlaps(span) or
+            std.mem.trim(u8, line_string, &std.ascii.whitespace).len == 0)
+        {
+            continue;
+        }
+
+        ctx.printDepth();
+        ctx.print("\x1b[2m", .{});
+        ctx.print("    | ", .{});
+        ctx.print("\x1b[22m", .{});
+        ctx.print("\x1b[36m", .{});
+        for (0..line_string.len + 1) |i| {
+            const index = line.offset + i;
+            if (span.containsIndex(index) or
+                // Still highlight first character if len==0
+                span.offset == index)
+                ctx.print("^", .{})
+            else
+                ctx.print(" ", .{});
+        }
+        ctx.print("\x1b[0m", .{});
+        ctx.print("\n", .{});
+    }
+}

@@ -3,7 +3,7 @@ const TokenIter = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-const Reporter = @import("../../Reporter.zig");
+const Reporter = @import("../../report/Reporter.zig");
 const Operand = @import("../Air.zig").Operand;
 const Span = @import("../Span.zig");
 const Lexer = @import("Lexer.zig");

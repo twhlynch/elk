@@ -1,7 +1,7 @@
 const std = @import("std");
 const Io = std.Io;
 
-const Reporter = @import("Reporter.zig");
+const Reporter = @import("report/Reporter.zig");
 const Air = @import("compile/Air.zig");
 const Parser = @import("compile/parse/Parser.zig");
 const Runtime = @import("emulate/Runtime.zig");

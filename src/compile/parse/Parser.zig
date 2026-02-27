@@ -4,7 +4,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const Reporter = @import("../../Reporter.zig");
+const Reporter = @import("../../report/Reporter.zig");
 const Air = @import("../Air.zig");
 const Span = @import("../Span.zig");
 const TokenIter = @import("TokenIter.zig");
