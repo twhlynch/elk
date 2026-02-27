@@ -147,6 +147,19 @@ pub fn run(runtime: *Runtime) Error!void {
     }
 }
 
+fn stackPush(runtime: *Runtime, value: u16) void {
+    runtime.registers[7] -%= 1;
+    const stack_ptr = runtime.registers[7];
+    runtime.memory[stack_ptr] = value;
+}
+
+fn stackPop(runtime: *Runtime) u16 {
+    const stack_ptr = runtime.registers[7];
+    const value = runtime.memory[stack_ptr];
+    runtime.registers[7] +%= 1;
+    return value;
+}
+
 pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
     // Conversion cannot fail
     const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(instr));
@@ -164,16 +177,12 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                     const reg = bitmask.operand.reg_high.apply(instr);
                     switch (bitmask.flag.pop_push.apply(instr)) {
                         0 => { // POP
-                            const stack_ptr = runtime.registers[7];
-                            const value = runtime.memory[stack_ptr];
-                            runtime.registers[7] +%= 1;
-                            runtime.registers[reg] = value;
+                            const value = runtime.stackPop();
+                            runtime.setRegister(reg, value);
                         },
                         1 => { // PUSH
                             const value = runtime.registers[reg];
-                            runtime.registers[7] -%= 1;
-                            const stack_ptr = runtime.registers[7];
-                            runtime.memory[stack_ptr] = value;
+                            runtime.stackPush(value);
                         },
                     }
                 },
