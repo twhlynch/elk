@@ -297,6 +297,12 @@ pub fn run(runtime: *Runtime) Error!void {
                         try runtime.writer.flush();
                     },
 
+                    .out => {
+                        const word: u8 = @truncate(runtime.registers[0]);
+                        try runtime.writer.writeByte(word);
+                        try runtime.writer.flush();
+                    },
+
                     inline .in, .getc => {
                         if (trap_vect == .in) {
                             try runtime.writer.ensureNewline();
