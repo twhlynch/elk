@@ -6,6 +6,10 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
+const NewlineTracker = @import("NewlineTracker.zig");
+const Tty = @import("Tty.zig");
+const Mask = @import("Mask.zig");
+
 pub const MEMORY_SIZE = 0x1_0000;
 const USER_MEMORY_START = 0x3000;
 const USER_MEMORY_END = 0xFDFF;
@@ -71,6 +75,36 @@ const TrapVect = enum(u8) {
     putn = 0x26,
     reg = 0x27,
     _,
+};
+
+const bitmask = struct {
+    pub const opcode: Mask = .new(12, 15);
+
+    pub const flag = struct {
+        pub const add_and: Mask = .new(5, 5);
+        pub const jsr_jsrr: Mask = .new(11, 11);
+    };
+
+    pub const padding = struct {
+        pub const add_and: Mask = .new(3, 4);
+        pub const not: Mask = .new(0, 5);
+        pub const jmp_ret_high: Mask = .new(9, 11);
+        pub const jmp_ret_low: Mask = .new(0, 5);
+        pub const jsrr_high: Mask = .new(9, 11);
+        pub const jsrr_low: Mask = .new(0, 5);
+    };
+
+    pub const operand = struct {
+        pub const reg_high: Mask = .new(9, 11);
+        pub const reg_mid: Mask = .new(6, 8);
+        pub const reg_low: Mask = .new(0, 2);
+        pub const imm_5: Mask = .new(0, 4);
+        pub const trap_vect: Mask = .new(0, 8);
+        pub const offset_6: Mask = .new(0, 5);
+        pub const pc_offset_9: Mask = .new(0, 8);
+        pub const pc_offset_11: Mask = .new(0, 10);
+        pub const condition_mask: Mask = .new(9, 11);
+    };
 };
 
 pub fn init(write_buffer: []u8, io: Io, allocator: Allocator) !Runtime {
@@ -308,36 +342,6 @@ pub fn run(runtime: *Runtime) Error!void {
     }
 }
 
-const bitmask = struct {
-    pub const opcode: Mask = .new(12, 15);
-
-    pub const flag = struct {
-        pub const add_and: Mask = .new(5, 5);
-        pub const jsr_jsrr: Mask = .new(11, 11);
-    };
-
-    pub const padding = struct {
-        pub const add_and: Mask = .new(3, 4);
-        pub const not: Mask = .new(0, 5);
-        pub const jmp_ret_high: Mask = .new(9, 11);
-        pub const jmp_ret_low: Mask = .new(0, 5);
-        pub const jsrr_high: Mask = .new(9, 11);
-        pub const jsrr_low: Mask = .new(0, 5);
-    };
-
-    pub const operand = struct {
-        pub const reg_high: Mask = .new(9, 11);
-        pub const reg_mid: Mask = .new(6, 8);
-        pub const reg_low: Mask = .new(0, 2);
-        pub const imm_5: Mask = .new(0, 4);
-        pub const trap_vect: Mask = .new(0, 8);
-        pub const offset_6: Mask = .new(0, 5);
-        pub const pc_offset_9: Mask = .new(0, 8);
-        pub const pc_offset_11: Mask = .new(0, 10);
-        pub const condition_mask: Mask = .new(9, 11);
-    };
-};
-
 fn setRegister(runtime: *Runtime, register: u3, value: u16) void {
     runtime.registers[register] = value;
 
@@ -414,185 +418,3 @@ fn printDisplayChar(runtime: *Runtime, word: u16) error{WriteFailed}!void {
     };
     try runtime.writer.interface.print("{s}", .{display});
 }
-
-const Mask = struct {
-    lowest: u4,
-    highest: u4,
-
-    pub fn new(lowest: u4, highest: u4) Mask {
-        return .{ .lowest = lowest, .highest = highest };
-    }
-
-    pub fn apply(comptime mask: Mask, word: u16) @Int(
-        .unsigned,
-        @as(u16, mask.highest) - mask.lowest + 1,
-    ) {
-        assert(mask.lowest <= mask.highest);
-        return @truncate(word >> mask.lowest);
-    }
-
-    pub fn applySext(comptime mask: Mask, word: u16) u16 {
-        return signExtend(apply(mask, word));
-    }
-
-    fn signExtend(value: anytype) u16 {
-        const bits = @typeInfo(@TypeOf(value)).int.bits;
-        const Signed = @Int(.signed, bits);
-        return @bitCast(@as(i16, @as(Signed, @bitCast(value))));
-    }
-
-    test signExtend {
-        const expect = std.testing.expect;
-
-        try expect(signExtend(@as(u1, 0b1)) == 0b1111_1111_1111_1111);
-        try expect(signExtend(@as(u2, 0b01)) == 0b0000_0000_0000_0001);
-        try expect(signExtend(@as(u3, 0b101)) == 0b1111_1111_1111_1101);
-        try expect(signExtend(@as(u4, 0b0101)) == 0b0000_0000_0000_0101);
-    }
-
-    test apply {
-        const expect = std.testing.expect;
-
-        try expect(apply(.new(0, 15), 0b1010_1010_0101_0101) == 0b1010_1010_0101_0101);
-
-        try expect(apply(.new(0, 0), 0b1010_1010_0101_0101) == 0b1);
-        try expect(apply(.new(0, 1), 0b1010_1010_0101_0101) == 0b01);
-        try expect(apply(.new(0, 2), 0b1010_1010_0101_0101) == 0b101);
-        try expect(apply(.new(0, 3), 0b1010_1010_0101_0101) == 0b0101);
-        try expect(apply(.new(0, 4), 0b1010_1010_0101_0101) == 0b10101);
-
-        try expect(apply(.new(15, 15), 0b1010_1010_0101_0101) == 0b1);
-        try expect(apply(.new(13, 15), 0b1010_1010_0101_0101) == 0b101);
-        try expect(apply(.new(12, 15), 0b1010_1010_0101_0101) == 0b1010);
-
-        try expect(apply(.new(1, 4), 0b1010_1010_0101_0101) == 0b1010);
-        try expect(apply(.new(2, 4), 0b1010_1010_0101_0101) == 0b101);
-        try expect(apply(.new(11, 14), 0b1010_1010_0101_0101) == 0b0101);
-        try expect(apply(.new(11, 13), 0b1010_1010_0101_0101) == 0b101);
-    }
-
-    test applySext {
-        const expect = std.testing.expect;
-
-        try expect(applySext(.new(0, 15), 0b1010_1010_0101_0101) == 0b1010_1010_0101_0101);
-
-        try expect(applySext(.new(0, 0), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1111);
-        try expect(applySext(.new(0, 1), 0b1010_1010_0101_0101) == 0b0000_0000_0000_0001);
-        try expect(applySext(.new(0, 2), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1101);
-        try expect(applySext(.new(0, 3), 0b1010_1010_0101_0101) == 0b0000_0000_0000_0101);
-        try expect(applySext(.new(0, 4), 0b1010_1010_0101_0101) == 0b1111_1111_1111_0101);
-
-        try expect(applySext(.new(15, 15), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1111);
-        try expect(applySext(.new(14, 15), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1110);
-        try expect(applySext(.new(13, 15), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1101);
-        try expect(applySext(.new(12, 15), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1010);
-
-        try expect(applySext(.new(1, 4), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1010);
-        try expect(applySext(.new(2, 4), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1101);
-        try expect(applySext(.new(11, 14), 0b1010_1010_0101_0101) == 0b0000_0000_0000_0101);
-        try expect(applySext(.new(11, 13), 0b1010_1010_0101_0101) == 0b1111_1111_1111_1101);
-    }
-};
-
-const NewlineTracker = struct {
-    is_newline: bool,
-    inner: Io.File.Writer,
-    interface: Io.Writer,
-
-    pub fn new(buffer: []u8, io: Io) NewlineTracker {
-        return .{
-            .is_newline = true,
-            .inner = Io.File.stdout().writer(io, buffer),
-            .interface = .{
-                .vtable = &.{
-                    .drain = drain,
-                },
-                .buffer = &.{},
-            },
-        };
-    }
-
-    pub fn drain(io_w: *Io.Writer, data: []const []const u8, splat: usize) Io.Writer.Error!usize {
-        const writer: *NewlineTracker = @alignCast(@fieldParentPtr("interface", io_w));
-
-        assert(data.len <= 1);
-        if (data.len == 0)
-            return 0;
-
-        const count = try writer.inner.interface.vtable.drain(&writer.inner.interface, data, splat);
-        if (count > 0) {
-            const index = (count / splat) - 1; // Probably correct
-            writer.is_newline = data[0][index] == '\n';
-        }
-        return count;
-    }
-
-    pub fn ensureNewline(writer: *NewlineTracker) Io.Writer.Error!void {
-        if (!writer.is_newline)
-            try writer.interface.writeByte('\n');
-    }
-};
-
-const Tty = struct {
-    const HANDLE = posix.STDIN_FILENO;
-
-    state: union(enum) {
-        uninit,
-        not_a_tty,
-        /// Original `termios` state.
-        modified: posix.termios,
-        /// Original (and current) `termios` state.
-        unmodified: posix.termios,
-    },
-
-    const uninit: Tty = .{ .state = .uninit };
-
-    pub fn init(tty: *Tty) error{TermiosFailed}!void {
-        assert(tty.state == .uninit);
-        const termios = posix.tcgetattr(HANDLE) catch |err| switch (err) {
-            error.NotATerminal => {
-                tty.state = .not_a_tty;
-                return;
-            },
-            error.Unexpected => return error.TermiosFailed,
-        };
-        tty.state = .{ .unmodified = termios };
-    }
-
-    pub fn enableRawMode(tty: *Tty) error{TermiosFailed}!void {
-        const termios = switch (tty.state) {
-            .not_a_tty => return,
-            .uninit, .modified => unreachable,
-            .unmodified => |termios| termios,
-        };
-        try setTermios(applyRawMode(termios));
-        tty.state = .{ .modified = termios };
-    }
-
-    pub fn disableRawMode(tty: *Tty) error{TermiosFailed}!void {
-        const termios = switch (tty.state) {
-            .not_a_tty => return,
-            .uninit, .unmodified => unreachable,
-            .modified => |termios| termios,
-        };
-        try setTermios(termios);
-        tty.state = .{ .unmodified = termios };
-    }
-
-    fn applyRawMode(termios: posix.termios) posix.termios {
-        var termios_raw = termios;
-        termios_raw.lflag.ICANON = false;
-        termios_raw.lflag.ECHO = false;
-        return termios_raw;
-    }
-
-    fn setTermios(termios: posix.termios) error{TermiosFailed}!void {
-        posix.tcsetattr(HANDLE, .NOW, termios) catch |err| switch (err) {
-            // If stdin is not a terminal, we wouldn't have the termios value.
-            error.NotATerminal => unreachable,
-            error.Unexpected,
-            error.ProcessOrphaned,
-            => return error.TermiosFailed,
-        };
-    }
-};
