@@ -7,6 +7,8 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 pub const MEMORY_SIZE = 0x1_0000;
+const USER_MEMORY_START = 0x3000;
+const USER_MEMORY_END = 0xFDFF;
 
 memory: *[MEMORY_SIZE]u16,
 registers: [8]u16,
@@ -84,6 +86,7 @@ pub fn deinit(runtime: Runtime, allocator: Allocator) void {
 pub const Error = RuntimeError || IoError;
 
 const RuntimeError = error{
+    PcOutOfBounds,
     IncorrectPadding,
     InvalidOperand,
     UnsupportedTrap,
@@ -150,6 +153,11 @@ fn readByte(runtime: *const Runtime) error{ReadFailed}!u8 {
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
+        switch (runtime.pc) {
+            USER_MEMORY_START...USER_MEMORY_END => {},
+            else => return error.PcOutOfBounds,
+        }
+
         const instr = runtime.memory[runtime.pc];
         runtime.pc +%= 1;
 
