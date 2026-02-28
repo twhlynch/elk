@@ -146,31 +146,6 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
     switch (opcode) {
         .rti => return error.UnsupportedRti,
 
-        .reserved_stack => {
-            // TODO: Enable with single feature flag
-
-            switch (bitmask.flag.pop_push_rets_call.apply(instr)) {
-                0b00 => { // POP
-                    const dest_reg = bitmask.operand.reg_mid.apply(instr);
-                    const value = runtime.stackPop();
-                    runtime.setRegister(dest_reg, value);
-                },
-                0b01 => { // PUSH
-                    const src_reg = bitmask.operand.reg_mid.apply(instr);
-                    const value = runtime.registers[src_reg];
-                    runtime.stackPush(value);
-                },
-                0b10 => { // RETS
-                    runtime.pc = runtime.stackPop();
-                },
-                0b11 => { // CALL
-                    runtime.stackPush(runtime.pc);
-                    const pc_offset = bitmask.operand.pc_offset_10.applySext(instr);
-                    runtime.pc +%= pc_offset;
-                },
-            }
-        },
-
         inline .add, .@"and" => |arith_opcode| {
             const dest_reg = bitmask.operand.reg_high.apply(instr);
             const src_reg = bitmask.operand.reg_mid.apply(instr);
@@ -296,6 +271,32 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 error.Halt => return .@"break",
                 else => |err2| return err2,
             };
+        },
+
+        .reserved_stack => {
+            // TODO: Enable with single feature flag
+
+            // Do not set condition for any operation
+            switch (bitmask.flag.pop_push_rets_call.apply(instr)) {
+                0b00 => { // POP
+                    const dest_reg = bitmask.operand.reg_mid.apply(instr);
+                    const value = runtime.stackPop();
+                    runtime.registers[dest_reg] = value;
+                },
+                0b01 => { // PUSH
+                    const src_reg = bitmask.operand.reg_mid.apply(instr);
+                    const value = runtime.registers[src_reg];
+                    runtime.stackPush(value);
+                },
+                0b10 => { // RETS
+                    runtime.pc = runtime.stackPop();
+                },
+                0b11 => { // CALL
+                    runtime.stackPush(runtime.pc);
+                    const pc_offset = bitmask.operand.pc_offset_10.applySext(instr);
+                    runtime.pc +%= pc_offset;
+                },
+            }
         },
     }
 
