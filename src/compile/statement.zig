@@ -155,20 +155,20 @@ pub const Statement = union(enum) {
             },
             .st => |operands| {
                 var raw: u16 = 0x3000;
-                raw |= operands.dest.value.bits() << 9;
-                raw |= operands.src.value.bits();
+                raw |= operands.src.value.bits() << 9;
+                raw |= operands.dest.value.bits();
                 return raw;
             },
             .sti => |operands| {
                 var raw: u16 = 0xb000;
-                raw |= operands.dest.value.bits() << 9;
-                raw |= operands.src.value.bits();
+                raw |= operands.src.value.bits() << 9;
+                raw |= operands.dest.value.bits();
                 return raw;
             },
             .str => |operands| {
                 var raw: u16 = 0x7000;
-                raw |= operands.dest.value.bits() << 9;
-                raw |= operands.src.value.bits() << 6;
+                raw |= operands.src.value.bits() << 9;
+                raw |= operands.dest.value.bits() << 6;
                 raw |= operands.offset.value.bits();
                 return raw;
             },
