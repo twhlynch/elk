@@ -34,7 +34,7 @@ const RuntimeError = error{
     InvalidOperand,
     UnhandledTrap,
     UnsupportedRti,
-    ReservedOpcode,
+    UnpermittedOpcode,
 };
 
 const IoError = error{
@@ -283,7 +283,8 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         },
 
         .reserved_stack => {
-            // TODO: Enable with single feature flag
+            if (runtime.policies.extension.stack_instructions != .permit)
+                return error.UnpermittedOpcode;
 
             // Do not set condition for any operation
             switch (bitmask.flag.pop_push_rets_call.apply(instr)) {
