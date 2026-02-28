@@ -4,9 +4,9 @@ const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
+const Policies = @import("../Policies.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
-const Options = @import("Options.zig");
 const Ctx = @import("Ctx.zig");
 
 const BUFFER_SIZE = 1024;
@@ -21,6 +21,25 @@ writer: Io.File.Writer,
 io: Io,
 
 pub const Level = enum { err, warn };
+
+pub const Options = struct {
+    strictness: Strictness = .default,
+    verbosity: Verbosity = .default,
+    policies: Policies = .default,
+
+    pub const Strictness = enum {
+        strict,
+        normal,
+        relaxed,
+        const default: Strictness = .normal;
+    };
+
+    pub const Verbosity = enum {
+        normal,
+        quiet,
+        const default: Verbosity = .normal;
+    };
+};
 
 pub const Response = enum {
     /// Must be handled immediately.

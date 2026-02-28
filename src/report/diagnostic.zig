@@ -1,10 +1,10 @@
 const std = @import("std");
 
+const Policies = @import("../Policies.zig");
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Radix = @import("../compile/parse/integers.zig").Form.Radix;
 const Reporter = @import("Reporter.zig");
-const Options = @import("Options.zig");
 const Ctx = @import("Ctx.zig");
 
 pub const TokenKinds = struct {
@@ -40,7 +40,7 @@ pub const TokenKinds = struct {
     }
 };
 
-fn strictnessResponse(options: Options) Reporter.Response {
+fn strictnessResponse(options: Reporter.Options) Reporter.Response {
     return switch (options.strictness) {
         .strict => .major,
         .normal => .minor,
@@ -49,9 +49,9 @@ fn strictnessResponse(options: Options) Reporter.Response {
 }
 
 fn policyResponse(
-    options: Options,
-    comptime category: std.meta.FieldEnum(Options.Policies),
-    comptime name: std.meta.FieldEnum(@FieldType(Options.Policies, @tagName(category))),
+    options: Reporter.Options,
+    comptime category: std.meta.FieldEnum(Policies),
+    comptime name: std.meta.FieldEnum(@FieldType(Policies, @tagName(category))),
 ) Reporter.Response {
     const policy = @field(@field(options.policies, @tagName(category)), @tagName(name));
     if (policy == .permit)
@@ -186,7 +186,7 @@ pub const Diagnostic = union(enum) {
         span: Span,
     },
 
-    pub fn getResponse(diag: Diagnostic, options: Options) Reporter.Response {
+    pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
             .multiple_origins,
             .late_origin,
