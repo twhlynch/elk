@@ -7,10 +7,11 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 
 # Features
 
-- [x] Assembler
+- [x] Assembler (includes linting)
 - [x] Emulator
 - [ ] Debugger
 - [ ] Formatter
+- [ ] Language server
 - [ ] and more coming...
 
 ## Optional Extension Features
@@ -20,6 +21,10 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 - [x] Extra-permissive assembly syntax
 - [x] Custom user-supplied trap procedures
 - [ ] Preprocessor metaprogramming
+
+## Supported Applications
+
+- [ ] [ELCI](https://github.com/rozukke/lace/tree/minecraft) inter-op
 
 # Usage
 
