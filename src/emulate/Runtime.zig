@@ -1,11 +1,10 @@
 const Runtime = @This();
 
 const std = @import("std");
-const posix = std.posix;
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
-const assert = std.debug.assert;
 
+pub const traps = @import("traps.zig");
 const NewlineTracker = @import("NewlineTracker.zig");
 const Tty = @import("Tty.zig");
 const Mask = @import("Mask.zig");
@@ -19,7 +18,7 @@ registers: [8]u16,
 pc: u16,
 condition: Condition,
 
-trap_table: *const TrapTable,
+trap_table: *const traps.Table,
 
 writer: NewlineTracker,
 tty: Tty,
@@ -69,18 +68,6 @@ const Opcode = enum(u4) {
     reserved_stack = 0xd,
 };
 
-const TrapVect = enum(u8) {
-    getc = 0x20,
-    out = 0x21,
-    puts = 0x22,
-    in = 0x23,
-    putsp = 0x24,
-    halt = 0x25,
-    putn = 0x26,
-    reg = 0x27,
-    _,
-};
-
 const bitmask = struct {
     pub const opcode: Mask = .new(12, 15);
 
@@ -113,7 +100,7 @@ const bitmask = struct {
     };
 };
 
-pub fn init(trap_table: *const TrapTable, write_buffer: []u8, io: Io, gpa: Allocator) !Runtime {
+pub fn init(trap_table: *const traps.Table, write_buffer: []u8, io: Io, gpa: Allocator) !Runtime {
     const buffer = try gpa.alloc(u16, MEMORY_SIZE);
     @memset(buffer, 0x0000);
 
@@ -302,124 +289,15 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         },
 
         .trap => {
-            const trap_vect: TrapVect = @enumFromInt(bitmask.operand.trap_vect.apply(instr));
-            return runtime.runTrap(trap_vect);
+            const vect: traps.Vect = @enumFromInt(bitmask.operand.trap_vect.apply(instr));
+            const procedure = runtime.trap_table.entries[@intFromEnum(vect)] orelse
+                return error.UnhandledTrap;
+            return procedure(runtime);
         },
     }
 
     return .@"continue";
 }
-
-fn runTrap(runtime: *Runtime, trap_vect: TrapVect) Error!Control {
-    const entry = runtime.trap_table.entries[@intFromEnum(trap_vect)] orelse
-        return error.UnhandledTrap;
-
-    return entry(runtime);
-}
-
-pub const TrapTable = struct {
-    entries: [256]?Fn,
-
-    const Fn = *const fn (*Runtime) Error!Control;
-
-    pub const default: TrapTable = blk: {
-        var table: TrapTable = .{ .entries = @splat(null) };
-        for (@typeInfo(TrapVect).@"enum".fields) |field| {
-            table.register(@field(TrapVect, field.name), @field(defaults, field.name));
-        }
-        break :blk table;
-    };
-
-    pub fn register(table: *TrapTable, trap_vect: TrapVect, func: Fn) void {
-        table.entries[@intFromEnum(trap_vect)] = func;
-    }
-
-    pub const defaults = struct {
-        pub fn halt(_: *Runtime) Error!Control {
-            return .@"break";
-        }
-
-        pub fn getc(runtime: *Runtime) Error!Control {
-            return readChar(runtime, .getc);
-        }
-
-        pub fn in(runtime: *Runtime) Error!Control {
-            return readChar(runtime, .in);
-        }
-
-        fn readChar(runtime: *Runtime, comptime trap_vect: enum { in, getc }) Error!Control {
-            if (trap_vect == .in) {
-                try runtime.writer.ensureNewline();
-                try runtime.writer.interface.writeAll("Input> ");
-                try runtime.writer.interface.flush();
-            }
-
-            if (runtime.tty.state == .uninit)
-                try runtime.tty.init();
-            try runtime.tty.enableRawMode();
-
-            const char = try runtime.readByte();
-
-            try runtime.tty.disableRawMode();
-
-            if (trap_vect == .in) {
-                try runtime.writer.interface.writeByte(char);
-                try runtime.writer.ensureNewline();
-                try runtime.writer.interface.flush();
-            }
-
-            runtime.registers[0] = char;
-            return .@"continue";
-        }
-
-        pub fn out(runtime: *Runtime) Error!Control {
-            const word: u8 = @truncate(runtime.registers[0]);
-            try runtime.writer.interface.writeByte(word);
-            try runtime.writer.interface.flush();
-            return .@"continue";
-        }
-
-        pub fn puts(runtime: *Runtime) Error!Control {
-            var i: usize = runtime.registers[0];
-            while (true) : (i += 1) {
-                const word: u8 = @truncate(runtime.memory[i]);
-                if (word == 0x00)
-                    break;
-                try runtime.writer.interface.writeByte(word);
-            }
-            try runtime.writer.interface.flush();
-            return .@"continue";
-        }
-
-        pub fn putsp(runtime: *Runtime) Error!Control {
-            var i: usize = runtime.registers[0];
-            while (true) : (i += 1) {
-                const words: [2]u8 = @bitCast(runtime.memory[i]);
-                if (words[0] == 0x00)
-                    break;
-                try runtime.writer.interface.writeByte(words[1]);
-                if (words[1] == 0x00)
-                    break;
-                try runtime.writer.interface.writeByte(words[1]);
-            }
-            try runtime.writer.interface.flush();
-            return .@"continue";
-        }
-
-        pub fn putn(runtime: *Runtime) Error!Control {
-            try runtime.writer.ensureNewline();
-            try runtime.writer.interface.print("{}\n", .{runtime.registers[0]});
-            try runtime.writer.interface.flush();
-            return .@"continue";
-        }
-
-        pub fn reg(runtime: *Runtime) Error!Control {
-            try runtime.printRegisters();
-            try runtime.writer.interface.flush();
-            return .@"continue";
-        }
-    };
-};
 
 fn setRegister(runtime: *Runtime, register: u3, value: u16) void {
     runtime.registers[register] = value;
@@ -446,15 +324,7 @@ fn stackPop(runtime: *Runtime) u16 {
     return value;
 }
 
-fn readByte(runtime: *const Runtime) error{ReadFailed}!u8 {
-    var reader = Io.File.stdin().reader(runtime.io, &.{});
-    var char: u8 = undefined;
-    reader.interface.readSliceAll(@ptrCast(&char)) catch
-        return error.ReadFailed;
-    return char;
-}
-
-fn printRegisters(runtime: *Runtime) error{WriteFailed}!void {
+pub fn printRegisters(runtime: *Runtime) error{WriteFailed}!void {
     try runtime.writer.ensureNewline();
     try runtime.writer.interface.print("+-----------------------------------+\n", .{});
     try runtime.writer.interface.print("|        hex      int    uint   chr |\n", .{});

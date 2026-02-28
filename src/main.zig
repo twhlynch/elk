@@ -51,7 +51,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     {
-        const trap_table: Runtime.TrapTable = .default;
+        const trap_table: Runtime.traps.Table = .default;
 
         var write_buffer: [64]u8 = undefined;
         var runtime = try Runtime.init(&trap_table, &write_buffer, io, gpa);
