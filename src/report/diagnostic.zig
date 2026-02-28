@@ -134,6 +134,9 @@ pub const Diagnostic = union(enum) {
     invalid_digit: struct {
         integer: Span,
     },
+    unexpected_delimiter: struct {
+        integer: Span,
+    },
     integer_too_large: struct {
         integer: Span,
         bits: u16,
@@ -185,6 +188,7 @@ pub const Diagnostic = union(enum) {
             .malformed_integer,
             .expected_digit,
             .invalid_digit,
+            .unexpected_delimiter,
             .integer_too_large,
             => .fatal,
 
@@ -328,6 +332,11 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Invalid digit in integer operand", .{});
                 ctx.deepen().printSourceNote("Operand", .{}, info.integer);
                 ctx.deepen().printNote("Integer token contains a character which is not valid in the base", .{});
+            },
+            .unexpected_delimiter => |info| {
+                ctx.printTitle("Unexpected digit delimiter in integer operand", .{});
+                ctx.deepen().printSourceNote("Operand", .{}, info.integer);
+                ctx.deepen().printNote("Delimiter character `_` must appear between digits", .{});
             },
             .integer_too_large => |info| {
                 ctx.printTitle("Integer operand is too large", .{});

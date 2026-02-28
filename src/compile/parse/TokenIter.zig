@@ -98,6 +98,11 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
                     .integer = span,
                 }).abort();
             },
+            error.UnexpectedDelimiter => {
+                try tokens.reporter.report(.unexpected_delimiter, .{
+                    .integer = span,
+                }).abort();
+            },
             error.IntegerTooLarge => {
                 try tokens.reporter.report(.integer_too_large, .{
                     .integer = span,

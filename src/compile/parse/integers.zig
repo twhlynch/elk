@@ -5,8 +5,9 @@ const assert = std.debug.assert;
 
 pub const Error = error{
     MalformedInteger,
-    InvalidDigit,
     ExpectedDigit,
+    InvalidDigit,
+    UnexpectedDelimiter,
     IntegerTooLarge,
 };
 
@@ -234,13 +235,38 @@ pub fn tryInteger(string: []const u8) Error!?Word {
         return endOfInteger(form, null);
 
     var oversize: Word.Oversize = 0;
+    var last_char: enum { digit, delimiter, none } = .none;
     const real_radix = prefix.radix orelse Form.Radix.default;
 
     while (chars.next()) |char| {
+        switch (char) {
+            '_' => {
+                switch (last_char) {
+                    .digit => {},
+                    .none, .delimiter => return error.UnexpectedDelimiter,
+                }
+                last_char = .delimiter;
+                continue;
+            },
+            else => {
+                // Non-delimiter, but may be invalid character, which will be handled next
+                last_char = .digit;
+            },
+        }
+
         const digit = real_radix.parse_digit(char) orelse
             return endOfInteger(form, char);
         appendDigit(&oversize, real_radix, digit) catch
             return error.IntegerTooLarge;
+    }
+
+    switch (last_char) {
+        .digit => {},
+        .delimiter => return error.UnexpectedDelimiter,
+        // After prefix:
+        // "" is already handled
+        // "_" is already handled
+        .none => unreachable,
     }
 
     return try Word.from(oversize, form);
