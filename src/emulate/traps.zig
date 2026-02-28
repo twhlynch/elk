@@ -2,7 +2,9 @@ const std = @import("std");
 const Io = std.Io;
 
 const Runtime = @import("Runtime.zig");
-const Error = Runtime.Error;
+
+pub const Result = (Runtime.Error || error{Halt})!void;
+pub const Procedure = *const fn (*Runtime) Result;
 
 pub const Vect = enum(u8) {
     getc = 0x20,
@@ -19,9 +21,6 @@ pub const Vect = enum(u8) {
 pub const Table = struct {
     entries: [256]?Procedure,
 
-    pub const Result = Runtime.Error!Runtime.Control;
-    pub const Procedure = *const fn (*Runtime) Result;
-
     pub const default: Table = blk: {
         var table: Table = .{ .entries = @splat(null) };
         for (@typeInfo(Vect).@"enum".fields) |field| {
@@ -36,19 +35,19 @@ pub const Table = struct {
 };
 
 pub const defaults = struct {
-    pub fn halt(_: *Runtime) Table.Result {
-        return .@"break";
+    pub fn halt(_: *Runtime) Result {
+        return error.Halt;
     }
 
-    pub fn getc(runtime: *Runtime) Table.Result {
+    pub fn getc(runtime: *Runtime) Result {
         return readChar(runtime, .getc);
     }
 
-    pub fn in(runtime: *Runtime) Table.Result {
+    pub fn in(runtime: *Runtime) Result {
         return readChar(runtime, .in);
     }
 
-    fn readChar(runtime: *Runtime, comptime vect: enum { in, getc }) Table.Result {
+    fn readChar(runtime: *Runtime, comptime vect: enum { in, getc }) Result {
         if (vect == .in) {
             try runtime.writer.ensureNewline();
             try runtime.writer.interface.writeAll("Input> ");
@@ -70,7 +69,6 @@ pub const defaults = struct {
         }
 
         runtime.registers[0] = char;
-        return .@"continue";
     }
 
     fn readByte(runtime: *const Runtime) error{ReadFailed}!u8 {
@@ -81,14 +79,13 @@ pub const defaults = struct {
         return char;
     }
 
-    pub fn out(runtime: *Runtime) Table.Result {
+    pub fn out(runtime: *Runtime) Result {
         const word: u8 = @truncate(runtime.registers[0]);
         try runtime.writer.interface.writeByte(word);
         try runtime.writer.interface.flush();
-        return .@"continue";
     }
 
-    pub fn puts(runtime: *Runtime) Table.Result {
+    pub fn puts(runtime: *Runtime) Result {
         var i: usize = runtime.registers[0];
         while (true) : (i += 1) {
             const word: u8 = @truncate(runtime.memory[i]);
@@ -97,10 +94,9 @@ pub const defaults = struct {
             try runtime.writer.interface.writeByte(word);
         }
         try runtime.writer.interface.flush();
-        return .@"continue";
     }
 
-    pub fn putsp(runtime: *Runtime) Table.Result {
+    pub fn putsp(runtime: *Runtime) Result {
         var i: usize = runtime.registers[0];
         while (true) : (i += 1) {
             const words: [2]u8 = @bitCast(runtime.memory[i]);
@@ -112,19 +108,16 @@ pub const defaults = struct {
             try runtime.writer.interface.writeByte(words[1]);
         }
         try runtime.writer.interface.flush();
-        return .@"continue";
     }
 
-    pub fn putn(runtime: *Runtime) Table.Result {
+    pub fn putn(runtime: *Runtime) Result {
         try runtime.writer.ensureNewline();
         try runtime.writer.interface.print("{}\n", .{runtime.registers[0]});
         try runtime.writer.interface.flush();
-        return .@"continue";
     }
 
-    pub fn reg(runtime: *Runtime) Table.Result {
+    pub fn reg(runtime: *Runtime) Result {
         try runtime.printRegisters();
         try runtime.writer.interface.flush();
-        return .@"continue";
     }
 };

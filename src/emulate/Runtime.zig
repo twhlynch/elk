@@ -24,8 +24,6 @@ writer: NewlineTracker,
 tty: Tty,
 io: Io,
 
-pub const Control = enum { @"continue", @"break" };
-
 pub const Error = RuntimeError || IoError;
 
 const RuntimeError = error{
@@ -119,6 +117,8 @@ pub fn init(trap_table: *const traps.Table, write_buffer: []u8, io: Io, gpa: All
 pub fn deinit(runtime: Runtime, gpa: Allocator) void {
     defer gpa.free(runtime.memory);
 }
+
+const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
@@ -292,7 +292,10 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
             const vect: traps.Vect = @enumFromInt(bitmask.operand.trap_vect.apply(instr));
             const procedure = runtime.trap_table.entries[@intFromEnum(vect)] orelse
                 return error.UnhandledTrap;
-            return procedure(runtime);
+            procedure(runtime) catch |err| switch (err) {
+                error.Halt => return .@"break",
+                else => |err2| return err2,
+            };
         },
     }
 
