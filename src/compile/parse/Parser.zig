@@ -368,8 +368,6 @@ fn parseInstruction(
                 .br, .brnzp => .nzp,
                 else => comptime unreachable,
             };
-            // TODO:
-            parser.tokens.discardOptional(.comma);
             const dest = try parser.tokens.expectArgument(.{
                 .operand = Operand.Value.PcOffset(9),
             });
