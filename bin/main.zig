@@ -9,7 +9,7 @@ pub fn main(init: std.process.Init) !u8 {
     var reporter = lcz.Reporter.new(io);
     try reporter.init();
 
-    const asm_path = "../hw.asm";
+    const asm_path = "hw.asm";
 
     const source = try Io.Dir.cwd().readFileAlloc(io, asm_path, gpa, .unlimited);
     defer gpa.free(source);
