@@ -28,6 +28,7 @@ io: Io,
 
 pub const Error = RuntimeError || IoError;
 
+// TODO: Rename
 pub const RuntimeError = error{
     PcOutOfBounds,
     IncorrectPadding,
@@ -40,6 +41,7 @@ pub const RuntimeError = error{
 pub const IoError = error{
     WriteFailed,
     ReadFailed,
+    EndOfStream,
     TermiosFailed,
 };
 

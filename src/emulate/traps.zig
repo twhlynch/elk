@@ -85,11 +85,13 @@ pub const defaults = struct {
         runtime.registers[0] = char;
     }
 
-    fn readByte(runtime: *const Runtime) error{ReadFailed}!u8 {
+    fn readByte(runtime: *const Runtime) error{ EndOfStream, ReadFailed }!u8 {
         var reader = Io.File.stdin().reader(runtime.io, &.{});
         var char: u8 = undefined;
-        reader.interface.readSliceAll(@ptrCast(&char)) catch
-            return error.ReadFailed;
+        reader.interface.readSliceAll(@ptrCast(&char)) catch |err| switch (err) {
+            error.EndOfStream => return error.EndOfStream,
+            else => return error.ReadFailed,
+        };
         return char;
     }
 
