@@ -152,6 +152,7 @@ pub const Diagnostic = union(enum) {
     nonstandard_integer_form: struct {
         integer: Span,
         reason: enum {
+            pre_radix_sign,
             post_radix_sign,
         },
     },
@@ -350,7 +351,8 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Integer uses nonstandard syntax", .{});
                 ctx.deepen().printSourceNote("Integer", .{}, info.integer);
                 ctx.deepen().printNote("{s}", .{switch (info.reason) {
-                    .post_radix_sign => "Sign character should appear before base specifier",
+                    .pre_radix_sign => "Sign character should appear after decimal base specifier",
+                    .post_radix_sign => "Sign character should appear before non-decimal base specifier",
                 }});
             },
             .undesirable_integer_form => |info| {

@@ -139,14 +139,24 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                 },
                 else => {},
             };
-            if (integer.form.sign) |sign| {
-                if (sign.position == .post_radix) {
-                    tokens.reporter.report(.nonstandard_integer_form, .{
-                        .integer = token.span,
-                        .reason = .post_radix_sign,
-                    }).collect(&result);
-                }
-            }
+            if (integer.form.radix) |radix| switch (radix) {
+                .decimal => if (integer.form.sign) |sign| {
+                    if (sign.position == .pre_radix) {
+                        tokens.reporter.report(.nonstandard_integer_form, .{
+                            .integer = token.span,
+                            .reason = .pre_radix_sign,
+                        }).collect(&result);
+                    }
+                },
+                .hex, .octal, .binary => if (integer.form.sign) |sign| {
+                    if (sign.position == .post_radix) {
+                        tokens.reporter.report(.nonstandard_integer_form, .{
+                            .integer = token.span,
+                            .reason = .post_radix_sign,
+                        }).collect(&result);
+                    }
+                },
+            };
             if (integer.form.radix) |radix| switch (radix) {
                 .hex, .octal, .binary => if (!integer.form.zero) {
                     tokens.reporter.report(.undesirable_integer_form, .{
