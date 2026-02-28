@@ -220,13 +220,13 @@ pub const Diagnostic = union(enum) {
             .multiline_string => featureResponse(options, .extension, .multiline_strings),
             .nonstandard_integer_radix => featureResponse(options, .extension, .more_integer_radixes),
             .nonstandard_integer_form => featureResponse(options, .extension, .more_integer_forms),
-            .nonstandard_label_colon => featureResponse(options, .extension, .label_colons),
+            .nonstandard_label_colon => featureResponse(options, .extension, .label_declaration_colons),
 
-            .literal_pc_offset => featureResponse(options, .smells, .allow_literal_pc_offset),
+            .literal_pc_offset => featureResponse(options, .smell, .pc_offset_literals),
 
-            .undesirable_integer_form => featureResponse(options, .style, .allow_undesirable_integer_forms),
-            .missing_operand_comma => featureResponse(options, .style, .allow_missing_operand_commas),
-            .whitespace_comma => featureResponse(options, .style, .allow_whitespace_commas),
+            .undesirable_integer_form => featureResponse(options, .style, .undesirable_integer_forms),
+            .missing_operand_comma => featureResponse(options, .style, .missing_operand_commas),
+            .whitespace_comma => featureResponse(options, .style, .whitespace_commas),
 
             .generic_debug => .fatal,
         };

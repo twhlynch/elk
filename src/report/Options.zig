@@ -24,7 +24,7 @@ pub const Features = struct {
 
     const default: Features = .{
         .extension = .forbidAll,
-        .smells = .forbidAll,
+        .smell = .forbidAll,
         .style = .forbidAll,
     };
 
@@ -34,23 +34,23 @@ pub const Features = struct {
         multiline_strings: Policy,
         more_integer_radixes: Policy,
         more_integer_forms: Policy,
-        label_colons: Policy,
+        label_declaration_colons: Policy,
 
         pub const forbidAll = fillFields(@This(), .forbid);
         pub const permitAll = fillFields(@This(), .permit);
     },
 
-    smells: struct {
-        allow_literal_pc_offset: Policy,
+    smell: struct {
+        pc_offset_literals: Policy,
 
         pub const forbidAll = fillFields(@This(), .forbid);
         pub const permitAll = fillFields(@This(), .permit);
     },
 
     style: struct {
-        allow_undesirable_integer_forms: Policy,
-        allow_missing_operand_commas: Policy,
-        allow_whitespace_commas: Policy,
+        undesirable_integer_forms: Policy,
+        missing_operand_commas: Policy,
+        whitespace_commas: Policy,
 
         pub const forbidAll = fillFields(@This(), .forbid);
         pub const permitAll = fillFields(@This(), .permit);
