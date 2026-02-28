@@ -162,6 +162,12 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                     }
                 },
             };
+            if (integer.form.delimited) {
+                tokens.reporter.report(.nonstandard_integer_form, .{
+                    .integer = token.span,
+                    .reason = .delimiter,
+                }).collect(&result);
+            }
             if (integer.form.radix) |radix| switch (radix) {
                 .hex, .octal, .binary => if (!integer.form.zero) {
                     tokens.reporter.report(.undesirable_integer_form, .{

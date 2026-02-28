@@ -157,6 +157,7 @@ pub const Diagnostic = union(enum) {
         reason: enum {
             pre_radix_sign,
             post_radix_sign,
+            delimiter,
         },
     },
     undesirable_integer_form: struct {
@@ -362,6 +363,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printNote("{s}", .{switch (info.reason) {
                     .pre_radix_sign => "Sign character should appear after decimal base specifier",
                     .post_radix_sign => "Sign character should appear before non-decimal base specifier",
+                    .delimiter => "Delimiter character `_` is non-standard",
                 }});
             },
             .undesirable_integer_form => |info| {
