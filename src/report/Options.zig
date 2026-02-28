@@ -12,7 +12,6 @@ pub const Strictness = enum {
 };
 
 pub const Verbosity = enum {
-    verbose,
     normal,
     quiet,
     const default: Verbosity = .normal;

@@ -421,7 +421,7 @@ pub const Diagnostic = union(enum) {
         }
 
         switch (ctx.reporter.options.verbosity) {
-            .verbose, .normal => {
+            .normal => {
                 ctx.print("\n", .{});
             },
             .quiet => {},

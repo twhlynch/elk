@@ -64,7 +64,7 @@ pub fn printTitle(
     ctx.print(fmt, args);
 
     switch (ctx.reporter.options.verbosity) {
-        .verbose, .normal => {
+        .normal => {
             ctx.print("\n", .{});
         },
         .quiet => {},
@@ -73,7 +73,7 @@ pub fn printTitle(
 
 pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
     switch (ctx.reporter.options.verbosity) {
-        .verbose, .normal => {},
+        .normal => {},
         .quiet => return,
     }
 
@@ -100,7 +100,7 @@ fn printSource(ctx: Ctx, span: Span) void {
         unreachable;
 
     switch (ctx.reporter.options.verbosity) {
-        .verbose, .normal => {},
+        .normal => {},
         .quiet => {
             const line_number = span.getLineNumber(source);
             ctx.print(" (Line {})", .{line_number});
