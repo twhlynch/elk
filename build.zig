@@ -16,4 +16,16 @@ pub fn build(b: *std.Build) void {
     });
     const test_cmd = b.addRunArtifact(unit_tests);
     test_step.dependOn(&test_cmd.step);
+
+    const docs_step = b.step("docs", "Build docs");
+    const docs_obj = b.addObject(.{
+        .name = "lcz",
+        .root_module = module,
+    });
+    const docs = docs_obj.getEmittedDocs();
+    docs_step.dependOn(&b.addInstallDirectory(.{
+        .source_dir = docs,
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    }).step);
 }
