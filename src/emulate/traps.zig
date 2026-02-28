@@ -4,7 +4,6 @@ const Io = std.Io;
 const Runtime = @import("Runtime.zig");
 
 pub const Result = (Runtime.Error || error{Halt})!void;
-pub const Procedure = *const fn (*Runtime) Result;
 
 pub const Vect = enum(u8) {
     getc = 0x20,
@@ -19,31 +18,46 @@ pub const Vect = enum(u8) {
 };
 
 pub const Table = struct {
-    entries: [256]?Procedure,
+    entries: [1 << 8]?Entry,
+
+    pub const Entry = struct {
+        procedure: Procedure,
+        data: *const anyopaque,
+
+        pub const Procedure = *const fn (*Runtime, *const anyopaque) Result;
+    };
 
     pub const default: Table = blk: {
         var table: Table = .{ .entries = @splat(null) };
         for (@typeInfo(Vect).@"enum".fields) |field| {
-            table.register(@field(Vect, field.name), @field(defaults, field.name));
+            table.register(@field(Vect, field.name), @field(defaults, field.name), undefined);
         }
         break :blk table;
     };
 
-    pub fn register(table: *Table, vect: Vect, procedure: Procedure) void {
-        table.entries[@intFromEnum(vect)] = procedure;
+    pub fn register(
+        table: *Table,
+        vect: Vect,
+        procedure: Entry.Procedure,
+        data: *const anyopaque,
+    ) void {
+        table.entries[@intFromEnum(vect)] = .{
+            .procedure = procedure,
+            .data = data,
+        };
     }
 };
 
 pub const defaults = struct {
-    pub fn halt(_: *Runtime) Result {
+    pub fn halt(_: *Runtime, _: *const anyopaque) Result {
         return error.Halt;
     }
 
-    pub fn getc(runtime: *Runtime) Result {
+    pub fn getc(runtime: *Runtime, _: *const anyopaque) Result {
         return readChar(runtime, .getc);
     }
 
-    pub fn in(runtime: *Runtime) Result {
+    pub fn in(runtime: *Runtime, _: *const anyopaque) Result {
         return readChar(runtime, .in);
     }
 
@@ -79,13 +93,13 @@ pub const defaults = struct {
         return char;
     }
 
-    pub fn out(runtime: *Runtime) Result {
+    pub fn out(runtime: *Runtime, _: *const anyopaque) Result {
         const word: u8 = @truncate(runtime.registers[0]);
         try runtime.writer.interface.writeByte(word);
         try runtime.writer.interface.flush();
     }
 
-    pub fn puts(runtime: *Runtime) Result {
+    pub fn puts(runtime: *Runtime, _: *const anyopaque) Result {
         var i: usize = runtime.registers[0];
         while (true) : (i += 1) {
             const word: u8 = @truncate(runtime.memory[i]);
@@ -96,7 +110,7 @@ pub const defaults = struct {
         try runtime.writer.interface.flush();
     }
 
-    pub fn putsp(runtime: *Runtime) Result {
+    pub fn putsp(runtime: *Runtime, _: *const anyopaque) Result {
         var i: usize = runtime.registers[0];
         while (true) : (i += 1) {
             const words: [2]u8 = @bitCast(runtime.memory[i]);
@@ -110,13 +124,13 @@ pub const defaults = struct {
         try runtime.writer.interface.flush();
     }
 
-    pub fn putn(runtime: *Runtime) Result {
+    pub fn putn(runtime: *Runtime, _: *const anyopaque) Result {
         try runtime.writer.ensureNewline();
         try runtime.writer.interface.print("{}\n", .{runtime.registers[0]});
         try runtime.writer.interface.flush();
     }
 
-    pub fn reg(runtime: *Runtime) Result {
+    pub fn reg(runtime: *Runtime, _: *const anyopaque) Result {
         try runtime.printRegisters();
         try runtime.writer.interface.flush();
     }

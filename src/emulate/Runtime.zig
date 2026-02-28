@@ -290,9 +290,9 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
 
         .trap => {
             const vect: traps.Vect = @enumFromInt(bitmask.operand.trap_vect.apply(instr));
-            const procedure = runtime.trap_table.entries[@intFromEnum(vect)] orelse
+            const entry = runtime.trap_table.entries[@intFromEnum(vect)] orelse
                 return error.UnhandledTrap;
-            procedure(runtime) catch |err| switch (err) {
+            entry.procedure(runtime, entry.data) catch |err| switch (err) {
                 error.Halt => return .@"break",
                 else => |err2| return err2,
             };
