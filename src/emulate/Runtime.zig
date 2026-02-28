@@ -211,16 +211,16 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .jsr_jsrr => {
             runtime.registers[7] = runtime.pc;
             switch (bitmask.flag.jsr_jsrr.apply(instr)) {
-                0 => { // JSR
-                    const pc_offset = bitmask.operand.pc_offset_11.applySext(instr);
-                    runtime.pc +%= pc_offset;
-                },
-                1 => { // JSRR
+                0 => { // JSRR
                     if (bitmask.padding.jsrr_high.apply(instr) != 0 or
                         bitmask.padding.jsrr_low.apply(instr) != 0)
                         return error.IncorrectPadding;
                     const base_reg = bitmask.operand.reg_mid.apply(instr);
                     runtime.pc = runtime.registers[base_reg];
+                },
+                1 => { // JSR
+                    const pc_offset = bitmask.operand.pc_offset_11.applySext(instr);
+                    runtime.pc +%= pc_offset;
                 },
             }
         },
