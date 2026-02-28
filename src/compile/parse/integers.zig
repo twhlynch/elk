@@ -85,6 +85,8 @@ pub const Form = struct {
     /// Not affected by post-radix leading zeros.
     /// Note that `zero==false` for `"0"`, but not for `"00"`, `"000"`, etc.
     zero: bool,
+    /// Contains at least one `_` character.
+    delimited: bool,
 
     pub const Radix = enum(u8) {
         binary = 2,
@@ -204,6 +206,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
                 .radix = null,
                 .sign = Form.SignInfo.fromSingle(first_sign),
                 .zero = false,
+                .delimited = false,
             });
         },
         .non_integer => {
@@ -223,10 +226,11 @@ pub fn tryInteger(string: []const u8) Error!?Word {
     const second_sign = takeSign(&chars);
     const sign = try Form.SignInfo.fromPair(first_sign, second_sign);
 
-    const form: Form = .{
+    var form: Form = .{
         .radix = prefix.radix,
         .sign = sign,
         .zero = prefix.zero,
+        .delimited = false,
     };
 
     // Check if anything follows prefix (also covers "" case)
@@ -246,6 +250,7 @@ pub fn tryInteger(string: []const u8) Error!?Word {
                     .none, .delimiter => return error.UnexpectedDelimiter,
                 }
                 last_char = .delimiter;
+                form.delimited = true;
                 continue;
             },
             else => {
