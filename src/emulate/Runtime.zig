@@ -26,10 +26,10 @@ writer: NewlineTracker,
 tty: Tty,
 io: Io,
 
-pub const Error = RuntimeError || IoError;
+pub const Error = ProgramError || IoError;
 
-// TODO: Rename
-pub const RuntimeError = error{
+/// The user's program or configuration (traps, policies) is erroneous.
+pub const ProgramError = error{
     PcOutOfBounds,
     IncorrectPadding,
     InvalidOperand,
@@ -38,6 +38,7 @@ pub const RuntimeError = error{
     UnpermittedOpcode,
 };
 
+/// Stdio or terminal failure.
 pub const IoError = error{
     WriteFailed,
     ReadFailed,
