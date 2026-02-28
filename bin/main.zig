@@ -1,11 +1,12 @@
 const std = @import("std");
 const Io = std.Io;
 
-const Policies = @import("Policies.zig");
-const Reporter = @import("report/Reporter.zig");
-const Air = @import("compile/Air.zig");
-const Parser = @import("compile/parse/Parser.zig");
-const Runtime = @import("emulate/Runtime.zig");
+const lcz = @import("lcz");
+const Policies = lcz.Policies;
+const Reporter = lcz.Reporter;
+const Air = lcz.Air;
+const Parser = lcz.Parser;
+const Runtime = lcz.Runtime;
 
 pub fn main(init: std.process.Init) !u8 {
     const io, const gpa = .{ init.io, init.gpa };
@@ -13,7 +14,7 @@ pub fn main(init: std.process.Init) !u8 {
     var reporter = Reporter.new(io);
     try reporter.init();
 
-    const asm_path = "hw.asm";
+    const asm_path = "../hw.asm";
 
     const source = try Io.Dir.cwd().readFileAlloc(io, asm_path, gpa, .unlimited);
     defer gpa.free(source);
@@ -79,8 +80,4 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     return 0;
-}
-
-comptime {
-    std.testing.refAllDecls(@This());
 }
