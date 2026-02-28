@@ -113,6 +113,9 @@ fn printSource(ctx: Ctx, span: Span) void {
     switch (ctx.reporter.options.verbosity) {
         .normal => {},
         .quiet => {
+            // Scuffed!
+            if (if (ctx.item_count) |count| count.* > 2 else true)
+                return;
             const line_number = span.getLineNumber(source);
             ctx.print(" (Line {})", .{line_number});
             ctx.print("\n", .{});
