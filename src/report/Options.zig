@@ -2,11 +2,7 @@ const Options = @This();
 
 strictness: Strictness = .normal,
 verbosity: Verbosity = .normal,
-features: Features = .{
-    .extension = .none,
-    .smells = .none,
-    .style = .none,
-},
+features: Features = .default,
 
 pub const Strictness = enum {
     strict,
@@ -21,37 +17,44 @@ pub const Verbosity = enum {
 };
 
 // TODO: Rename. This is more broad than just "features"
-// TODO: Rename boolean fields to be consistent. Remove "allow". Maybe replace bool with enum
 pub const Features = struct {
-    extension: struct {
-        implicit_origin: bool,
-        implicit_end: bool,
-        multiline_strings: bool,
-        more_integer_radixes: bool,
-        more_integer_forms: bool,
-        label_colons: bool,
+    pub const Policy = enum { permit, forbid };
 
-        pub const none = fillFields(@This(), false);
-        pub const all = fillFields(@This(), true);
+    const default: Features = .{
+        .extension = .forbidAll,
+        .smells = .forbidAll,
+        .style = .forbidAll,
+    };
+
+    extension: struct {
+        implicit_origin: Policy,
+        implicit_end: Policy,
+        multiline_strings: Policy,
+        more_integer_radixes: Policy,
+        more_integer_forms: Policy,
+        label_colons: Policy,
+
+        pub const forbidAll = fillFields(@This(), .forbid);
+        pub const permitAll = fillFields(@This(), .permit);
     },
 
     smells: struct {
-        allow_literal_pc_offset: bool,
+        allow_literal_pc_offset: Policy,
 
-        pub const none = fillFields(@This(), false);
-        pub const all = fillFields(@This(), true);
+        pub const forbidAll = fillFields(@This(), .forbid);
+        pub const permitAll = fillFields(@This(), .permit);
     },
 
     style: struct {
-        allow_undesirable_integer_forms: bool,
-        allow_missing_operand_commas: bool,
-        allow_whitespace_commas: bool,
+        allow_undesirable_integer_forms: Policy,
+        allow_missing_operand_commas: Policy,
+        allow_whitespace_commas: Policy,
 
-        pub const none = fillFields(@This(), false);
-        pub const all = fillFields(@This(), true);
+        pub const forbidAll = fillFields(@This(), .forbid);
+        pub const permitAll = fillFields(@This(), .permit);
     },
 
-    fn fillFields(comptime T: type, comptime value: bool) T {
+    fn fillFields(comptime T: type, comptime value: Policy) T {
         var filled: T = undefined;
         for (@typeInfo(T).@"struct".fields) |field|
             @field(filled, field.name) = value;

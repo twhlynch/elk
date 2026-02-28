@@ -53,8 +53,8 @@ fn featureResponse(
     comptime category: std.meta.FieldEnum(Options.Features),
     comptime feature: std.meta.FieldEnum(@FieldType(Options.Features, @tagName(category))),
 ) Reporter.Response {
-    const enabled = @field(@field(options.features, @tagName(category)), @tagName(feature));
-    if (enabled)
+    const policy = @field(@field(options.features, @tagName(category)), @tagName(feature));
+    if (policy == .permit)
         return .pass;
     return strictnessResponse(options);
 }
