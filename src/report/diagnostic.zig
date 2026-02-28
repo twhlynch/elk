@@ -59,6 +59,7 @@ fn featureResponse(
     return strictnessResponse(options);
 }
 
+// TODO: Organise variants
 pub const Diagnostic = union(enum) {
     missing_origin: struct {
         first_token: ?Span,
@@ -166,6 +167,9 @@ pub const Diagnostic = union(enum) {
             missing_zero,
         },
     },
+    missing_operand_comma: struct {
+        operand: Span,
+    },
     literal_pc_offset: struct {
         integer: Span,
     },
@@ -173,6 +177,7 @@ pub const Diagnostic = union(enum) {
         colon: Span,
     },
 
+    // TODO: Remove
     generic_debug: struct {
         code: anyerror,
         span: Span,
@@ -217,6 +222,7 @@ pub const Diagnostic = union(enum) {
             .literal_pc_offset => featureResponse(options, .smells, .allow_literal_pc_offset),
 
             .undesirable_integer_form => featureResponse(options, .style, .allow_undesirable_integer_forms),
+            .missing_operand_comma => featureResponse(options, .style, .allow_missing_operand_commas),
 
             .generic_debug => .fatal,
         };
@@ -382,7 +388,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printNote("PC-offset operand should be a label reference, instead of hardcoded offset value", .{});
             },
             .nonstandard_label_colon => |info| {
-                ctx.printTitle("Label followed by colon token", .{});
+                ctx.printTitle("Label followed by colon `:`", .{});
                 ctx.deepen().printSourceNote("Colon", .{}, info.colon);
                 ctx.deepen().printNote("A post-label colon is non-standard syntax", .{});
             },
@@ -392,6 +398,11 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printNote("{s}", .{switch (info.reason) {
                     .missing_zero => "Leading zero should appear before base specifier",
                 }});
+            },
+            .missing_operand_comma => |info| {
+                ctx.printTitle("Missing comma `,` after operand", .{});
+                ctx.deepen().printSourceNote("Operand", .{}, info.operand);
+                ctx.deepen().printNote("Operands should be separated with commas", .{});
             },
 
             .generic_debug => |info| {

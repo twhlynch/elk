@@ -337,14 +337,22 @@ fn parseInstruction(
         => |regular| {
             const Operands = @FieldType(Statement, @tagName(regular));
             var operands: Operands = undefined;
-            inline for (@typeInfo(Operands).@"struct".fields) |field| {
-                // TODO:
-                parser.tokens.discardOptional(.comma);
+
+            const fields = @typeInfo(Operands).@"struct".fields;
+            inline for (fields, 0..) |field, i| {
                 const operand = try parser.tokens.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },
                 );
                 @field(operands, field.name) = operand;
+
+                if (i + 1 < fields.len)
+                    if (try parser.tokens.nextMatching(.comma) == null) {
+                        parser.reporter().report(.missing_operand_comma, .{
+                            .operand = operand.span,
+                        }).proceed();
+                    };
             }
+
             return @unionInit(Statement, @tagName(regular), operands);
         },
 

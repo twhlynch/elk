@@ -21,6 +21,7 @@ pub const Verbosity = enum {
 };
 
 // TODO: Rename. This is more broad than just "features"
+// TODO: Rename boolean fields to be consistent. Remove "allow". Maybe replace bool with enum
 pub const Features = struct {
     extension: struct {
         implicit_origin: bool,
@@ -43,6 +44,8 @@ pub const Features = struct {
 
     style: struct {
         allow_undesirable_integer_forms: bool,
+        allow_missing_operand_commas: bool,
+        // allow_whitespace_commas: bool,
 
         pub const none = fillFields(@This(), false);
         pub const all = fillFields(@This(), true);
