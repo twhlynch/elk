@@ -166,6 +166,9 @@ pub const Diagnostic = union(enum) {
             missing_zero,
         },
     },
+    literal_pc_offset: struct {
+        integer: Span,
+    },
 
     generic_debug: struct {
         code: anyerror,
@@ -206,6 +209,7 @@ pub const Diagnostic = union(enum) {
             .multiline_string => featureResponse(options, .extension, .multiline_strings),
             .nonstandard_integer_radix => featureResponse(options, .extension, .more_integer_radixes),
             .nonstandard_integer_form => featureResponse(options, .extension, .more_integer_forms),
+            .literal_pc_offset => featureResponse(options, .extension, .literal_pc_offset),
             .undesirable_integer_form => featureResponse(options, .style, .allow_undesirable_integer_forms),
 
             .generic_debug => .fatal,
@@ -365,6 +369,11 @@ pub const Diagnostic = union(enum) {
                     .post_radix_sign => "Sign character should appear before non-decimal base specifier",
                     .delimiter => "Delimiter character `_` is non-standard",
                 }});
+            },
+            .literal_pc_offset => |info| {
+                ctx.printTitle("Address operand is a literal offset", .{});
+                ctx.deepen().printSourceNote("Integer", .{}, info.integer);
+                ctx.deepen().printNote("PC-offset operand should be a label reference, instead of hardcoded offset value", .{});
             },
             .undesirable_integer_form => |info| {
                 ctx.printTitle("Integer uses undesirable syntax", .{});

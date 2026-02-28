@@ -26,6 +26,7 @@ pub const Features = struct {
         multiline_strings: bool,
         more_integer_radixes: bool,
         more_integer_forms: bool,
+        literal_pc_offset: bool,
 
         pub const none = fillFields(@This(), false);
         pub const all = fillFields(@This(), true);

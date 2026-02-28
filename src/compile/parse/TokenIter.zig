@@ -123,8 +123,13 @@ fn peekAny(tokens: *TokenIter) error{ InvalidTokenPeeked, Eof }!Token {
         return error.InvalidTokenPeeked;
 }
 
-fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void {
+fn ensureSupported(
+    tokens: *const TokenIter,
+    token: Token,
+    comptime argument_opt: ?Argument,
+) error{Reported}!void {
     var result: error{Reported}!void = {};
+
     switch (token.value) {
         .string => |string| {
             const value = string.in(token.span).view(tokens.source);
@@ -134,7 +139,22 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                 }).collect(&result);
             }
         },
+
         .integer => |integer| {
+            if (argument_opt) |argument| switch (argument) {
+                .operand => |operand| switch (operand) {
+                    Operand.Value.PcOffset(9),
+                    Operand.Value.PcOffset(10),
+                    Operand.Value.PcOffset(11),
+                    => {
+                        tokens.reporter.report(.literal_pc_offset, .{
+                            .integer = token.span,
+                        }).collect(&result);
+                    },
+                    else => {},
+                },
+                else => {},
+            };
             if (integer.form.radix) |radix| switch (radix) {
                 .octal => {
                     tokens.reporter.report(.nonstandard_integer_radix, .{
@@ -178,6 +198,7 @@ fn ensureSupported(tokens: *const TokenIter, token: Token) error{Reported}!void 
                 else => assert(!integer.form.zero),
             };
         },
+
         else => {},
     }
     return result;
@@ -193,7 +214,7 @@ pub fn nextExcluding(
             if (token.value == discard)
                 continue :token;
         }
-        try tokens.ensureSupported(token);
+        try tokens.ensureSupported(token, null);
         return token;
     }
     comptime unreachable;
@@ -211,7 +232,7 @@ pub fn nextMatching(
         return null;
     assert(tokens.peeked != null);
     tokens.peeked = null;
-    try tokens.ensureSupported(token);
+    try tokens.ensureSupported(token, null);
     return token;
 }
 
@@ -229,7 +250,7 @@ pub fn discardRemainingLine(tokens: *TokenIter) void {
             // This can be handled by next token request
             error.Eof => break,
         };
-        tokens.ensureSupported(token) catch |err| switch (err) {
+        tokens.ensureSupported(token, null) catch |err| switch (err) {
             // We are discarding this token regardless
             error.Reported => {},
         };
@@ -257,7 +278,7 @@ pub fn expectArgument(
 ) error{ Reported, Eof }!Operand.Spanned(argument.Value()) {
     const token = try tokens.nextAny();
     const value = try argument.convert(token, tokens.reporter);
-    try tokens.ensureSupported(token);
+    try tokens.ensureSupported(token, argument);
     return .{ .span = token.span, .value = value };
 }
 
