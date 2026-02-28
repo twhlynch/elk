@@ -19,9 +19,13 @@ registers: [8]u16,
 pc: u16,
 condition: Condition,
 
+trap_table: *const TrapTable,
+
 writer: NewlineTracker,
 tty: Tty,
 io: Io,
+
+pub const Control = enum { @"continue", @"break" };
 
 pub const Error = RuntimeError || IoError;
 
@@ -29,7 +33,7 @@ const RuntimeError = error{
     PcOutOfBounds,
     IncorrectPadding,
     InvalidOperand,
-    UnsupportedTrap,
+    UnhandledTrap,
     UnsupportedRti,
     ReservedOpcode,
 };
@@ -109,8 +113,8 @@ const bitmask = struct {
     };
 };
 
-pub fn init(write_buffer: []u8, io: Io, allocator: Allocator) !Runtime {
-    const buffer = try allocator.alloc(u16, MEMORY_SIZE);
+pub fn init(trap_table: *const TrapTable, write_buffer: []u8, io: Io, gpa: Allocator) !Runtime {
+    const buffer = try gpa.alloc(u16, MEMORY_SIZE);
     @memset(buffer, 0x0000);
 
     return .{
@@ -118,17 +122,16 @@ pub fn init(write_buffer: []u8, io: Io, allocator: Allocator) !Runtime {
         .registers = .{ 0, 0, 0, 0, 0, 0, 0, USER_MEMORY_END },
         .pc = 0x0000,
         .condition = .zero,
+        .trap_table = trap_table,
         .writer = .new(write_buffer, io),
         .tty = .uninit,
         .io = io,
     };
 }
 
-pub fn deinit(runtime: Runtime, allocator: Allocator) void {
-    defer allocator.free(runtime.memory);
+pub fn deinit(runtime: Runtime, gpa: Allocator) void {
+    defer gpa.free(runtime.memory);
 }
-
-const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
@@ -308,14 +311,43 @@ pub fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
 }
 
 fn runTrap(runtime: *Runtime, trap_vect: TrapVect) Error!Control {
-    switch (trap_vect) {
-        _ => return error.UnsupportedTrap,
+    const entry = runtime.trap_table.entries[@intFromEnum(trap_vect)] orelse
+        return error.UnhandledTrap;
 
-        .halt => {
+    return entry(runtime);
+}
+
+pub const TrapTable = struct {
+    entries: [256]?Fn,
+
+    const Fn = *const fn (*Runtime) Error!Control;
+
+    pub const default: TrapTable = blk: {
+        var table: TrapTable = .{ .entries = @splat(null) };
+        for (@typeInfo(TrapVect).@"enum".fields) |field| {
+            table.register(@field(TrapVect, field.name), @field(defaults, field.name));
+        }
+        break :blk table;
+    };
+
+    pub fn register(table: *TrapTable, trap_vect: TrapVect, func: Fn) void {
+        table.entries[@intFromEnum(trap_vect)] = func;
+    }
+
+    pub const defaults = struct {
+        pub fn halt(_: *Runtime) Error!Control {
             return .@"break";
-        },
+        }
 
-        inline .in, .getc => {
+        pub fn getc(runtime: *Runtime) Error!Control {
+            return readChar(runtime, .getc);
+        }
+
+        pub fn in(runtime: *Runtime) Error!Control {
+            return readChar(runtime, .in);
+        }
+
+        fn readChar(runtime: *Runtime, comptime trap_vect: enum { in, getc }) Error!Control {
             if (trap_vect == .in) {
                 try runtime.writer.ensureNewline();
                 try runtime.writer.interface.writeAll("Input> ");
@@ -337,15 +369,17 @@ fn runTrap(runtime: *Runtime, trap_vect: TrapVect) Error!Control {
             }
 
             runtime.registers[0] = char;
-        },
+            return .@"continue";
+        }
 
-        .out => {
+        pub fn out(runtime: *Runtime) Error!Control {
             const word: u8 = @truncate(runtime.registers[0]);
             try runtime.writer.interface.writeByte(word);
             try runtime.writer.interface.flush();
-        },
+            return .@"continue";
+        }
 
-        .puts => {
+        pub fn puts(runtime: *Runtime) Error!Control {
             var i: usize = runtime.registers[0];
             while (true) : (i += 1) {
                 const word: u8 = @truncate(runtime.memory[i]);
@@ -354,9 +388,10 @@ fn runTrap(runtime: *Runtime, trap_vect: TrapVect) Error!Control {
                 try runtime.writer.interface.writeByte(word);
             }
             try runtime.writer.interface.flush();
-        },
+            return .@"continue";
+        }
 
-        .putsp => {
+        pub fn putsp(runtime: *Runtime) Error!Control {
             var i: usize = runtime.registers[0];
             while (true) : (i += 1) {
                 const words: [2]u8 = @bitCast(runtime.memory[i]);
@@ -368,22 +403,23 @@ fn runTrap(runtime: *Runtime, trap_vect: TrapVect) Error!Control {
                 try runtime.writer.interface.writeByte(words[1]);
             }
             try runtime.writer.interface.flush();
-        },
+            return .@"continue";
+        }
 
-        .putn => {
+        pub fn putn(runtime: *Runtime) Error!Control {
             try runtime.writer.ensureNewline();
             try runtime.writer.interface.print("{}\n", .{runtime.registers[0]});
             try runtime.writer.interface.flush();
-        },
+            return .@"continue";
+        }
 
-        .reg => {
+        pub fn reg(runtime: *Runtime) Error!Control {
             try runtime.printRegisters();
             try runtime.writer.interface.flush();
-        },
-    }
-
-    return .@"continue";
-}
+            return .@"continue";
+        }
+    };
+};
 
 fn setRegister(runtime: *Runtime, register: u3, value: u16) void {
     runtime.registers[register] = value;
