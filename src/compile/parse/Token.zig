@@ -22,7 +22,7 @@ pub const Error =
         UnmatchedQuote,
     };
 
-pub fn from(span: Span, source: []const u8, trap_aliases: []const Traps.Entry) Error!Token {
+pub fn from(span: Span, source: []const u8, trap_aliases: Traps) Error!Token {
     const value: Value = try .from(span.view(source), trap_aliases);
     return .{ .span = span, .value = value };
 }
@@ -88,7 +88,7 @@ pub const Value = union(enum) {
         rti,
     };
 
-    pub fn from(string: []const u8, trap_aliases: []const Traps.Entry) Error!Value {
+    pub fn from(string: []const u8, trap_aliases: Traps) Error!Value {
         assert(string.len > 0);
 
         // Trap aliases always take precedence
@@ -175,9 +175,9 @@ pub const Value = union(enum) {
         return null;
     }
 
-    fn tryTrap(string: []const u8, trap_aliases: []const Traps.Entry) Error!?Value {
+    fn tryTrap(string: []const u8, trap_aliases: Traps) Error!?Value {
         assert(string.len > 0);
-        for (trap_aliases) |entry| {
+        for (trap_aliases.entries) |entry| {
             if (std.ascii.eqlIgnoreCase(string, entry.alias))
                 return .{ .trap_alias = entry.vect };
         }

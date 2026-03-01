@@ -20,20 +20,20 @@ peeked: ?Span,
 /// Updated by `parseToken`.
 latest: ?Span,
 
-trap_aliases: []const Traps.Entry,
+trap_aliases: Traps,
 source: []const u8,
 reporter: *Reporter,
 
 const TokenKind = std.meta.Tag(Token.Value);
 
 pub fn new(
-    trap_aliases: []const Traps.Entry,
+    trap_aliases: Traps,
     source: []const u8,
     reporter: *Reporter,
 ) TokenIter {
-    for (trap_aliases, 0..) |entry_a, i| {
+    for (trap_aliases.entries, 0..) |entry_a, i| {
         assert(case.isLowercaseAlpha(entry_a.alias));
-        for (trap_aliases[0..i]) |entry_b|
+        for (trap_aliases.entries[0..i]) |entry_b|
             assert(entry_a.vect != entry_b.vect);
     }
 
