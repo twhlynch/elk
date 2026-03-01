@@ -172,6 +172,12 @@ pub const Diagnostic = union(enum) {
             implicit_radix,
         },
     },
+    non_lowercase_instruction: struct {
+        instruction: Span,
+    },
+    non_uppercase_directive: struct {
+        directive: Span,
+    },
     missing_operand_comma: struct {
         operand: Span,
     },
@@ -225,6 +231,8 @@ pub const Diagnostic = union(enum) {
             .literal_pc_offset => policyResponse(options, .smell, .pc_offset_literals),
 
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
+            .non_lowercase_instruction => policyResponse(options, .style, .non_lowercase_instructions),
+            .non_uppercase_directive => policyResponse(options, .style, .non_uppercase_directives),
             .missing_operand_comma => policyResponse(options, .style, .missing_operand_commas),
             .whitespace_comma => policyResponse(options, .style, .whitespace_commas),
         };
@@ -405,6 +413,14 @@ pub const Diagnostic = union(enum) {
                     .post_radix_sign => "Sign character should appear before non-decimal base specifier",
                     .implicit_radix => "Decimal integer literal should begin with `#`",
                 }});
+            },
+            .non_lowercase_instruction => |info| {
+                ctx.printTitle("Instruction mnemonic is not lowercase", .{});
+                ctx.deepen().printSourceNote("Mnemonic", .{}, info.instruction);
+            },
+            .non_uppercase_directive => |info| {
+                ctx.printTitle("Directive name is not uppercase", .{});
+                ctx.deepen().printSourceNote("Directive", .{}, info.directive);
             },
             .missing_operand_comma => |info| {
                 ctx.printTitle("Missing comma `,` after operand", .{});

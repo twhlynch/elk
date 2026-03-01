@@ -416,6 +416,28 @@ fn ensureSupported(
             }
         },
 
+        .instruction => {
+            for (token.span.view(tokens.source)) |char| {
+                if (std.ascii.isUpper(char)) {
+                    tokens.reporter.report(.non_lowercase_instruction, .{
+                        .instruction = token.span,
+                    }).collect(&result);
+                    break;
+                }
+            }
+        },
+
+        .directive => {
+            for (token.span.view(tokens.source)) |char| {
+                if (std.ascii.isLower(char)) {
+                    tokens.reporter.report(.non_uppercase_directive, .{
+                        .directive = token.span,
+                    }).collect(&result);
+                    break;
+                }
+            }
+        },
+
         else => {},
     }
     return result;
