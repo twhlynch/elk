@@ -19,11 +19,15 @@ tokens: TokenIter,
 current_label: ?Span,
 origin: ?Span,
 
-// TODO: Dont take tokenizer param
-pub fn new(air: *Air, tokens: TokenIter) Parser {
+pub fn new(
+    air: *Air,
+    trap_aliases: []const Token.TrapEntry,
+    source_: []const u8,
+    reporter_: *Reporter,
+) Parser {
     return .{
         .air = air,
-        .tokens = tokens,
+        .tokens = .new(trap_aliases, source_, reporter_),
         .current_label = null,
         .origin = null,
     };
