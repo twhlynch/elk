@@ -6,7 +6,6 @@ const assert = std.debug.assert;
 const testing = std.testing;
 
 const Span = @import("../Span.zig");
-const TrapEntry = @import("../Air.zig").TrapEntry;
 const integers = @import("integers.zig");
 
 span: Span,
@@ -21,6 +20,12 @@ pub const Error =
         InvalidToken,
         UnmatchedQuote,
     };
+
+// TODO: Rename!! TrapAlias ??
+pub const TrapEntry = struct {
+    vect: u8,
+    alias: []const u8,
+};
 
 pub fn from(span: Span, source: []const u8, trap_aliases: []const TrapEntry) Error!Token {
     const value: Value = try .from(span.view(source), trap_aliases);

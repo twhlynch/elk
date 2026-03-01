@@ -25,7 +25,7 @@ pub fn main(init: std.process.Init) !u8 {
     var air: lcz.Air = .init();
     defer air.deinit(gpa);
 
-    const trap_aliases = [_]lcz.Air.TrapEntry{
+    const trap_aliases = [_]lcz.Parser.TrapEntry{
         .{ .vect = 0x20, .alias = "getc" },
         .{ .vect = 0x21, .alias = "out" },
         .{ .vect = 0x22, .alias = "puts" },

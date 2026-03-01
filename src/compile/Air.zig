@@ -13,13 +13,6 @@ const Span = @import("Span.zig");
 origin: u16,
 lines: ArrayList(Line),
 
-// TODO: Rename!! TrapAlias ??
-// TODO: Move ? where
-pub const TrapEntry = struct {
-    vect: u8,
-    alias: []const u8,
-};
-
 pub const Line = struct {
     label: ?Span,
     statement: Statement,

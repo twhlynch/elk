@@ -12,6 +12,7 @@ const TokenIter = @import("TokenIter.zig");
 const Token = @import("Token.zig");
 const case = @import("case.zig");
 const Operand = Air.Operand;
+pub const TrapEntry = Token.TrapEntry;
 
 air: *Air,
 tokens: TokenIter,

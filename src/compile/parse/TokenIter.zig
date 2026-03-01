@@ -11,7 +11,6 @@ const Token = @import("Token.zig");
 const SourceInt = @import("integers.zig").SourceInt;
 const case = @import("case.zig");
 const Operand = Air.Operand;
-const TrapEntry = Air.TrapEntry;
 
 lexer: Lexer,
 // Peek+peek or peek+next will parse same span as token multiple times, but this
@@ -20,14 +19,14 @@ peeked: ?Span,
 /// Updated by `parseToken`.
 latest: ?Span,
 
-trap_aliases: []const TrapEntry,
+trap_aliases: []const Token.TrapEntry,
 source: []const u8,
 reporter: *Reporter,
 
 const TokenKind = std.meta.Tag(Token.Value);
 
 pub fn new(
-    trap_aliases: []const TrapEntry,
+    trap_aliases: []const Token.TrapEntry,
     source: []const u8,
     reporter: *Reporter,
 ) TokenIter {
