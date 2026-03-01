@@ -24,6 +24,7 @@ pub fn fromEnum(comptime T: type) Traps {
             };
         }
 
-        return .{ .entries = &entries };
+        const entries_const = entries; // Workaround
+        return .{ .entries = &entries_const };
     }
 }
