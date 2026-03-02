@@ -71,6 +71,7 @@ fn addDataParameter(
 }
 
 pub fn register(traps: *Traps, vect: u8, entry: Entry) void {
+    assert(traps.entries[vect] == null);
     traps.entries[vect] = entry;
 }
 pub fn setData(traps: *Traps, vect: u8, data: *const anyopaque) void {
