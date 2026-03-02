@@ -180,7 +180,7 @@ const Instruction = union(enum) {
             pc_offset: i11,
         },
         jsrr: struct {
-            register: Register,
+            base: Register,
         },
     },
     lea: struct {
@@ -294,6 +294,26 @@ const Instruction = union(enum) {
                 } };
             },
 
+            .jsr_jsrr => {
+                switch (bitmask.flag.jsr_jsrr.apply(word)) {
+                    1 => { // JSR
+                        const pc_offset = bitmask.operand.pc_offset_11.applySigned(word);
+                        return .{ .jsr_jsrr = .{
+                            .jsr = .{ .pc_offset = pc_offset },
+                        } };
+                    },
+                    0 => { // JSRR
+                        if (bitmask.padding.jsrr_high.apply(word) != 0 or
+                            bitmask.padding.jsrr_low.apply(word) != 0)
+                            return error.IncorrectPadding;
+                        const base = bitmask.operand.reg_mid.apply(word);
+                        return .{ .jsr_jsrr = .{
+                            .jsrr = .{ .base = base },
+                        } };
+                    },
+                }
+            },
+
             else => return null,
         }
     }
@@ -331,6 +351,18 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 runtime.pc = runtime.registers[operands.base];
             },
 
+            .jsr_jsrr => |variant| {
+                runtime.registers[7] = runtime.pc;
+                switch (variant) {
+                    .jsr => |operands| {
+                        runtime.pc +%= Mask.signExtend(operands.pc_offset);
+                    },
+                    .jsrr => |operands| {
+                        runtime.pc = runtime.registers[operands.base];
+                    },
+                }
+            },
+
             else => {},
         }
         return .@"continue";
@@ -348,26 +380,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .not,
         .br,
         .jmp_ret,
+        .jsr_jsrr,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .jsr_jsrr => {
-            runtime.registers[7] = runtime.pc;
-            switch (bitmask.flag.jsr_jsrr.apply(instr)) {
-                0 => { // JSRR
-                    if (bitmask.padding.jsrr_high.apply(instr) != 0 or
-                        bitmask.padding.jsrr_low.apply(instr) != 0)
-                        return error.IncorrectPadding;
-                    const base_reg = bitmask.operand.reg_mid.apply(instr);
-                    runtime.pc = runtime.registers[base_reg];
-                },
-                1 => { // JSR
-                    const pc_offset = bitmask.operand.pc_offset_11.applySext(instr);
-                    runtime.pc +%= pc_offset;
-                },
-            }
-        },
 
         .lea => {
             const dest_reg = bitmask.operand.reg_high.apply(instr);
