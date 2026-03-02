@@ -184,8 +184,8 @@ const Instruction = union(enum) {
         },
     },
     lea: struct {
-        pc_offset: Register,
-        src: i9,
+        dest: Register,
+        pc_offset: i9,
     },
     ld: struct {
         dest: Register,
@@ -314,6 +314,15 @@ const Instruction = union(enum) {
                 }
             },
 
+            .lea => {
+                const dest = bitmask.operand.reg_high.apply(word);
+                const pc_offset = bitmask.operand.pc_offset_9.applySigned(word);
+                return .{ .lea = .{
+                    .dest = dest,
+                    .pc_offset = pc_offset,
+                } };
+            },
+
             else => return null,
         }
     }
@@ -363,6 +372,11 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 }
             },
 
+            .lea => |operands| {
+                const address = runtime.pc +% Mask.signExtend(operands.pc_offset);
+                runtime.setRegister(operands.dest, address);
+            },
+
             else => {},
         }
         return .@"continue";
@@ -381,15 +395,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .br,
         .jmp_ret,
         .jsr_jsrr,
+        .lea,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .lea => {
-            const dest_reg = bitmask.operand.reg_high.apply(instr);
-            const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
-            runtime.setRegister(dest_reg, runtime.pc +% pc_offset);
-        },
 
         .ld => {
             const dest_reg = bitmask.operand.reg_high.apply(instr);
