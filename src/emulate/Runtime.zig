@@ -154,16 +154,8 @@ pub fn run(runtime: *Runtime) Error!void {
 }
 
 const Instruction = union(enum) {
-    add: struct {
-        dest: Register,
-        src_a: Register,
-        src_b: RegImm5,
-    },
-    @"and": struct {
-        dest: Register,
-        src_a: Register,
-        src_b: RegImm5,
-    },
+    add: AddAndOperands,
+    @"and": AddAndOperands,
     not: struct {
         dest: Register,
         src: Register,
@@ -212,6 +204,11 @@ const Instruction = union(enum) {
         // TODO:
     },
 
+    const AddAndOperands = struct {
+        dest: Register,
+        src_a: Register,
+        src_b: RegImm5,
+    };
     const LeaLdLdiOperands = struct {
         dest: Register,
         pc_offset: i9,
@@ -229,7 +226,7 @@ const Instruction = union(enum) {
         const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(word));
 
         switch (opcode) {
-            inline .add, .@"and" => |arith_opcode| {
+            inline .add, .@"and" => |grouped_opcode| {
                 const dest = bitmask.operand.reg_high.apply(word);
                 const src_a = bitmask.operand.reg_mid.apply(word);
                 const src_b: Instruction.RegImm5 =
@@ -245,17 +242,14 @@ const Instruction = union(enum) {
                             .immediate = bitmask.operand.imm_5.applySigned(word),
                         },
                     };
-                return switch (arith_opcode) {
-                    .add => .{ .add = .{
-                        .dest = dest,
-                        .src_a = src_a,
-                        .src_b = src_b,
-                    } },
-                    .@"and" => .{ .@"and" = .{
-                        .dest = dest,
-                        .src_a = src_a,
-                        .src_b = src_b,
-                    } },
+                const operands: AddAndOperands = .{
+                    .dest = dest,
+                    .src_a = src_a,
+                    .src_b = src_b,
+                };
+                return switch (grouped_opcode) {
+                    .add => .{ .add = operands },
+                    .@"and" => .{ .@"and" = operands },
                     else => comptime unreachable,
                 };
             },
