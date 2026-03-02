@@ -180,7 +180,7 @@ const Instruction = union(enum) {
     ldi: LeaLdLdiOperands,
     ldr: struct {
         dest: Register,
-        src: Register,
+        base: Register,
         offset: i6,
     },
     st: struct {
@@ -193,7 +193,7 @@ const Instruction = union(enum) {
     },
     str: struct {
         src: Register,
-        dest: Register,
+        base: Register,
         offset: i6,
     },
     trap: struct {
@@ -319,6 +319,17 @@ const Instruction = union(enum) {
                 }
             },
 
+            .ldr => {
+                const dest = bitmask.operand.reg_high.apply(word);
+                const base = bitmask.operand.reg_mid.apply(word);
+                const offset = bitmask.operand.offset_6.applySigned(word);
+                return .{ .ldr = .{
+                    .dest = dest,
+                    .base = base,
+                    .offset = offset,
+                } };
+            },
+
             else => return null,
         }
     }
@@ -383,6 +394,11 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 runtime.setRegister(operands.dest, runtime.memory[address]);
             },
 
+            .ldr => |operands| {
+                const address = runtime.registers[operands.base] + Mask.signExtend(operands.offset);
+                runtime.setRegister(operands.dest, runtime.memory[address]);
+            },
+
             else => {},
         }
         return .@"continue";
@@ -404,17 +420,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .lea,
         .ld,
         .ldi,
+        .ldr,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .ldr => {
-            const dest_reg = bitmask.operand.reg_high.apply(instr);
-            const base_reg = bitmask.operand.reg_mid.apply(instr);
-            const offset = bitmask.operand.offset_6.applySext(instr);
-            const address = runtime.registers[base_reg] + offset;
-            runtime.setRegister(dest_reg, runtime.memory[address]);
-        },
 
         .st => {
             const src_reg = bitmask.operand.reg_high.apply(instr);
