@@ -153,9 +153,70 @@ pub fn run(runtime: *Runtime) Error!void {
     }
 }
 
+const Instruction = union(enum) {
+    add: struct {
+        dest: Register,
+        src_a: Register,
+        src_b: RegImm5,
+    },
+
+    pub const Register = u3;
+    pub const RegImm5 = union(enum) {
+        register: Register,
+        immediate: i5,
+    };
+
+    pub fn decode(word: u16) ProgramError!?Instruction {
+        // Conversion cannot fail
+        const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(word));
+
+        switch (opcode) {
+            .add => {
+                const dest = bitmask.operand.reg_high.apply(word);
+                const src_a = bitmask.operand.reg_mid.apply(word);
+                const src_b: Instruction.RegImm5 =
+                    src_b: switch (bitmask.flag.add_and.apply(word)) {
+                        0 => { // Register
+                            if (bitmask.padding.add_and.apply(word) != 0)
+                                return error.IncorrectPadding;
+                            break :src_b .{
+                                .register = bitmask.operand.reg_low.apply(word),
+                            };
+                        },
+                        1 => .{
+                            .immediate = @bitCast(bitmask.operand.imm_5.apply(word)),
+                        },
+                    };
+                return .{ .add = .{
+                    .dest = dest,
+                    .src_a = src_a,
+                    .src_b = src_b,
+                } };
+            },
+
+            else => return null,
+        }
+    }
+};
+
 fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
+    if (try Instruction.decode(instr)) |instr2| {
+        switch (instr2) {
+            .add => |operands| {
+                const lhs = runtime.registers[operands.src_a];
+                const rhs: u16 = switch (operands.src_b) {
+                    .register => |register| runtime.registers[register],
+                    .immediate => |immediate| Mask.signExtend(immediate),
+                };
+                runtime.setRegister(operands.dest, lhs +% rhs);
+            },
+        }
+        return .@"continue";
+    }
+
     // Conversion cannot fail
     const opcode: Opcode = @enumFromInt(bitmask.opcode.apply(instr));
+    std.log.warn("using one-pass execution for {t}", .{opcode});
 
     // TODO: Extract magic numbers
 

@@ -22,6 +22,7 @@ pub fn applySext(comptime mask: Mask, word: u16) u16 {
     return signExtend(apply(mask, word));
 }
 
+pub // TODO: Need this to be public ?
 fn signExtend(value: anytype) u16 {
     const bits = @typeInfo(@TypeOf(value)).int.bits;
     const Signed = @Int(.signed, bits);
