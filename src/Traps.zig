@@ -19,7 +19,7 @@ pub const Entry = struct {
     procedure: Procedure,
     data: ?*const anyopaque,
 
-    pub const Procedure = *const fn (*Runtime, ?*const anyopaque) Result;
+    const Procedure = *const fn (*Runtime, ?*const anyopaque) Result;
 };
 
 pub const Standard = enum(u8) {
@@ -46,7 +46,7 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
                 const vect = field.value;
                 const entry: Entry = .{
                     .alias = field.name,
-                    .procedure = @field(builtin_traps, field.name),
+                    .procedure = addDataParameter(@field(builtin_traps, field.name)),
                     .data = null,
                 };
 
@@ -59,9 +59,22 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
     }
 }
 
+fn addDataParameter(
+    procedure: fn (*Runtime) Traps.Result,
+) fn (*Runtime, ?*const anyopaque) Traps.Result {
+    return struct {
+        pub fn wrapped(runtime: *Runtime, data: ?*const anyopaque) Traps.Result {
+            assert(data == null);
+            return procedure(runtime);
+        }
+    }.wrapped;
+}
+
 pub fn register(traps: *Traps, vect: u8, entry: Entry) void {
     traps.entries[vect] = entry;
 }
-pub fn setData(traps: *Traps, vect: u8, data: *anyopaque) void {
-    traps.entries[vect].data = data;
+pub fn setData(traps: *Traps, vect: u8, data: *const anyopaque) void {
+    const entry = &(traps.entries[vect] orelse
+        unreachable);
+    entry.data = data;
 }
