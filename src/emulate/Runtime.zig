@@ -154,14 +154,70 @@ pub fn run(runtime: *Runtime) Error!void {
 }
 
 const Instruction = union(enum) {
-    add: ArithOperands,
-    @"and": ArithOperands,
-
     const ArithOperands = struct {
         dest: Register,
         src_a: Register,
         src_b: RegImm5,
     };
+
+    add: ArithOperands,
+    @"and": ArithOperands,
+    not: struct {
+        dest: Register,
+        src: Register,
+    },
+    br: struct {
+        condition: u3,
+        dest: i9,
+    },
+    jmp_ret: struct {
+        base: Register,
+    },
+    jsr_jsrr: union(enum) {
+        jsr: struct {
+            dest: i11,
+        },
+        jsrr: struct {
+            register: Register,
+        },
+    },
+    lea: struct {
+        dest: Register,
+        src: i9,
+    },
+    ld: struct {
+        dest: Register,
+        src: i9,
+    },
+    ldi: struct {
+        dest: Register,
+        src: i9,
+    },
+    ldr: struct {
+        dest: Register,
+        src: Register,
+        offset: i6,
+    },
+    st: struct {
+        src: Register,
+        dest: i9,
+    },
+    sti: struct {
+        src: Register,
+        dest: i9,
+    },
+    str: struct {
+        src: Register,
+        dest: Register,
+        offset: i6,
+    },
+    trap: struct {
+        vect: u8,
+    },
+    rti: void,
+    reserved_stack: struct {
+        // TODO:
+    },
 
     pub const Register = u3;
     pub const RegImm5 = union(enum) {
@@ -228,7 +284,7 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 runtime.setRegister(operands.dest, lhs & rhs);
             },
 
-            // else => {},
+            else => {},
         }
         return .@"continue";
     }
