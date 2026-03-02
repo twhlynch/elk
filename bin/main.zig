@@ -25,7 +25,10 @@ pub fn main(init: std.process.Init) !u8 {
     var air: lcz.Air = .init();
     defer air.deinit(gpa);
 
-    const traps: lcz.Traps = .default;
+    const traps: lcz.Traps = comptime .initBuiltins(&.{
+        lcz.Traps.Standard,
+        lcz.Traps.Debug,
+    });
 
     var parser: lcz.Parser = .new(&air, &traps, source, &reporter);
 

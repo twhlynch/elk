@@ -281,7 +281,6 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
 
         .trap => {
             const vect = bitmask.operand.trap_vect.apply(instr);
-            // TODO: Move to method in `Traps`
             const entry = runtime.traps.entries[vect] orelse
                 return error.UnhandledTrap;
             entry.procedure(runtime, entry.data) catch |err| switch (err) {

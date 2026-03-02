@@ -22,29 +22,42 @@ pub const Entry = struct {
     pub const Procedure = *const fn (*Runtime, *const anyopaque) Result;
 };
 
-pub const default: Traps = blk: {
-    const Alias = enum(u8) {
-        getc = 0x20,
-        out = 0x21,
-        puts = 0x22,
-        in = 0x23,
-        putsp = 0x24,
-        halt = 0x25,
-        putn = 0x26,
-        reg = 0x27,
-    };
-
-    var traps: Traps = .{ .entries = @splat(null) };
-    for (@typeInfo(Alias).@"enum".fields) |field| {
-        const entry: Entry = .{
-            .alias = field.name,
-            .procedure = @field(builtin_traps, field.name),
-            .data = undefined,
-        };
-        traps.register(field.value, entry);
-    }
-    break :blk traps;
+pub const Standard = enum(u8) {
+    getc = 0x20,
+    out = 0x21,
+    puts = 0x22,
+    in = 0x23,
+    putsp = 0x24,
+    halt = 0x25,
 };
+pub const Debug = enum(u8) {
+    putn = 0x26,
+    reg = 0x27,
+};
+
+pub fn initBuiltins(comptime enums: []const type) Traps {
+    if (!@inComptime()) @compileError("must be called at comptime");
+
+    comptime {
+        var traps: Traps = .{ .entries = @splat(null) };
+
+        for (enums) |Enum| {
+            for (@typeInfo(Enum).@"enum".fields) |field| {
+                const vect = field.value;
+                const entry: Entry = .{
+                    .alias = field.name,
+                    .procedure = @field(builtin_traps, field.name),
+                    .data = undefined,
+                };
+
+                assert(traps.entries[vect] == null);
+                traps.register(vect, entry);
+            }
+        }
+
+        return traps;
+    }
+}
 
 pub fn register(
     traps: *Traps,
