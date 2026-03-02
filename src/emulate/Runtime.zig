@@ -10,8 +10,6 @@ const Instruction = @import("decode.zig").Instruction;
 const NewlineTracker = @import("NewlineTracker.zig");
 const Tty = @import("Tty.zig");
 
-const Mask = @import("Mask.zig");
-
 const MEMORY_SIZE = 0x1_0000;
 const USER_MEMORY_START = 0x3000;
 const USER_MEMORY_END = 0xFDFF;
@@ -112,7 +110,7 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
             const lhs = runtime.registers[operands.src_a];
             const rhs: u16 = switch (operands.src_b) {
                 .register => |register| runtime.registers[register],
-                .immediate => |immediate| Mask.signExtend(immediate),
+                .immediate => |immediate| signExtend(immediate),
             };
             runtime.setRegister(operands.dest, switch (instr) {
                 .add => lhs +% rhs,
@@ -129,7 +127,7 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
             if (operands.mask == 0b000)
                 return .@"continue";
             if (@intFromEnum(runtime.condition) & operands.mask != 0)
-                runtime.pc +%= Mask.signExtend(operands.pc_offset);
+                runtime.pc +%= signExtend(operands.pc_offset);
         },
 
         .jmp_ret => |operands| {
@@ -139,7 +137,7 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
             runtime.registers[7] = runtime.pc;
             switch (variant) {
                 .jsr => |operands| {
-                    runtime.pc +%= Mask.signExtend(operands.pc_offset);
+                    runtime.pc +%= signExtend(operands.pc_offset);
                 },
                 .jsrr => |operands| {
                     runtime.pc = runtime.registers[operands.base];
@@ -148,31 +146,31 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
         },
 
         .lea => |operands| {
-            const address = runtime.pc +% Mask.signExtend(operands.pc_offset);
+            const address = runtime.pc +% signExtend(operands.pc_offset);
             runtime.setRegister(operands.dest, address);
         },
         .ld => |operands| {
-            const address = runtime.pc +% Mask.signExtend(operands.pc_offset);
+            const address = runtime.pc +% signExtend(operands.pc_offset);
             runtime.setRegister(operands.dest, runtime.memory[address]);
         },
         .ldi => |operands| {
-            const address = runtime.memory[runtime.pc +% Mask.signExtend(operands.pc_offset)];
+            const address = runtime.memory[runtime.pc +% signExtend(operands.pc_offset)];
             runtime.setRegister(operands.dest, runtime.memory[address]);
         },
         .ldr => |operands| {
-            const address = runtime.registers[operands.base] + Mask.signExtend(operands.offset);
+            const address = runtime.registers[operands.base] + signExtend(operands.offset);
             runtime.setRegister(operands.dest, runtime.memory[address]);
         },
         .st => |operands| {
-            const address = runtime.pc +% Mask.signExtend(operands.pc_offset);
+            const address = runtime.pc +% signExtend(operands.pc_offset);
             runtime.memory[address] = runtime.registers[operands.src];
         },
         .sti => |operands| {
-            const address = runtime.memory[runtime.pc +% Mask.signExtend(operands.pc_offset)];
+            const address = runtime.memory[runtime.pc +% signExtend(operands.pc_offset)];
             runtime.memory[address] = runtime.registers[operands.src];
         },
         .str => |operands| {
-            const address = runtime.registers[operands.base] + Mask.signExtend(operands.offset);
+            const address = runtime.registers[operands.base] + signExtend(operands.offset);
             runtime.memory[address] = runtime.registers[operands.src];
         },
 
@@ -210,7 +208,7 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
                 },
                 .call => |operands| {
                     runtime.stackPush(runtime.pc);
-                    runtime.pc +%= Mask.signExtend(operands.pc_offset);
+                    runtime.pc +%= signExtend(operands.pc_offset);
                 },
             }
         },
@@ -299,4 +297,19 @@ fn printDisplayChar(runtime: *Runtime, word: u16) error{WriteFailed}!void {
         },
     };
     try runtime.writer.interface.print("{s}", .{display});
+}
+
+fn signExtend(value: anytype) u16 {
+    const bits = @typeInfo(@TypeOf(value)).int.bits;
+    const Signed = @Int(.signed, bits);
+    return @bitCast(@as(i16, @as(Signed, @bitCast(value))));
+}
+
+test signExtend {
+    const expect = std.testing.expect;
+
+    try expect(signExtend(@as(u1, 0b1)) == 0b1111_1111_1111_1111);
+    try expect(signExtend(@as(u2, 0b01)) == 0b0000_0000_0000_0001);
+    try expect(signExtend(@as(u3, 0b101)) == 0b1111_1111_1111_1101);
+    try expect(signExtend(@as(u4, 0b0101)) == 0b0000_0000_0000_0101);
 }
