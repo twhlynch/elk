@@ -281,10 +281,11 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
 
         .trap => {
             const vect = bitmask.operand.trap_vect.apply(instr);
-            const entry = runtime.traps.entries[vect] orelse
-                return error.UnhandledTrap; // Entry not declared
+            const entry = runtime.traps.entries[vect];
             const procedure = entry.procedure orelse
-                return error.UnhandledTrap; // Entry only declared for alias
+                // No procedure declared
+                // Either trap was never registered, or only registered for alias
+                return error.UnhandledTrap;
             procedure(runtime, entry.data) catch |err| switch (err) {
                 error.Halt => return .@"break",
                 else => |err2| return err2,

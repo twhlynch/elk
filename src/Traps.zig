@@ -6,7 +6,7 @@ const assert = std.debug.assert;
 const Runtime = @import("emulate/Runtime.zig");
 const builtin_traps = @import("emulate/builtin_traps.zig");
 
-entries: [1 << 8]?Entry,
+entries: [1 << 8]Entry,
 
 pub const Error =
     Runtime.IoError ||
@@ -20,6 +20,13 @@ pub const Entry = struct {
     data: ?*const anyopaque,
 
     const Procedure = *const fn (*Runtime, ?*const anyopaque) Result;
+
+    const unset: Entry = .{ .alias = null, .procedure = null, .data = null };
+
+    fn isSet(entry: *const Entry) bool {
+        return entry.alias != null or
+            entry.procedure != null;
+    }
 };
 
 pub const Standard = enum(u8) {
@@ -36,12 +43,12 @@ pub const Debug = enum(u8) {
 };
 
 pub fn register(traps: *Traps, vect: u8, entry: Entry) void {
-    assert(traps.entries[vect] == null);
+    assert(!traps.entries[vect].isSet());
     traps.entries[vect] = entry;
 }
 pub fn setData(traps: *Traps, vect: u8, data: *const anyopaque) void {
-    const entry = &(traps.entries[vect] orelse
-        unreachable);
+    const entry = traps.entries[vect];
+    assert(entry.procedure != null);
     entry.data = data;
 }
 
@@ -49,7 +56,7 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
     if (!@inComptime()) @compileError("must be called at comptime");
 
     comptime {
-        var traps: Traps = .{ .entries = @splat(null) };
+        var traps: Traps = .{ .entries = @splat(.unset) };
 
         for (enums) |Enum| {
             for (@typeInfo(Enum).@"enum".fields) |field| {
@@ -59,8 +66,6 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
                     .procedure = unusedDataParam(@field(builtin_traps, field.name)),
                     .data = null,
                 };
-
-                assert(traps.entries[vect] == null);
                 traps.register(vect, entry);
             }
         }

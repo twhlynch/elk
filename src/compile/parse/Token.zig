@@ -177,8 +177,8 @@ pub const Value = union(enum) {
 
     fn tryTrap(string: []const u8, traps: *const Traps) Error!?Value {
         assert(string.len > 0);
-        for (traps.entries, 0..) |entry_opt, vect| {
-            if (entry_opt) |entry| if (entry.alias) |alias|
+        for (traps.entries, 0..) |entry, vect| {
+            if (entry.alias) |alias|
                 if (std.ascii.eqlIgnoreCase(string, alias))
                     return .{ .trap_alias = @intCast(vect) };
         }
