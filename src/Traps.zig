@@ -35,6 +35,16 @@ pub const Debug = enum(u8) {
     reg = 0x27,
 };
 
+pub fn register(traps: *Traps, vect: u8, entry: Entry) void {
+    assert(traps.entries[vect] == null);
+    traps.entries[vect] = entry;
+}
+pub fn setData(traps: *Traps, vect: u8, data: *const anyopaque) void {
+    const entry = &(traps.entries[vect] orelse
+        unreachable);
+    entry.data = data;
+}
+
 pub fn initBuiltins(comptime enums: []const type) Traps {
     if (!@inComptime()) @compileError("must be called at comptime");
 
@@ -59,7 +69,7 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
     }
 }
 
-fn unusedDataParam(
+pub fn unusedDataParam(
     procedure: fn (*Runtime) Traps.Result,
 ) fn (*Runtime, ?*const anyopaque) Traps.Result {
     return struct {
@@ -83,12 +93,6 @@ pub fn castedDataParam(
     }.wrapped;
 }
 
-pub fn register(traps: *Traps, vect: u8, entry: Entry) void {
-    assert(traps.entries[vect] == null);
-    traps.entries[vect] = entry;
-}
-pub fn setData(traps: *Traps, vect: u8, data: *const anyopaque) void {
-    const entry = &(traps.entries[vect] orelse
-        unreachable);
-    entry.data = data;
+pub fn unimplemented(_: *Runtime, _: ?*anyopaque) Traps.Result {
+    return error.UnhandledTrap;
 }
