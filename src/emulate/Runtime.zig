@@ -169,31 +169,31 @@ const Instruction = union(enum) {
         src: Register,
     },
     br: struct {
-        condition: u3,
-        dest: i9,
+        mask: u3,
+        pc_offset: i9,
     },
     jmp_ret: struct {
         base: Register,
     },
     jsr_jsrr: union(enum) {
         jsr: struct {
-            dest: i11,
+            pc_offset: i11,
         },
         jsrr: struct {
             register: Register,
         },
     },
     lea: struct {
-        dest: Register,
+        pc_offset: Register,
         src: i9,
     },
     ld: struct {
         dest: Register,
-        src: i9,
+        pc_offset: i9,
     },
     ldi: struct {
         dest: Register,
-        src: i9,
+        pc_offset: i9,
     },
     ldr: struct {
         dest: Register,
@@ -202,11 +202,11 @@ const Instruction = union(enum) {
     },
     st: struct {
         src: Register,
-        dest: i9,
+        pc_offset: i9,
     },
     sti: struct {
         src: Register,
-        dest: i9,
+        pc_offset: i9,
     },
     str: struct {
         src: Register,
@@ -246,7 +246,7 @@ const Instruction = union(enum) {
                             };
                         },
                         1 => .{
-                            .immediate = @bitCast(bitmask.operand.imm_5.apply(word)),
+                            .immediate = bitmask.operand.imm_5.applySigned(word),
                         },
                     };
                 return switch (arith_opcode) {
@@ -275,6 +275,15 @@ const Instruction = union(enum) {
                 } };
             },
 
+            .br => {
+                const mask: u3 = bitmask.operand.condition_mask.apply(word);
+                const pc_offset = bitmask.operand.pc_offset_9.applySigned(word);
+                return .{ .br = .{
+                    .mask = mask,
+                    .pc_offset = pc_offset,
+                } };
+            },
+
             else => return null,
         }
     }
@@ -300,6 +309,14 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 runtime.setRegister(operands.dest, ~runtime.registers[operands.src]);
             },
 
+            .br => |operands| {
+                // No-op case
+                if (operands.mask == 0b000)
+                    return .@"continue";
+                if (@intFromEnum(runtime.condition) & operands.mask != 0)
+                    runtime.pc +%= Mask.signExtend(operands.pc_offset);
+            },
+
             else => {},
         }
         return .@"continue";
@@ -315,19 +332,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .add,
         .@"and",
         .not,
+        .br,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .br => {
-            const mask: u3 = bitmask.operand.condition_mask.apply(instr);
-            // No-op case
-            if (mask == 0b000)
-                return .@"continue";
-            const pc_offset = bitmask.operand.pc_offset_9.applySext(instr);
-            if (@intFromEnum(runtime.condition) & mask != 0)
-                runtime.pc +%= pc_offset;
-        },
 
         .jmp_ret => {
             const base_reg = bitmask.operand.reg_mid.apply(instr);

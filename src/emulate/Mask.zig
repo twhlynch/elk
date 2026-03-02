@@ -5,6 +5,7 @@ const assert = std.debug.assert;
 
 lowest: u4,
 highest: u4,
+// TODO: Add `signedness` field
 
 pub fn new(lowest: u4, highest: u4) Mask {
     return .{ .lowest = lowest, .highest = highest };
@@ -16,6 +17,13 @@ pub fn apply(comptime mask: Mask, word: u16) @Int(
 ) {
     assert(mask.lowest <= mask.highest);
     return @truncate(word >> mask.lowest);
+}
+
+pub fn applySigned(comptime mask: Mask, word: u16) @Int(
+    .signed,
+    @as(u16, mask.highest) - mask.lowest + 1,
+) {
+    return @bitCast(mask.apply(word));
 }
 
 pub fn applySext(comptime mask: Mask, word: u16) u16 {
