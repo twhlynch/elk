@@ -284,6 +284,16 @@ const Instruction = union(enum) {
                 } };
             },
 
+            .jmp_ret => {
+                const base = bitmask.operand.reg_mid.apply(word);
+                if (bitmask.padding.jmp_ret_high.apply(word) != 0 or
+                    bitmask.padding.jmp_ret_low.apply(word) != 0)
+                    return error.IncorrectPadding;
+                return .{ .jmp_ret = .{
+                    .base = base,
+                } };
+            },
+
             else => return null,
         }
     }
@@ -317,6 +327,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                     runtime.pc +%= Mask.signExtend(operands.pc_offset);
             },
 
+            .jmp_ret => |operands| {
+                runtime.pc = runtime.registers[operands.base];
+            },
+
             else => {},
         }
         return .@"continue";
@@ -333,17 +347,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .@"and",
         .not,
         .br,
+        .jmp_ret,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .jmp_ret => {
-            const base_reg = bitmask.operand.reg_mid.apply(instr);
-            if (bitmask.padding.jmp_ret_high.apply(instr) != 0 or
-                bitmask.padding.jmp_ret_low.apply(instr) != 0)
-                return error.IncorrectPadding;
-            runtime.pc = runtime.registers[base_reg];
-        },
 
         .jsr_jsrr => {
             runtime.registers[7] = runtime.pc;
