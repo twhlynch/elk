@@ -46,7 +46,7 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
                 const vect = field.value;
                 const entry: Entry = .{
                     .alias = field.name,
-                    .procedure = addDataParameter(@field(builtin_traps, field.name)),
+                    .procedure = unusedDataParam(@field(builtin_traps, field.name)),
                     .data = null,
                 };
 
@@ -59,7 +59,7 @@ pub fn initBuiltins(comptime enums: []const type) Traps {
     }
 }
 
-fn addDataParameter(
+fn unusedDataParam(
     procedure: fn (*Runtime) Traps.Result,
 ) fn (*Runtime, ?*const anyopaque) Traps.Result {
     return struct {
@@ -70,7 +70,7 @@ fn addDataParameter(
     }.wrapped;
 }
 
-pub fn castDataParameter(
+pub fn castedDataParam(
     comptime ActualPtr: type,
     procedure: fn (*Runtime, ActualPtr) Traps.Result,
 ) fn (*Runtime, ?*const anyopaque) Traps.Result {
