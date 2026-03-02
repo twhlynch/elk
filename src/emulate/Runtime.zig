@@ -283,22 +283,17 @@ const Instruction = union(enum) {
 fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
     if (try Instruction.decode(instr)) |instr2| {
         switch (instr2) {
-            .add => |operands| {
+            inline .add, .@"and" => |operands| {
                 const lhs = runtime.registers[operands.src_a];
                 const rhs: u16 = switch (operands.src_b) {
                     .register => |register| runtime.registers[register],
                     .immediate => |immediate| Mask.signExtend(immediate),
                 };
-                runtime.setRegister(operands.dest, lhs +% rhs);
-            },
-
-            .@"and" => |operands| {
-                const lhs = runtime.registers[operands.src_a];
-                const rhs: u16 = switch (operands.src_b) {
-                    .register => |register| runtime.registers[register],
-                    .immediate => |immediate| Mask.signExtend(immediate),
-                };
-                runtime.setRegister(operands.dest, lhs & rhs);
+                runtime.setRegister(operands.dest, switch (instr2) {
+                    .add => lhs +% rhs,
+                    .@"and" => lhs & rhs,
+                    else => unreachable,
+                });
             },
 
             .not => |operands| {
