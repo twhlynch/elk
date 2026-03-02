@@ -353,6 +353,13 @@ const Instruction = union(enum) {
                 } };
             },
 
+            .trap => {
+                const vect = bitmask.operand.trap_vect.apply(word);
+                return .{ .trap = .{
+                    .vect = vect,
+                } };
+            },
+
             else => return null,
         }
     }
@@ -437,6 +444,17 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
                 runtime.memory[address] = runtime.registers[operands.src];
             },
 
+            .trap => |operands| {
+                const entry = runtime.traps.entries[operands.vect] orelse
+                    return error.UnhandledTrap; // Entry not declared
+                const procedure = entry.procedure orelse
+                    return error.UnhandledTrap; // Entry only declared for alias
+                procedure(runtime, entry.data) catch |err| switch (err) {
+                    error.Halt => return .@"break",
+                    else => |err2| return err2,
+                };
+            },
+
             else => {},
         }
         return .@"continue";
@@ -462,21 +480,10 @@ fn runInstruction(runtime: *Runtime, instr: u16) Error!Control {
         .st,
         .sti,
         .str,
+        .trap,
         => unreachable,
 
         .rti => return error.UnsupportedRti,
-
-        .trap => {
-            const vect = bitmask.operand.trap_vect.apply(instr);
-            const entry = runtime.traps.entries[vect] orelse
-                return error.UnhandledTrap; // Entry not declared
-            const procedure = entry.procedure orelse
-                return error.UnhandledTrap; // Entry only declared for alias
-            procedure(runtime, entry.data) catch |err| switch (err) {
-                error.Halt => return .@"break",
-                else => |err2| return err2,
-            };
-        },
 
         .reserved_stack => {
             if (runtime.policies.extension.stack_instructions != .permit)
