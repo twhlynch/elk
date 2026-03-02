@@ -32,8 +32,8 @@ pub fn new(
     reporter: *Reporter,
 ) TokenIter {
     for (traps.entries) |entry_opt| {
-        if (entry_opt) |entry|
-            assert(case.isLowercaseAlpha(entry.alias));
+        if (entry_opt) |entry| if (entry.alias) |alias|
+            assert(case.isLowercaseAlpha(alias));
     }
 
     return .{

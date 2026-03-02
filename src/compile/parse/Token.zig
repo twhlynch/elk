@@ -178,10 +178,9 @@ pub const Value = union(enum) {
     fn tryTrap(string: []const u8, traps: *const Traps) Error!?Value {
         assert(string.len > 0);
         for (traps.entries, 0..) |entry_opt, vect| {
-            const entry = entry_opt orelse
-                continue;
-            if (std.ascii.eqlIgnoreCase(string, entry.alias))
-                return .{ .trap_alias = @intCast(vect) };
+            if (entry_opt) |entry| if (entry.alias) |alias|
+                if (std.ascii.eqlIgnoreCase(string, alias))
+                    return .{ .trap_alias = @intCast(vect) };
         }
         return null;
     }

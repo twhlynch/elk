@@ -15,7 +15,7 @@ pub const Error =
 pub const Result = Error!void;
 
 pub const Entry = struct {
-    alias: []const u8,
+    alias: ?[]const u8,
     procedure: Procedure,
     data: ?*const anyopaque,
 
