@@ -295,16 +295,15 @@ fn printDisplayChar(runtime: *Runtime, word: u16) error{WriteFailed}!void {
         // Non-ascii and unimportant ascii
         else => "---",
         // ASCII control characters which are arbitrarily considered significant
-        // ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘꞯʀꜱᴛᴜᴠᴡxʏᴢ
-        0x00 => "ɴᴜʟ",
-        0x08 => " ʙꜱ",
-        0x09 => " ʜᴛ",
-        0x0a => " ʟꜰ",
-        0x0b => " ᴠᴛ",
-        0x0c => " ꜰꜰ",
-        0x0d => " ᴄʀ",
-        0x1b => "ᴇꜱᴄ",
-        0x7f => "ᴅᴇʟ",
+        0x00 => "NUL",
+        0x08 => " BS",
+        0x09 => " HT",
+        0x0a => " LF",
+        0x0b => " VT",
+        0x0c => " FF",
+        0x0d => " CR",
+        0x1b => "ESC",
+        0x7f => "DEL",
         // Space
         0x20 => "[_]",
         // Printable ASCII characters
