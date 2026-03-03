@@ -53,6 +53,7 @@ style: struct {
     unconventional_case_directives: Policy,
     unconventional_case_labels: Policy,
     unconventional_case_registers: Policy,
+    unconventional_case_integers: Policy,
 
     pub const forbid_all = fillFields(@This(), .forbid);
     pub const permit_all = fillFields(@This(), .permit);

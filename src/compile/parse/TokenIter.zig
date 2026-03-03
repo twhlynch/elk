@@ -402,6 +402,13 @@ fn ensureSupported(
         },
 
         .integer => |integer| {
+            if (case.hasUppercaseAlpha(token.span.view(tokens.source))) {
+                tokens.reporter.report(.unconventional_case_ident, .{
+                    .ident = token.span,
+                    .kind = .integer,
+                }).collect(&result);
+            }
+
             if (argument_opt) |argument| switch (argument) {
                 .operand => |operand| switch (operand) {
                     Operand.value.PcOffset(9),

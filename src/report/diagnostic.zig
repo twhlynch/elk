@@ -180,6 +180,7 @@ pub const Diagnostic = union(enum) {
             instruction,
             label,
             register,
+            integer,
         },
     },
     missing_operand_comma: struct {
@@ -251,6 +252,7 @@ pub const Diagnostic = union(enum) {
                 .instruction => policyResponse(options, .style, .unconventional_case_instructions),
                 .label => policyResponse(options, .style, .unconventional_case_labels),
                 .register => policyResponse(options, .style, .unconventional_case_registers),
+                .integer => policyResponse(options, .style, .unconventional_case_integers),
             },
             .missing_operand_comma => policyResponse(options, .style, .missing_operand_commas),
             .whitespace_comma => policyResponse(options, .style, .whitespace_commas),
@@ -460,6 +462,10 @@ pub const Diagnostic = union(enum) {
                 .register => {
                     ctx.printTitle("Register name is not lowercase", .{});
                     ctx.deepen().printSourceNote("Register", .{}, info.ident);
+                },
+                .integer => {
+                    ctx.printTitle("Integer does not use lowercase letters", .{});
+                    ctx.deepen().printSourceNote("Integer", .{}, info.ident);
                 },
             },
             .missing_operand_comma => |info| {
