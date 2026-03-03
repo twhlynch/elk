@@ -127,7 +127,7 @@ fn parseLine(parser: *Parser, gpa: Allocator) InnerError!Control {
             }
 
             if (!case.isPascalCase(token.span.view(parser.source()))) {
-                try parser.reporter().report(.unconventional_case_ident, .{
+                try parser.reporter().report(.unconventional_case, .{
                     .ident = token.span,
                     .kind = .label,
                 }).handle();

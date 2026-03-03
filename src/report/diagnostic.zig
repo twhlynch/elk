@@ -173,7 +173,7 @@ pub const Diagnostic = union(enum) {
             implicit_radix,
         },
     },
-    unconventional_case_ident: struct {
+    unconventional_case: struct {
         ident: Span,
         kind: enum {
             directive,
@@ -247,7 +247,7 @@ pub const Diagnostic = union(enum) {
             .unknown_trap_vect => policyResponse(options, .smell, .unknown_trap_vectors),
 
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
-            .unconventional_case_ident => |info| switch (info.kind) {
+            .unconventional_case => |info| switch (info.kind) {
                 .directive => policyResponse(options, .style, .unconventional_case_directives),
                 .instruction => policyResponse(options, .style, .unconventional_case_instructions),
                 .label => policyResponse(options, .style, .unconventional_case_labels),
@@ -446,7 +446,7 @@ pub const Diagnostic = union(enum) {
                     .implicit_radix => "Decimal integer literal should begin with `#`",
                 }});
             },
-            .unconventional_case_ident => |info| switch (info.kind) {
+            .unconventional_case => |info| switch (info.kind) {
                 .instruction => {
                     ctx.printTitle("Instruction mnemonic is not lowercase", .{});
                     ctx.deepen().printSourceNote("Mnemonic", .{}, info.ident);

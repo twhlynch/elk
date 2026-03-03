@@ -357,7 +357,7 @@ fn ensureSupported(
             // Don't include initial `.`
             const string = token.span.view(tokens.source)[1..];
             if (!case.isUppercaseAlpha(string)) {
-                tokens.reporter.report(.unconventional_case_ident, .{
+                tokens.reporter.report(.unconventional_case, .{
                     .ident = token.span,
                     .kind = .directive,
                 }).collect(&result);
@@ -366,7 +366,7 @@ fn ensureSupported(
 
         .instruction => {
             if (!case.isLowercaseAlpha(token.span.view(tokens.source))) {
-                tokens.reporter.report(.unconventional_case_ident, .{
+                tokens.reporter.report(.unconventional_case, .{
                     .ident = token.span,
                     .kind = .instruction,
                 }).collect(&result);
@@ -392,7 +392,7 @@ fn ensureSupported(
             switch (string[0]) {
                 'r' => {},
                 'R' => {
-                    tokens.reporter.report(.unconventional_case_ident, .{
+                    tokens.reporter.report(.unconventional_case, .{
                         .ident = token.span,
                         .kind = .register,
                     }).collect(&result);
@@ -403,7 +403,7 @@ fn ensureSupported(
 
         .integer => |integer| {
             if (case.hasUppercaseAlpha(token.span.view(tokens.source))) {
-                tokens.reporter.report(.unconventional_case_ident, .{
+                tokens.reporter.report(.unconventional_case, .{
                     .ident = token.span,
                     .kind = .integer,
                 }).collect(&result);
