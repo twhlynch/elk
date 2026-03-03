@@ -24,5 +24,6 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain (curr
 
 ## Supported Applications
 
-- [ ] [ELCI](https://github.com/rozukke/lace/tree/minecraft) inter-op
+- [x] [ELCI](https://github.com/rozukke/lace/tree/minecraft) inter-op (see
+[`minecraft` branch](https://codeberg.org/dxrcy/lcz/src/branch/minecraft))
 
