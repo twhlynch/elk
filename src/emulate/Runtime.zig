@@ -74,8 +74,8 @@ pub fn Callback(comptime params: []const type) type {
 
     const FuncFull = @Fn(
         &[2]type{
-            ?*const anyopaque,
             @Tuple(params),
+            ?*const anyopaque,
         },
         &@splat(.{}),
         Return,
@@ -89,14 +89,14 @@ pub fn Callback(comptime params: []const type) type {
         data: ?*const anyopaque,
 
         pub fn call(callback: *const Self, args: @Tuple(params)) Return {
-            try @call(.auto, callback.func, .{ callback.data, args });
+            try @call(.auto, callback.func, .{ args, callback.data });
         }
 
         pub fn noData(comptime func: FuncNoData) Self {
             const wrapped = struct {
                 fn wrapped(
-                    data: ?*const anyopaque,
                     args: @Tuple(params),
+                    data: ?*const anyopaque,
                 ) Return {
                     std.debug.assert(data == null);
                     return @call(.auto, func, args);
@@ -116,16 +116,16 @@ pub fn Callback(comptime params: []const type) type {
         ) Self {
             const wrapped = struct {
                 fn wrapped(
-                    data_inner: ?*const anyopaque,
                     args: @Tuple(params),
+                    data_inner: ?*const anyopaque,
                 ) Return {
                     const casted: Data = @ptrCast(@alignCast(@constCast(data_inner.?)));
 
                     var args_full: @Tuple(ParamData(Data)) = undefined;
-                    args_full[0] = casted;
-                    inline for (params, 1..) |_, i| {
-                        args_full[i] = args[i - 1];
+                    inline for (params, 0..) |_, i| {
+                        args_full[i] = args[i];
                     }
+                    args_full[params.len] = casted;
 
                     return @call(.auto, func, args_full);
                 }
@@ -138,7 +138,7 @@ pub fn Callback(comptime params: []const type) type {
         }
 
         fn ParamData(comptime Data: type) []const type {
-            return &[1]type{Data} ++ params;
+            return params ++ [1]type{Data};
         }
 
         fn FuncData(comptime Data: type) type {

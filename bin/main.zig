@@ -121,9 +121,9 @@ fn preDecodeHook(
 }
 
 fn preExecuteHook(
-    instr_count: *InstrCount,
     runtime: *lcz.Runtime,
     instr: lcz.Runtime.Instruction,
+    instr_count: *InstrCount,
 ) lcz.Runtime.IoError!void {
     instr_count.getPtr(instr).* += 1;
 
