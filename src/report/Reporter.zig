@@ -101,7 +101,15 @@ pub fn setSource(reporter: *Reporter, source: []const u8) void {
     reporter.source = source;
 }
 
-pub fn endSection(reporter: *Reporter) ?Level {
+pub fn getLevel(reporter: *const Reporter) ?Level {
+    if (reporter.count.get(.err) > 0)
+        return .err;
+    if (reporter.count.get(.warn) > 0)
+        return .warn;
+    return null;
+}
+
+pub fn showSummary(reporter: *Reporter) void {
     const count_err = reporter.count.get(.err);
     const count_warn = reporter.count.get(.warn);
 
@@ -122,12 +130,6 @@ pub fn endSection(reporter: *Reporter) ?Level {
     }
 
     ctx.flush();
-
-    if (count_err > 0)
-        return .err;
-    if (count_warn > 0)
-        return .warn;
-    return null;
 }
 
 pub fn report(

@@ -93,6 +93,26 @@ pub fn deinit(runtime: Runtime, gpa: Allocator) void {
     defer gpa.free(runtime.memory);
 }
 
+pub fn readFromFile(runtime: *Runtime, file: Io.File, buffer: []u8, io: Io) !void {
+    var reader = file.reader(io, buffer);
+    const metadata = try file.stat(io);
+
+    if (metadata.size < 2)
+        return error.FileTooSmall;
+    if (metadata.size % 2 != 0)
+        return error.FileNotAligned;
+
+    const origin = try reader.interface.takeInt(u16, .big);
+    runtime.pc = origin;
+
+    var i: usize = 0;
+    const words = metadata.size / 2 - 1;
+    while (i < words) : (i += 1) {
+        const raw = try reader.interface.takeInt(u16, .big);
+        runtime.memory[origin + i] = raw;
+    }
+}
+
 const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {

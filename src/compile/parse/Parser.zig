@@ -45,6 +45,7 @@ const Control = enum { @"continue", @"break" };
 const InnerError = error{
     Reported,
     Eof,
+    TooLong,
     OutOfMemory,
 };
 
@@ -60,6 +61,9 @@ pub fn parse(parser: *Parser, gpa: Allocator) error{OutOfMemory}!void {
             error.Eof => {
                 missing_end = true; // Report at end of function
                 break;
+            },
+            error.TooLong => {
+                return; // Give up, do not warn for anything else
             },
             error.OutOfMemory => |other| return other,
         };
@@ -174,7 +178,9 @@ fn appendLine(
     statement: Statement,
     span: Span,
     gpa: Allocator,
-) error{OutOfMemory}!void {
+) error{ TooLong, OutOfMemory }!void {
+    try parser.ensureCanAppendLines(1, span);
+
     try parser.air.lines.append(gpa, .{
         .label = parser.current_label,
         .statement = statement,
@@ -192,8 +198,9 @@ fn appendLineNTimes(
     span: Span,
     n: usize,
     gpa: Allocator,
-) error{OutOfMemory}!void {
+) error{ TooLong, OutOfMemory }!void {
     assert(n > 0);
+    try parser.ensureCanAppendLines(n, span);
 
     try parser.air.lines.ensureUnusedCapacity(gpa, n);
 
@@ -209,6 +216,15 @@ fn appendLineNTimes(
         .statement = statement,
         .span = span,
     }, n - 1);
+}
+
+fn ensureCanAppendLines(parser: *Parser, n: usize, span: Span) error{TooLong}!void {
+    if (parser.air.origin + parser.air.lines.items.len + n > 0xffff) {
+        parser.reporter().report(.output_too_long, .{
+            .line = span,
+        }).abort() catch
+            return error.TooLong;
+    }
 }
 
 fn parseDirective(
@@ -455,27 +471,46 @@ fn resolveFieldLabel(
         .resolved => return,
     }
 
-    const definition = parser.findLabelDefinition(operand.span.view(parser.source())) orelse {
-        try parser.reporter().report(.undeclared_label, .{
-            .label = operand.span,
-        }).abort();
-    };
+    const string = operand.span.view(parser.source());
+
+    const definition, const definition_span =
+        parser.findLabelDefinition(string, .sensitive) orelse {
+            _, const near_match =
+                parser.findLabelDefinition(string, .insensitive) orelse .{ {}, null };
+            try parser.reporter().report(.undeclared_label, .{
+                .label = operand.span,
+                .near_match = near_match,
+            }).abort();
+        };
+
     const offset = calculateOffset(Int, definition, index) orelse {
         try parser.reporter().report(.offset_too_large, .{
             .reference = operand.span,
-            .definition = parser.air.lines.items[definition].label orelse
+            .definition = definition_span,
+            .offset = calculateOffset(i17, definition, index) orelse
                 unreachable,
+            .bits = @typeInfo(Int).int.bits,
         }).abort();
     };
+
     operand.value = .{ .resolved = offset };
 }
 
-fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
+fn findLabelDefinition(
+    parser: *const Parser,
+    reference: []const u8,
+    case_mode: enum { sensitive, insensitive },
+) ?struct { usize, Span } {
     for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
             continue;
-        if (std.mem.eql(u8, label.view(parser.source()), reference))
-            return index;
+        const string = label.view(parser.source());
+        const matches = switch (case_mode) {
+            .sensitive => std.mem.eql(u8, string, reference),
+            .insensitive => std.ascii.eqlIgnoreCase(string, reference),
+        };
+        if (matches)
+            return .{ index, label };
     }
     return null;
 }
