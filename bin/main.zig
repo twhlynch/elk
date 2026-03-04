@@ -3,7 +3,45 @@ const Io = std.Io;
 
 const lcz = @import("lcz");
 
+const Cli = @import("Cli.zig");
+
 pub fn main(init: std.process.Init) !u8 {
+    const io, const gpa = .{ init.io, init.gpa };
+    _ = io;
+
+    var args = try init.minimal.args.iterateAllocator(gpa);
+    defer args.deinit();
+
+    const cli = Cli.parse(&args) catch |err| switch (err) {
+        error.DisplayHelp => {
+            std.debug.print("todo: help info\n", .{});
+            return 0;
+        },
+        error.DisplayVersion => {
+            std.debug.print("todo: version info\n", .{});
+            return 0;
+        },
+        else => return err,
+    };
+
+    switch (cli.command) {
+        .assemble => {
+            std.debug.print("todo: assemble\n", .{});
+        },
+
+        .emulate => {
+            std.debug.print("todo: emulate\n", .{});
+        },
+
+        .assemble_emulate => {
+            std.debug.print("todo: assemble and emulate\n", .{});
+        },
+    }
+
+    return 0;
+}
+
+fn main_old(init: std.process.Init) !u8 {
     const io, const gpa = .{ init.io, init.gpa };
 
     var reporter = lcz.Reporter.new(io);
