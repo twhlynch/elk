@@ -19,17 +19,26 @@ pub fn new(writer: *Io.Writer) Impl {
     };
 }
 
+pub fn interface(impl: *Impl) Reporter {
+    return .fromImplementation(impl, &.{
+        .showReport = showReport,
+        .showSummary = showSummary,
+    });
+}
+
 pub fn setSource(impl: *Impl, source: []const u8) void {
     assert(impl.source == null);
     impl.source = source;
 }
 
 pub fn showReport(
-    impl: *Impl,
+    ptr: *anyopaque,
     diag: Diagnostic,
     options: Reporter.Options,
     level: Reporter.Level,
 ) void {
+    const impl: *Impl = @ptrCast(@alignCast(ptr));
+
     var ctx_items: usize = 0;
     const ctx: Ctx = .new(impl, options, level, &ctx_items);
     const source = impl.source orelse
@@ -40,10 +49,12 @@ pub fn showReport(
 }
 
 pub fn showSummary(
-    impl: *Impl,
+    ptr: *anyopaque,
     count: *const std.EnumArray(Reporter.Level, usize),
     options: Reporter.Options,
 ) void {
+    const impl: *Impl = @ptrCast(@alignCast(ptr));
+
     const count_err = count.get(.err);
     const count_warn = count.get(.warn);
 

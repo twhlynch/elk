@@ -9,7 +9,7 @@ pub fn main(init: std.process.Init) !u8 {
     var reporter_buffer: [1024]u8 = undefined;
     var reporter_writer = Io.File.stderr().writer(io, &reporter_buffer);
     var reporter_impl = lcz.Reporter.Impl.new(&reporter_writer.interface);
-    var reporter = lcz.Reporter.new(&reporter_impl);
+    var reporter = reporter_impl.interface();
 
     const asm_path = "hw.asm";
 

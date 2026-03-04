@@ -16,7 +16,24 @@ const BUFFER_SIZE = 1024;
 
 options: Options,
 count: std.EnumArray(Level, usize),
-impl: *Impl,
+
+ptr: *anyopaque,
+vtable: *const VTable,
+
+const VTable = struct {
+    showReport: *const fn (
+        ptr: *anyopaque,
+        diag: Diagnostic,
+        options: Reporter.Options,
+        level: Reporter.Level,
+    ) void,
+
+    showSummary: *const fn (
+        ptr: *anyopaque,
+        count: *const std.EnumArray(Reporter.Level, usize),
+        options: Reporter.Options,
+    ) void,
+};
 
 pub const Level = enum { err, warn };
 
@@ -77,11 +94,12 @@ pub const Response = enum {
     }
 };
 
-pub fn new(impl: *Impl) Reporter {
+pub fn fromImplementation(ptr: *anyopaque, vtable: *const VTable) Reporter {
     return .{
         .options = .{},
         .count = .initFill(0),
-        .impl = impl,
+        .ptr = ptr,
+        .vtable = vtable,
     };
 }
 
@@ -104,14 +122,14 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
 
     reporter.count.getPtr(level).* += 1;
 
-    reporter.impl.showReport(diag, reporter.options, level);
+    reporter.vtable.showReport(reporter.ptr, diag, reporter.options, level);
 
     assert(response != .pass);
     return response;
 }
 
 pub fn showSummary(reporter: *Reporter) void {
-    reporter.impl.showSummary(&reporter.count, reporter.options);
+    reporter.vtable.showSummary(reporter.ptr, &reporter.count, reporter.options);
 }
 
 pub fn getLevel(reporter: *const Reporter) ?Level {
