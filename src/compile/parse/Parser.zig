@@ -175,6 +175,8 @@ fn appendLine(
     span: Span,
     gpa: Allocator,
 ) error{OutOfMemory}!void {
+    if (parser.air.lines.items.len + 1 > 0xffff)
+        return error.OutOfMemory;
     try parser.air.lines.append(gpa, .{
         .label = parser.current_label,
         .statement = statement,
@@ -194,6 +196,8 @@ fn appendLineNTimes(
     gpa: Allocator,
 ) error{OutOfMemory}!void {
     assert(n > 0);
+    if (parser.air.lines.items.len + n > 0xffff)
+        return error.OutOfMemory;
 
     try parser.air.lines.ensureUnusedCapacity(gpa, n);
 
