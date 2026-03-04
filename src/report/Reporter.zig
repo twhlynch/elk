@@ -107,7 +107,7 @@ pub fn showSummary(reporter: *Reporter) void {
     const count_err = reporter.count.get(.err);
     const count_warn = reporter.count.get(.warn);
 
-    const ctx: Ctx = .new(reporter, .warn, null);
+    const ctx: Ctx = .new(&reporter.impl, reporter.options, .warn, null);
 
     if (count_err > 0) {
         ctx.print("\x1b[31m", .{});
@@ -146,7 +146,7 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
     reporter.count.getPtr(level).* += 1;
 
     var ctx_items: usize = 0;
-    const ctx: Ctx = .new(reporter, level, &ctx_items);
+    const ctx: Ctx = .new(&reporter.impl, reporter.options, level, &ctx_items);
     const source = reporter.impl.source orelse
         unreachable;
 
