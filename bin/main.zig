@@ -44,8 +44,8 @@ pub fn main(init: std.process.Init) !u8 {
             var air = try assemble(source, &traps, &reporter, gpa);
             defer air.deinit(gpa);
 
-            // TODO: Derive from `cli.filepath`
-            const obj_path = "hw.obj";
+            var obj_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+            const obj_path = replacePathExtension(&obj_path_buffer, cli.filepath, "obj");
 
             var file = try Io.Dir.cwd().createFile(io, obj_path, .{});
             defer file.close(io);
@@ -74,6 +74,15 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     return 0;
+}
+
+fn replacePathExtension(buffer: []u8, path: []const u8, extension: []const u8) []u8 {
+    // FIXME: Assert can fit in buffer
+    const index = std.mem.findScalarLast(u8, path, '.') orelse 0;
+    @memcpy(buffer[0..index], path[0..index]);
+    buffer[index] = '.';
+    @memcpy(buffer[index + 1 ..][0..extension.len], extension);
+    return buffer[0 .. index + 1 + extension.len];
 }
 
 fn assemble(
