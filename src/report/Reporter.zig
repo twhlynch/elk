@@ -9,70 +9,14 @@ const Token = @import("../compile/parse/Token.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 const Ctx = @import("Ctx.zig");
 
+// TODO: Move
+pub const Impl = @import("Impl.zig");
+
 const BUFFER_SIZE = 1024;
 
 options: Options,
 count: std.EnumArray(Level, usize),
-impl: *Inner,
-
-pub const Inner = struct {
-    source: ?[]const u8,
-    writer: *Io.Writer,
-
-    pub fn new(writer: *Io.Writer) Inner {
-        return .{
-            .source = null,
-            .writer = writer,
-        };
-    }
-
-    pub fn setSource(impl: *Inner, source: []const u8) void {
-        assert(impl.source == null);
-        impl.source = source;
-    }
-
-    pub fn showReport(
-        impl: *Inner,
-        diag: Diagnostic,
-        options: Options,
-        level: Level,
-    ) void {
-        var ctx_items: usize = 0;
-        const ctx: Ctx = .new(impl, options, level, &ctx_items);
-        const source = impl.source orelse
-            unreachable;
-
-        diag.print(ctx, source);
-        ctx.flush();
-    }
-
-    pub fn showSummary(
-        impl: *Inner,
-        count: *const std.EnumArray(Level, usize),
-        options: Options,
-    ) void {
-        const count_err = count.get(.err);
-        const count_warn = count.get(.warn);
-
-        const ctx: Ctx = .new(impl, options, .warn, null);
-
-        if (count_err > 0) {
-            ctx.print("\x1b[31m", .{});
-            ctx.print("{} errors", .{count_err});
-            ctx.print("\x1b[0m", .{});
-            ctx.print("\n", .{});
-        }
-
-        if (count_warn > 0) {
-            ctx.print("\x1b[33m", .{});
-            ctx.print("{} warnings", .{count_warn});
-            ctx.print("\x1b[0m", .{});
-            ctx.print("\n", .{});
-        }
-
-        ctx.flush();
-    }
-};
+impl: *Impl,
 
 pub const Level = enum { err, warn };
 
@@ -133,7 +77,7 @@ pub const Response = enum {
     }
 };
 
-pub fn new(impl: *Inner) Reporter {
+pub fn new(impl: *Impl) Reporter {
     return .{
         .options = .{},
         .count = .initFill(0),
