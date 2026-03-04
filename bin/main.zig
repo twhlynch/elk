@@ -57,14 +57,18 @@ pub fn main(init: std.process.Init) !u8 {
             var parser: lcz.Parser = .new(&air, &traps, source, &reporter);
 
             try parser.parse(gpa);
-            if (reporter.endSection() == .err) {
+            if (reporter.getLevel() == .err) {
+                reporter.showSummary();
                 return 1;
             }
 
             parser.resolveLabels();
-            if (reporter.endSection() == .err) {
+            if (reporter.getLevel() == .err) {
+                reporter.showSummary();
                 return 1;
             }
+
+            reporter.showSummary();
 
             var write_buffer: [64]u8 = undefined;
             var writer = Io.File.stdout().writer(io, &write_buffer);
