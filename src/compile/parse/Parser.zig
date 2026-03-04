@@ -457,19 +457,23 @@ fn resolveFieldLabel(
 
     const string = operand.span.view(parser.source());
 
-    const definition, _ = parser.findLabelDefinition(string, .sensitive) orelse {
-        _, const near_match = parser.findLabelDefinition(string, .insensitive) orelse .{ {}, null };
-        try parser.reporter().report(.undeclared_label, .{
-            .label = operand.span,
-            .near_match = near_match,
-        }).abort();
-    };
+    const definition, const definition_span =
+        parser.findLabelDefinition(string, .sensitive) orelse {
+            _, const near_match =
+                parser.findLabelDefinition(string, .insensitive) orelse .{ {}, null };
+            try parser.reporter().report(.undeclared_label, .{
+                .label = operand.span,
+                .near_match = near_match,
+            }).abort();
+        };
 
     const offset = calculateOffset(Int, definition, index) orelse {
         try parser.reporter().report(.offset_too_large, .{
             .reference = operand.span,
-            .definition = parser.air.lines.items[definition].label orelse
+            .definition = definition_span,
+            .offset = calculateOffset(i17, definition, index) orelse
                 unreachable,
+            .bits = @typeInfo(Int).int.bits,
         }).abort();
     };
 

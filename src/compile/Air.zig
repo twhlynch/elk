@@ -91,7 +91,6 @@ pub const Operand = struct {
             }
         };
 
-        // TODO: Reference / include (optional) alias name ????
         pub const TrapVect = struct {
             immediate: u8,
             pub fn bits(self: @This()) u16 {

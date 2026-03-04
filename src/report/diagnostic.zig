@@ -103,7 +103,8 @@ pub const Diagnostic = union(enum) {
     offset_too_large: struct {
         definition: Span,
         reference: Span,
-        // TODO: Add offset value
+        offset: i17,
+        bits: u16,
     },
     eof_label: struct {
         label: Span,
@@ -325,9 +326,10 @@ pub const Diagnostic = union(enum) {
                 }
             },
             .offset_too_large => |info| {
-                ctx.printTitle("Label offset is too large", .{});
+                ctx.printTitle("Calculated label offset is too large", .{});
                 ctx.deepen().printSourceNote("Label declared here", .{}, info.definition);
                 ctx.deepen().printSourceNote("Label used here", .{}, info.reference);
+                ctx.deepen().printNote("Address offset of {} words cannot be represented in {} bits", .{ info.offset, info.bits });
             },
             .eof_label => |info| {
                 ctx.printTitle("Label is useless in this position", .{});
