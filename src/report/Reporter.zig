@@ -9,8 +9,7 @@ const Token = @import("../compile/parse/Token.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 const Ctx = @import("Ctx.zig");
 
-// TODO: Move
-pub const Impl = @import("Impl.zig");
+pub const Stderr = @import("Stderr.zig");
 
 const BUFFER_SIZE = 1024;
 

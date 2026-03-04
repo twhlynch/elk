@@ -1,5 +1,4 @@
-// TODO: Rename
-const Impl = @This();
+const StderrReporter = @This();
 
 const std = @import("std");
 const Io = std.Io;
@@ -12,23 +11,23 @@ const Diagnostic = @import("diagnostic.zig").Diagnostic;
 source: ?[]const u8,
 writer: *Io.Writer,
 
-pub fn new(writer: *Io.Writer) Impl {
+pub fn new(writer: *Io.Writer) StderrReporter {
     return .{
         .source = null,
         .writer = writer,
     };
 }
 
-pub fn interface(impl: *Impl) Reporter {
-    return .fromImplementation(impl, &.{
+pub fn interface(reporter: *StderrReporter) Reporter {
+    return .fromImplementation(reporter, &.{
         .showReport = showReport,
         .showSummary = showSummary,
     });
 }
 
-pub fn setSource(impl: *Impl, source: []const u8) void {
-    assert(impl.source == null);
-    impl.source = source;
+pub fn setSource(reporter: *StderrReporter, source: []const u8) void {
+    assert(reporter.source == null);
+    reporter.source = source;
 }
 
 pub fn showReport(
@@ -37,11 +36,11 @@ pub fn showReport(
     options: Reporter.Options,
     level: Reporter.Level,
 ) void {
-    const impl: *Impl = @ptrCast(@alignCast(ptr));
+    const reporter: *StderrReporter = @ptrCast(@alignCast(ptr));
 
     var ctx_items: usize = 0;
-    const ctx: Ctx = .new(impl, options, level, &ctx_items);
-    const source = impl.source orelse
+    const ctx: Ctx = .new(reporter, options, level, &ctx_items);
+    const source = reporter.source orelse
         unreachable;
 
     diag.print(ctx, source);
@@ -53,12 +52,12 @@ pub fn showSummary(
     count: *const std.EnumArray(Reporter.Level, usize),
     options: Reporter.Options,
 ) void {
-    const impl: *Impl = @ptrCast(@alignCast(ptr));
+    const reporter: *StderrReporter = @ptrCast(@alignCast(ptr));
 
     const count_err = count.get(.err);
     const count_warn = count.get(.warn);
 
-    const ctx: Ctx = .new(impl, options, .warn, null);
+    const ctx: Ctx = .new(reporter, options, .warn, null);
 
     if (count_err > 0) {
         ctx.print("\x1b[31m", .{});

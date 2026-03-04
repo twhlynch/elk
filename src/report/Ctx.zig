@@ -5,23 +5,23 @@ const std = @import("std");
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Reporter = @import("Reporter.zig");
-const Impl = @import("Impl.zig");
+const Stderr = @import("Stderr.zig");
 
-impl: *Impl,
+reporter: *Stderr,
 options: Reporter.Options,
 level: ?Reporter.Level,
 depth: usize,
 item_count: ?*usize,
 
 pub fn new(
-    impl: *Impl,
+    reporter: *Stderr,
     options: Reporter.Options,
     level: ?Reporter.Level,
     item_count: ?*usize,
 ) Ctx {
     return .{
         .options = options,
-        .impl = impl,
+        .reporter = reporter,
         .level = level,
         .depth = 0,
         .item_count = item_count,
@@ -29,12 +29,12 @@ pub fn new(
 }
 
 pub fn print(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
-    ctx.impl.writer.print(fmt, args) catch
+    ctx.reporter.writer.print(fmt, args) catch
         std.debug.panic("failed to write to reporter file", .{});
 }
 
 pub fn flush(ctx: Ctx) void {
-    ctx.impl.writer.flush() catch
+    ctx.reporter.writer.flush() catch
         std.debug.panic("failed to flush reporter file", .{});
 }
 
@@ -116,7 +116,7 @@ pub fn printSourceNote(
 }
 
 fn printSource(ctx: Ctx, span: Span) void {
-    const source = ctx.impl.source orelse
+    const source = ctx.reporter.source orelse
         unreachable;
 
     switch (ctx.options.verbosity) {
