@@ -30,6 +30,48 @@ pub const Inner = struct {
         assert(impl.source == null);
         impl.source = source;
     }
+
+    pub fn showReport(
+        impl: *Inner,
+        diag: Diagnostic,
+        options: Options,
+        level: Level,
+    ) void {
+        var ctx_items: usize = 0;
+        const ctx: Ctx = .new(impl, options, level, &ctx_items);
+        const source = impl.source orelse
+            unreachable;
+
+        diag.print(ctx, source);
+        ctx.flush();
+    }
+
+    pub fn showSummary(
+        impl: *Inner,
+        count: *const std.EnumArray(Level, usize),
+        options: Options,
+    ) void {
+        const count_err = count.get(.err);
+        const count_warn = count.get(.warn);
+
+        const ctx: Ctx = .new(impl, options, .warn, null);
+
+        if (count_err > 0) {
+            ctx.print("\x1b[31m", .{});
+            ctx.print("{} errors", .{count_err});
+            ctx.print("\x1b[0m", .{});
+            ctx.print("\n", .{});
+        }
+
+        if (count_warn > 0) {
+            ctx.print("\x1b[33m", .{});
+            ctx.print("{} warnings", .{count_warn});
+            ctx.print("\x1b[0m", .{});
+            ctx.print("\n", .{});
+        }
+
+        ctx.flush();
+    }
 };
 
 pub const Level = enum { err, warn };
@@ -99,37 +141,6 @@ pub fn new(impl: *Inner) Reporter {
     };
 }
 
-pub fn getLevel(reporter: *const Reporter) ?Level {
-    if (reporter.count.get(.err) > 0)
-        return .err;
-    if (reporter.count.get(.warn) > 0)
-        return .warn;
-    return null;
-}
-
-pub fn showSummary(reporter: *Reporter) void {
-    const count_err = reporter.count.get(.err);
-    const count_warn = reporter.count.get(.warn);
-
-    const ctx: Ctx = .new(reporter.impl, reporter.options, .warn, null);
-
-    if (count_err > 0) {
-        ctx.print("\x1b[31m", .{});
-        ctx.print("{} errors", .{count_err});
-        ctx.print("\x1b[0m", .{});
-        ctx.print("\n", .{});
-    }
-
-    if (count_warn > 0) {
-        ctx.print("\x1b[33m", .{});
-        ctx.print("{} warnings", .{count_warn});
-        ctx.print("\x1b[0m", .{});
-        ctx.print("\n", .{});
-    }
-
-    ctx.flush();
-}
-
 pub fn report(
     reporter: *Reporter,
     comptime tag: std.meta.Tag(Diagnostic),
@@ -149,14 +160,20 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
 
     reporter.count.getPtr(level).* += 1;
 
-    var ctx_items: usize = 0;
-    const ctx: Ctx = .new(reporter.impl, reporter.options, level, &ctx_items);
-    const source = reporter.impl.source orelse
-        unreachable;
-
-    diag.print(ctx, source);
-    ctx.flush();
+    reporter.impl.showReport(diag, reporter.options, level);
 
     assert(response != .pass);
     return response;
+}
+
+pub fn showSummary(reporter: *Reporter) void {
+    reporter.impl.showSummary(&reporter.count, reporter.options);
+}
+
+pub fn getLevel(reporter: *const Reporter) ?Level {
+    if (reporter.count.get(.err) > 0)
+        return .err;
+    if (reporter.count.get(.warn) > 0)
+        return .warn;
+    return null;
 }
