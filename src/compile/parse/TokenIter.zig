@@ -36,6 +36,9 @@ pub fn new(
             assert(case.isLowercaseAlpha(alias));
     }
 
+    for (source) |char|
+        assert(Token.isValidChar(char));
+
     return .{
         .lexer = Lexer.new(source),
         .peeked = null,
@@ -119,8 +122,8 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
             },
             error.IntegerTooLarge => {
                 try tokens.reporter.report(.integer_too_large, .{
-                    .integer = span,
-                    .bits = 16,
+                    .span = span,
+                    .integer = @typeInfo(u16).int,
                 }).abort();
             },
         }
@@ -259,9 +262,6 @@ pub const Argument = union(enum) {
                 Operand.value.RegImm5 => switch (token.value) {
                     .register => |register| .{ .register = .{ .code = register } },
                     .integer => |integer| .{
-                        // TODO: Allow +1 bit for unsigned literals, which will
-                        // be later bitcast to negative. Warn for this!
-                        // Same with Offset6, but probably not with PcOffset(_)
                         .immediate = try shrink(reporter, token.span, integer, i5),
                     },
                     else => try unexpected(reporter, token, &.{ .register, .integer }),
@@ -319,8 +319,8 @@ pub const Argument = union(enum) {
         return integer.castToSmaller(T) catch |err| switch (err) {
             error.IntegerTooLarge => {
                 try reporter.report(.integer_too_large, .{
-                    .integer = span,
-                    .bits = @typeInfo(T).int.bits,
+                    .span = span,
+                    .integer = @typeInfo(T).int,
                 }).abort();
             },
         };

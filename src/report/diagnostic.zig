@@ -62,6 +62,9 @@ fn policyResponse(
 
 // TODO: Organise variants
 pub const Diagnostic = union(enum) {
+    invalid_byte: struct {
+        byte: usize,
+    },
     output_too_long: struct {
         line: Span,
     },
@@ -149,8 +152,8 @@ pub const Diagnostic = union(enum) {
         integer: Span,
     },
     integer_too_large: struct {
-        integer: Span,
-        bits: u16,
+        span: Span,
+        integer: std.builtin.Type.Int,
     },
     invalid_string_escape: struct {
         string: Span,
@@ -212,6 +215,7 @@ pub const Diagnostic = union(enum) {
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
+            .invalid_byte,
             .output_too_long,
             .multiple_origins,
             .late_origin,
@@ -267,6 +271,12 @@ pub const Diagnostic = union(enum) {
 
     pub fn print(diag: Diagnostic, ctx: Ctx, source: []const u8) void {
         switch (diag) {
+            .invalid_byte => |info| {
+                ctx.printTitle("Assembly file contains invalid bytes", .{});
+                ctx.deepen().printSourceNote("Byte", .{}, .{ .offset = info.byte, .len = 1 });
+                ctx.deepen().printNote("Assembly file must only contain printable ASCII characters", .{});
+                ctx.deepen().printNote("The assembler cannot read object files", .{});
+            },
             .output_too_long => |info| {
                 ctx.printTitle("Assembly file would emit too many words", .{});
                 ctx.deepen().printSourceNote("Line", .{}, info.line);
@@ -408,8 +418,11 @@ pub const Diagnostic = union(enum) {
             },
             .integer_too_large => |info| {
                 ctx.printTitle("Integer operand is too large", .{});
-                ctx.deepen().printSourceNote("Operand", .{}, info.integer);
-                ctx.deepen().printNote("Value cannot be represented in {} bits", .{info.bits});
+                ctx.deepen().printSourceNote("Operand", .{}, info.span);
+                ctx.deepen().printNote("Value cannot be represented in {} bits", .{info.integer.bits});
+                if (info.integer.signedness == .signed) {
+                    ctx.deepen().printNote("Since the operand is a signed integer, the highest bit is reserved as the sign bit", .{});
+                }
             },
             .invalid_string_escape => |info| {
                 ctx.printTitle("Invalid escape sequence", .{});

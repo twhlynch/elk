@@ -82,7 +82,8 @@ fn assemble(
     var air: lcz.Air = .init();
     defer air.deinit(gpa);
 
-    var parser: lcz.Parser = .new(&air, traps, source, reporter);
+    var parser = lcz.Parser.new(&air, traps, source, reporter) orelse
+        return error.ProgramError;
 
     try parser.parse(gpa);
     if (reporter.getLevel() == .err) {
