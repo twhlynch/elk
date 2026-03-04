@@ -33,14 +33,18 @@ pub fn main(init: std.process.Init) !u8 {
     var parser: lcz.Parser = .new(&air, &traps, source, &reporter);
 
     try parser.parse(gpa);
-    parser.resolveLabels();
-
-    {
-        if (reporter.endSection() == .err) {
-            std.log.info("stop", .{});
-            return 1;
-        }
+    if (reporter.getLevel() == .err) {
+        reporter.showSummary();
+        return 1;
     }
+
+    parser.resolveLabels();
+    if (reporter.getLevel() == .err) {
+        reporter.showSummary();
+        return 1;
+    }
+
+    reporter.showSummary();
 
     {
         const bin_path = "hw.obj";
