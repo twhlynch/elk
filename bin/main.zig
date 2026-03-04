@@ -8,14 +8,15 @@ pub fn main(init: std.process.Init) !u8 {
 
     var reporter_buffer: [1024]u8 = undefined;
     var reporter_writer = Io.File.stderr().writer(io, &reporter_buffer);
-    var reporter = lcz.Reporter.new(&reporter_writer.interface);
+    var reporter_impl = lcz.Reporter.Inner.new(&reporter_writer.interface);
+    var reporter = lcz.Reporter.new(&reporter_impl);
 
     const asm_path = "hw.asm";
 
     const source = try Io.Dir.cwd().readFileAlloc(io, asm_path, gpa, .unlimited);
     defer gpa.free(source);
 
-    reporter.setSource(source);
+    reporter_impl.setSource(source);
 
     // reporter.options.strictness = .normal;
     // reporter.options.verbosity = .normal;
