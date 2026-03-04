@@ -38,7 +38,11 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cli.command) {
         .assemble => {
-            const air = try assemble(cli.filepath, &traps, &reporter, io, gpa);
+            const source = try Io.Dir.cwd().readFileAlloc(io, cli.filepath, gpa, .unlimited);
+            defer gpa.free(source);
+
+            var air = try assemble(source, &traps, &reporter, gpa);
+            defer air.deinit(gpa);
 
             // TODO: Derive from `cli.filepath`
             const obj_path = "hw.obj";
@@ -59,7 +63,12 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .assemble_emulate => {
-            const air = try assemble(cli.filepath, &traps, &reporter, io, gpa);
+            const source = try Io.Dir.cwd().readFileAlloc(io, cli.filepath, gpa, .unlimited);
+            defer gpa.free(source);
+
+            var air = try assemble(source, &traps, &reporter, gpa);
+            defer air.deinit(gpa);
+
             try emulate(.{ .air = &air }, &traps, hooks, &policies, io, gpa);
         },
     }
@@ -68,19 +77,15 @@ pub fn main(init: std.process.Init) !u8 {
 }
 
 fn assemble(
-    filepath: []const u8,
+    source: []const u8,
     traps: *const lcz.Traps,
     reporter: *lcz.Reporter,
-    io: Io,
     gpa: Allocator,
 ) !lcz.Air {
-    const source = try Io.Dir.cwd().readFileAlloc(io, filepath, gpa, .unlimited);
-    defer gpa.free(source);
-
     reporter.setSource(source);
 
     var air: lcz.Air = .init();
-    defer air.deinit(gpa);
+    errdefer air.deinit(gpa);
 
     var parser = lcz.Parser.new(&air, traps, source, reporter) orelse
         return error.ProgramError;
