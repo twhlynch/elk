@@ -82,7 +82,12 @@ pub fn main(init: std.process.Init) !u8 {
         );
         defer runtime.deinit(gpa);
 
-        try air.emitRuntime(&runtime);
+        const obj_path = "hw.obj";
+        const obj_file = try Io.Dir.cwd().openFile(io, obj_path, .{});
+        var read_buffer: [1024]u8 = undefined;
+
+        try runtime.readFromFile(obj_file, &read_buffer, io);
+        // try air.emitRuntime(&runtime);
 
         runtime.run() catch |err| switch (err) {
             error.WriteFailed,
