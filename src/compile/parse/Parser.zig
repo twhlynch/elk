@@ -455,11 +455,16 @@ fn resolveFieldLabel(
         .resolved => return,
     }
 
-    const definition = parser.findLabelDefinition(operand.span.view(parser.source())) orelse {
+    const string = operand.span.view(parser.source());
+
+    const definition, _ = parser.findLabelDefinition(string, .sensitive) orelse {
+        _, const near_match = parser.findLabelDefinition(string, .insensitive) orelse .{ {}, null };
         try parser.reporter().report(.undeclared_label, .{
             .label = operand.span,
+            .near_match = near_match,
         }).abort();
     };
+
     const offset = calculateOffset(Int, definition, index) orelse {
         try parser.reporter().report(.offset_too_large, .{
             .reference = operand.span,
@@ -467,15 +472,25 @@ fn resolveFieldLabel(
                 unreachable,
         }).abort();
     };
+
     operand.value = .{ .resolved = offset };
 }
 
-fn findLabelDefinition(parser: *const Parser, reference: []const u8) ?usize {
+fn findLabelDefinition(
+    parser: *const Parser,
+    reference: []const u8,
+    case_mode: enum { sensitive, insensitive },
+) ?struct { usize, Span } {
     for (parser.air.lines.items, 0..) |*line, index| {
         const label = line.label orelse
             continue;
-        if (std.mem.eql(u8, label.view(parser.source()), reference))
-            return index;
+        const string = label.view(parser.source());
+        const matches = switch (case_mode) {
+            .sensitive => std.mem.eql(u8, string, reference),
+            .insensitive => std.ascii.eqlIgnoreCase(string, reference),
+        };
+        if (matches)
+            return .{ index, label };
     }
     return null;
 }

@@ -98,6 +98,7 @@ pub const Diagnostic = union(enum) {
     },
     undeclared_label: struct {
         label: Span,
+        near_match: ?Span,
     },
     offset_too_large: struct {
         definition: Span,
@@ -318,7 +319,10 @@ pub const Diagnostic = union(enum) {
             .undeclared_label => |info| {
                 ctx.printTitle("Label is not declared", .{});
                 ctx.deepen().printSourceNote("Label used here", .{}, info.label);
-                ctx.deepen().printNote("Label names are case-sensitive", .{});
+                if (info.near_match) |close_match| {
+                    ctx.deepen().printSourceNote("This label declaration is similar", .{}, close_match);
+                    ctx.deepen().printNote("Label names are case-sensitive", .{});
+                }
             },
             .offset_too_large => |info| {
                 ctx.printTitle("Label offset is too large", .{});
