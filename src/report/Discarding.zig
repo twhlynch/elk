@@ -15,7 +15,6 @@ pub const init: Reporter = .fromImplementation(undefined, &.{
 pub fn showReport(
     _: *anyopaque,
     _: Diagnostic,
-    _: Reporter.Options,
     _: Reporter.Level,
 ) void {
     return;
@@ -24,7 +23,6 @@ pub fn showReport(
 pub fn showSummary(
     _: *anyopaque,
     _: *const std.EnumArray(Reporter.Level, usize),
-    _: Reporter.Options,
 ) void {
     return;
 }

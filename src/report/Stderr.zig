@@ -41,7 +41,6 @@ pub fn setSource(reporter: *Stderr, source: []const u8) void {
 pub fn showReport(
     ptr: *anyopaque,
     diag: Diagnostic,
-    _: Reporter.Options,
     level: Reporter.Level,
 ) void {
     const reporter: *Stderr = @ptrCast(@alignCast(ptr));
@@ -58,7 +57,6 @@ pub fn showReport(
 pub fn showSummary(
     ptr: *anyopaque,
     count: *const std.EnumArray(Reporter.Level, usize),
-    _: Reporter.Options,
 ) void {
     const reporter: *Stderr = @ptrCast(@alignCast(ptr));
 

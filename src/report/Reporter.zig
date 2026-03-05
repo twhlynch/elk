@@ -24,14 +24,12 @@ const VTable = struct {
     showReport: *const fn (
         ptr: *anyopaque,
         diag: Diagnostic,
-        options: Reporter.Options,
         level: Reporter.Level,
     ) void,
 
     showSummary: *const fn (
         ptr: *anyopaque,
         count: *const std.EnumArray(Reporter.Level, usize),
-        options: Reporter.Options,
     ) void,
 };
 
@@ -115,14 +113,14 @@ fn reportInner(reporter: *Reporter, diag: Diagnostic) Response {
 
     reporter.count.getPtr(level).* += 1;
 
-    reporter.vtable.showReport(reporter.ptr, diag, reporter.options, level);
+    reporter.vtable.showReport(reporter.ptr, diag, level);
 
     assert(response != .pass);
     return response;
 }
 
 pub fn showSummary(reporter: *Reporter) void {
-    reporter.vtable.showSummary(reporter.ptr, &reporter.count, reporter.options);
+    reporter.vtable.showSummary(reporter.ptr, &reporter.count);
 }
 
 pub fn getLevel(reporter: *const Reporter) ?Level {
