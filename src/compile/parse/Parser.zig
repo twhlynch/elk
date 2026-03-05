@@ -6,13 +6,13 @@ const assert = std.debug.assert;
 
 const Traps = @import("../../Traps.zig");
 const Reporter = @import("../../report/Reporter.zig");
-const Air = @import("../Air.zig");
-const Statement = @import("../statement.zig").Statement;
+const Air = @import("../assemble/Air.zig");
+const Statement = @import("../assemble/statement.zig").Statement;
 const Span = @import("../Span.zig");
+const Operand = @import("../Operand.zig");
 const TokenIter = @import("TokenIter.zig");
 const Token = @import("Token.zig");
 const case = @import("case.zig");
-const Operand = Air.Operand;
 
 air: *Air,
 tokens: TokenIter,

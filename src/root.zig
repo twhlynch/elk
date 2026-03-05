@@ -1,7 +1,7 @@
 pub const Policies = @import("Policies.zig");
 pub const Traps = @import("Traps.zig");
 pub const Reporter = @import("report/Reporter.zig");
-pub const Air = @import("compile/Air.zig");
+pub const Air = @import("compile/assemble/Air.zig");
 pub const Parser = @import("compile/parse/Parser.zig");
 pub const Runtime = @import("emulate/Runtime.zig");
 
@@ -9,9 +9,10 @@ test {
     const refAllDecls = @import("std").testing.refAllDecls;
     refAllDecls(@import("Policies.zig"));
     refAllDecls(@import("Traps.zig"));
-    refAllDecls(@import("compile/statement.zig"));
+    refAllDecls(@import("compile/Operand.zig"));
     refAllDecls(@import("compile/Span.zig"));
-    refAllDecls(@import("compile/Air.zig"));
+    refAllDecls(@import("compile/assemble/Air.zig"));
+    refAllDecls(@import("compile/assemble/statement.zig"));
     refAllDecls(@import("compile/parse/TokenIter.zig"));
     refAllDecls(@import("compile/parse/Lexer.zig"));
     refAllDecls(@import("compile/parse/Parser.zig"));

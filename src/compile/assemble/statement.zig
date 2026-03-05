@@ -1,4 +1,4 @@
-const Operand = @import("Air.zig").Operand;
+const Operand = @import("../Operand.zig");
 
 /// Note that some instructions (`Statement` variants) share the same 4-bit
 /// opcode, eg. `jsr` and `jsrr`, which are distinguished by a flag bit.
