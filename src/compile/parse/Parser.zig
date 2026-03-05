@@ -151,19 +151,21 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
         },
 
         .instruction => |instruction| {
-            const statement = try parser.parseInstruction(instruction, token.span) orelse
+            const instr = try parser.parseInstruction(instruction, token.span) orelse
                 return error.Reported;
             const span: Span = .fromBounds(
                 token.span.offset,
                 parser.tokens.getIndex(),
             );
             try parser.tokens.expectEol();
-            try parser.appendLine(air, statement, span, gpa);
+            try parser.appendLine(air, .{ .instruction = instr }, span, gpa);
         },
 
         .trap_alias => |vect| {
-            const statement: Statement = .{ .trap = .{
-                .vect = .{ .span = token.span, .value = .{ .immediate = vect } },
+            const statement: Statement = .{ .instruction = .{
+                .trap = .{
+                    .vect = .{ .span = token.span, .value = .{ .immediate = vect } },
+                },
             } };
             try parser.tokens.expectEol();
             try parser.appendLine(air, statement, token.span, gpa);
@@ -362,7 +364,7 @@ fn parseInstruction(
     parser: *Parser,
     instruction: Token.Value.Instruction,
     span: Span,
-) InnerError!?Statement {
+) InnerError!?Statement.Instruction {
     switch (instruction) {
         inline // Automatic parsing for 'regular' instructions
         .add,
@@ -396,7 +398,7 @@ fn parseInstruction(
                 else => {},
             }
 
-            const Operands = @FieldType(Statement, @tagName(regular));
+            const Operands = @FieldType(Statement.Instruction, @tagName(regular));
             var operands: Operands = undefined;
 
             const fields = @typeInfo(Operands).@"struct".fields;
@@ -414,7 +416,7 @@ fn parseInstruction(
                     };
             }
 
-            return @unionInit(Statement, @tagName(regular), operands);
+            return @unionInit(Statement.Instruction, @tagName(regular), operands);
         },
 
         inline // Branch instructions
@@ -453,7 +455,11 @@ fn getExistingLabel(parser: *const Parser, air: *Air, new_label: []const u8) ?Sp
 
 pub fn resolveLabels(parser: *Parser, air: *Air) void {
     for (air.lines.items, 0..) |*line, index| {
-        _ = switch (line.statement) {
+        const instruction = switch (line.statement) {
+            .raw_word => continue,
+            .instruction => |*instruction| instruction,
+        };
+        _ = switch (instruction.*) {
             .br => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
             .jsr => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
             .ld => |*operands| parser.resolveFieldLabel(air, &operands.src, index),
