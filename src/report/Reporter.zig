@@ -39,20 +39,13 @@ pub const Level = enum { err, warn };
 
 pub const Options = struct {
     strictness: Strictness = .default,
-    verbosity: Verbosity = .default,
     policies: *const Policies = &.default,
 
     pub const Strictness = enum {
         strict,
         normal,
         relaxed,
-        const default: Strictness = .normal;
-    };
-
-    pub const Verbosity = enum {
-        normal,
-        quiet,
-        const default: Verbosity = .normal;
+        pub const default: Strictness = .normal;
     };
 };
 

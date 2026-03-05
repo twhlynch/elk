@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !u8 {
     reporter_impl.setSource(source);
 
     // reporter.options.strictness = .normal;
-    // reporter.options.verbosity = .normal;
+    // reporter_impl.verbosity = .normal;
 
     const policies: lcz.Policies = .config_lace;
     reporter.options.policies = &policies;

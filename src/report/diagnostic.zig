@@ -508,7 +508,7 @@ pub const Diagnostic = union(enum) {
             },
         }
 
-        switch (ctx.options.verbosity) {
+        switch (ctx.reporter.verbosity) {
             .normal => {
                 ctx.print("\n", .{});
             },

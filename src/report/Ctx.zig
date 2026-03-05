@@ -8,19 +8,22 @@ const Reporter = @import("Reporter.zig");
 const Stderr = @import("Stderr.zig");
 
 reporter: *Stderr,
-options: Reporter.Options,
 level: ?Reporter.Level,
 depth: usize,
 item_count: ?*usize,
 
+pub const Verbosity = enum {
+    normal,
+    quiet,
+    pub const default: Verbosity = .normal;
+};
+
 pub fn new(
     reporter: *Stderr,
-    options: Reporter.Options,
     level: ?Reporter.Level,
     item_count: ?*usize,
 ) Ctx {
     return .{
-        .options = options,
         .reporter = reporter,
         .level = level,
         .depth = 0,
@@ -81,7 +84,7 @@ pub fn printTitle(
 
     ctx.print(fmt, args);
 
-    switch (ctx.options.verbosity) {
+    switch (ctx.reporter.verbosity) {
         .normal => {
             ctx.print("\n", .{});
         },
@@ -92,7 +95,7 @@ pub fn printTitle(
 pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
     defer ctx.incrementItemCount();
 
-    switch (ctx.options.verbosity) {
+    switch (ctx.reporter.verbosity) {
         .normal => {},
         .quiet => return,
     }
@@ -119,7 +122,7 @@ fn printSource(ctx: Ctx, span: Span) void {
     const source = ctx.reporter.source orelse
         unreachable;
 
-    switch (ctx.options.verbosity) {
+    switch (ctx.reporter.verbosity) {
         .normal => {},
         .quiet => {
             // Scuffed!
