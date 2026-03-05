@@ -25,7 +25,7 @@ pub fn new(
 ) ?Parser {
     for (source_, 0..) |char, i| {
         if (!Token.isValidChar(char)) {
-            reporter_.report(.invalid_byte, .{
+            reporter_.report(.invalid_source_byte, .{
                 .byte = i,
             }).abort() catch
                 return null;
@@ -87,8 +87,9 @@ pub fn parse(parser: *Parser, air: *Air, gpa: Allocator) error{OutOfMemory}!void
     }
 
     if (parser.current_label) |existing| {
-        parser.reporter().report(.eof_label, .{
+        parser.reporter().report(.invalid_label_target, .{
             .label = existing,
+            .target = null,
         }).proceed(); // Can't return `error.Reported`
     }
 
@@ -112,7 +113,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             }
 
             if (parser.getExistingLabel(air, token.span.view(parser.source()))) |existing_label| {
-                try parser.reporter().report(.duplicate_label, .{
+                try parser.reporter().report(.redeclared_label, .{
                     .existing = existing_label,
                     .new = token.span,
                 }).abort();
@@ -121,7 +122,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             }
 
             if (try parser.tokens.nextMatching(.colon)) |colon| {
-                try parser.reporter().report(.nonstandard_label_colon, .{
+                try parser.reporter().report(.label_colon, .{
                     .colon = colon.span,
                 }).handle();
             }
@@ -130,7 +131,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             // This should also be checked when the second label is parsed, but
             // this reports a more appropriate message
             if (try parser.tokens.nextMatching(.label)) |label| {
-                try parser.reporter().report(.unexpected_label, .{
+                try parser.reporter().report(.multiple_labels, .{
                     .existing = token.span,
                     .new = label.span,
                 }).handle();
@@ -138,7 +139,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
 
             if (!case.isPascalCase(token.span.view(parser.source()))) {
                 try parser.reporter().report(.unconventional_case, .{
-                    .ident = token.span,
+                    .token = token.span,
                     .kind = .label,
                 }).handle();
             }
@@ -178,7 +179,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
 
         else => {
             try parser.reporter().report(.unexpected_token_kind, .{
-                .token = token,
+                .found = token,
                 .expected = &.{ .label, .instruction, .directive },
             }).abort();
         },
@@ -236,7 +237,7 @@ fn appendLineNTimes(
 fn ensureCanAppendLines(parser: *Parser, air: *Air, n: usize, span: Span) error{TooLong}!void {
     if (air.origin + air.lines.items.len + n > 0xffff) {
         parser.reporter().report(.output_too_long, .{
-            .line = span,
+            .statement = span,
         }).abort() catch
             return error.TooLong;
     }
@@ -252,9 +253,9 @@ fn parseDirective(
     switch (directive) {
         .end => {
             if (parser.current_label) |label| {
-                try parser.reporter().report(.useless_label, .{
+                try parser.reporter().report(.invalid_label_target, .{
                     .label = label,
-                    .token = span,
+                    .target = span,
                 }).handle();
             }
             return .@"break";
@@ -263,9 +264,9 @@ fn parseDirective(
         .orig => {
             // FIXME: This should technically be removed I think ??
             if (parser.current_label) |label| {
-                try parser.reporter().report(.useless_label, .{
+                try parser.reporter().report(.invalid_label_target, .{
                     .label = label,
-                    .token = span,
+                    .target = span,
                 }).handle();
             }
 
@@ -395,9 +396,9 @@ fn parseInstruction(
         => |regular| {
             switch (regular) {
                 .push, .pop, .call, .rets => {
-                    try parser.reporter().report(.nonstandard_stack_instruction, .{
-                        .instruction = instruction,
-                        .span = span,
+                    try parser.reporter().report(.stack_instruction, .{
+                        .instruction = span,
+                        .kind = instruction,
                     }).handle();
                 },
                 else => {},
@@ -504,8 +505,8 @@ fn resolveFieldLabel(
             _, const near_match =
                 parser.findLabelDefinition(air, string, .insensitive) orelse .{ {}, null };
             try parser.reporter().report(.undeclared_label, .{
-                .label = operand.span,
-                .near_match = near_match,
+                .reference = operand.span,
+                .nearest = near_match,
             }).abort();
         };
 
