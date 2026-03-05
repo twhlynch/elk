@@ -63,19 +63,19 @@ fn policyResponse(
 // TODO: Organise variants
 pub const Diagnostic = union(enum) {
     // Fatal, assembly file
-    invalid_byte: struct { byte: usize },
+    invalid_source_byte: struct { byte: usize },
     output_too_long: struct { line: Span },
 
     // Fatal, directives
-    unknown_directive: struct { directive: Span },
+    unsupported_directive: struct { directive: Span },
     multiple_origins: struct { existing: Span, new: Span },
     late_origin: struct { origin: Span, first_token: ?Span },
 
     // Fatal, line syntax
-    unexpected_line_end: struct { span: Span, expected: []const TokenKinds.Kind },
-    unexpected_token: struct { token: Token },
+    unexpected_eol: struct { span: Span, expected: []const TokenKinds.Kind },
+    expected_eol: struct { token: Token },
     unexpected_token_kind: struct { token: Token, expected: []const TokenKinds.Kind },
-    unexpected_label: struct { existing: Span, new: Span },
+    multiple_labels: struct { existing: Span, new: Span },
 
     // Fatal, token syntax
     invalid_token: struct { token: Span, kind: ?TokenKinds.Kind },
@@ -93,29 +93,29 @@ pub const Diagnostic = union(enum) {
     unexpected_negative_integer: struct { integer: Span },
 
     // Fatal, label resolution
-    duplicate_label: struct { existing: Span, new: Span },
+    redeclared_label: struct { existing: Span, new: Span },
     undeclared_label: struct { label: Span, near_match: ?Span },
 
     // Non-fatal
-    useless_label: struct { label: Span, token: Span },
-    // TODO: Merge with useless_label
+    invalid_label_target: struct { label: Span, token: Span },
+    // TODO: Merge with invalid_label_target
     eof_label: struct { label: Span },
     shadowed_label: struct { existing: Span, new: Span },
     invalid_string_escape: struct { string: Span, sequence: Span },
 
     // Policy, extension
-    nonstandard_stack_instruction: struct { instruction: Token.Value.Instruction, span: Span },
+    stack_instruction: struct { instruction: Token.Value.Instruction, span: Span },
     missing_origin: struct { first_token: ?Span },
     missing_end: struct { last_token: ?Span },
     multiline_string: struct { string: Span },
     nonstandard_integer_radix: struct { integer: Span, radix: Radix },
     nonstandard_integer_form: struct { integer: Span, reason: enum { delimiter } },
-    nonstandard_label_colon: struct { colon: Span },
+    label_colon: struct { colon: Span },
 
     // Policy, smells
     literal_pc_offset: struct { integer: Span },
     explicit_trap_vect: struct { vect: u8, span: Span, alias: []const u8 },
-    unknown_trap_vect: struct { vect: u8, span: Span },
+    undeclared_trap_vect: struct { vect: u8, span: Span },
 
     // Policy, style
     undesirable_integer_form: struct { integer: Span, reason: enum { missing_zero, pre_radix_sign, post_radix_sign, implicit_radix } },
@@ -125,18 +125,18 @@ pub const Diagnostic = union(enum) {
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
-            .invalid_byte,
+            .invalid_source_byte,
             .output_too_long,
             .multiple_origins,
             .late_origin,
-            .duplicate_label,
+            .redeclared_label,
             .undeclared_label,
             .offset_too_large,
-            .unexpected_line_end,
+            .unexpected_eol,
             .unexpected_token_kind,
-            .unexpected_token,
+            .expected_eol,
             .invalid_token,
-            .unknown_directive,
+            .unsupported_directive,
             .unmatched_quote,
             .unexpected_negative_integer,
             .malformed_integer,
@@ -146,25 +146,25 @@ pub const Diagnostic = union(enum) {
             .integer_too_large,
             => .fatal,
 
-            .unexpected_label => .major,
+            .multiple_labels => .major,
 
             .shadowed_label,
-            .useless_label,
+            .invalid_label_target,
             .eof_label,
             .invalid_string_escape,
             => strictnessResponse(options),
 
-            .nonstandard_stack_instruction => policyResponse(options, .extension, .stack_instructions),
+            .stack_instruction => policyResponse(options, .extension, .stack_instructions),
             .missing_origin => policyResponse(options, .extension, .implicit_origin),
             .missing_end => policyResponse(options, .extension, .implicit_end),
             .multiline_string => policyResponse(options, .extension, .multiline_strings),
             .nonstandard_integer_radix => policyResponse(options, .extension, .more_integer_radixes),
             .nonstandard_integer_form => policyResponse(options, .extension, .more_integer_forms),
-            .nonstandard_label_colon => policyResponse(options, .extension, .label_declaration_colons),
+            .label_colon => policyResponse(options, .extension, .label_declaration_colons),
 
             .literal_pc_offset => policyResponse(options, .smell, .pc_offset_literals),
             .explicit_trap_vect => policyResponse(options, .smell, .explicit_trap_instructions),
-            .unknown_trap_vect => policyResponse(options, .smell, .unknown_trap_vectors),
+            .undeclared_trap_vect => policyResponse(options, .smell, .unknown_trap_vectors),
 
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
             .unconventional_case => |info| switch (info.kind) {
@@ -181,7 +181,7 @@ pub const Diagnostic = union(enum) {
 
     pub fn print(diag: Diagnostic, ctx: Ctx, source: []const u8) void {
         switch (diag) {
-            .invalid_byte => |info| {
+            .invalid_source_byte => |info| {
                 ctx.printTitle("Assembly file contains invalid bytes", .{});
                 ctx.deepen().printSourceNote("Byte", .{}, .{ .offset = info.byte, .len = 1 });
                 ctx.deepen().printNote("Assembly file must only contain printable ASCII characters", .{});
@@ -192,7 +192,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("Line", .{}, info.line);
                 ctx.deepen().printNote("Object files cannot contain more than 0xffff words", .{});
             },
-            .nonstandard_stack_instruction => |info| {
+            .stack_instruction => |info| {
                 ctx.printTitle("Use of non-standard stack instruction `{t}`", .{info.instruction});
                 ctx.deepen().printSourceNote("Instruction is an ISA extension", .{}, info.span);
             },
@@ -226,12 +226,12 @@ pub const Diagnostic = union(enum) {
                     info.last_token orelse .lastCharOf(source),
                 );
             },
-            .duplicate_label => |info| {
+            .redeclared_label => |info| {
                 ctx.printTitle("Label already declared", .{});
                 ctx.deepen().printSourceNote("Label is first declared here", .{}, info.existing);
                 ctx.deepen().printSourceNote("Tried to redeclare here", .{}, info.new);
             },
-            .unexpected_label => |info| {
+            .multiple_labels => |info| {
                 ctx.printTitle("Multiple labels cannot be declared on the same line", .{});
                 ctx.deepen().printSourceNote("First label declared here", .{}, info.existing);
                 ctx.deepen().printSourceNote("Another label declared on the same line", .{}, info.new);
@@ -241,7 +241,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("First label declared here", .{}, info.existing);
                 ctx.deepen().printSourceNote("Another label declared in the same position", .{}, info.new);
             },
-            .useless_label => |info| {
+            .invalid_label_target => |info| {
                 ctx.printTitle("Label is useless in this position", .{});
                 ctx.deepen().printSourceNote("Label declared here", .{}, info.label);
                 ctx.deepen().printSourceNote("Token cannot be annotated with label", .{}, info.token);
@@ -269,7 +269,7 @@ pub const Diagnostic = union(enum) {
                     .lastCharOf(source),
                 );
             },
-            .unexpected_line_end => |info| {
+            .unexpected_eol => |info| {
                 ctx.printTitle("Unexpected end of line", .{});
                 ctx.deepen().printSourceNote("Line ends too early", .{}, info.span);
                 ctx.deepen().printNote("Expected {f}", .{TokenKinds{ .kinds = info.expected }});
@@ -280,7 +280,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("Token", .{}, info.token.span);
                 ctx.deepen().printNote("Expected {f}", .{TokenKinds{ .kinds = info.expected }});
             },
-            .unexpected_token => |info| {
+            .expected_eol => |info| {
                 ctx.printTitle("Unexpected {s}", .{TokenKinds.name(info.token.value)});
                 ctx.deepen().printSourceNote("Token", .{}, info.token.span);
                 ctx.deepen().printNote("Expected end of line", .{});
@@ -293,7 +293,7 @@ pub const Diagnostic = union(enum) {
                 else
                     ctx.deepen().printNote("Cannot parse as any valid token", .{});
             },
-            .unknown_directive => |info| {
+            .unsupported_directive => |info| {
                 ctx.printTitle("Directive is not supported", .{});
                 ctx.deepen().printSourceNote("Tried to use directive here", .{}, info.directive);
             },
@@ -364,12 +364,12 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("Trap vector", .{}, info.span);
                 ctx.deepen().printNote("Consider using trap alias `{s}`", .{info.alias});
             },
-            .unknown_trap_vect => |info| {
+            .undeclared_trap_vect => |info| {
                 ctx.printTitle("Use of unknown trap vector 0x{x:02}", .{info.vect});
                 ctx.deepen().printSourceNote("Trap vector", .{}, info.span);
                 ctx.deepen().printNote("Traps vector 0x{x:02} is not recognized", .{info.vect});
             },
-            .nonstandard_label_colon => |info| {
+            .label_colon => |info| {
                 ctx.printTitle("Label followed by colon `:`", .{});
                 ctx.deepen().printSourceNote("Colon", .{}, info.colon);
                 ctx.deepen().printNote("A post-label colon is non-standard syntax", .{});

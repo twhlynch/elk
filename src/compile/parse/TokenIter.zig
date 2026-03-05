@@ -89,7 +89,7 @@ fn nextAny(tokens: *TokenIter) error{ Reported, Eof }!Token {
                 }).abort();
             },
             error.UnknownDirective => {
-                try tokens.reporter.report(.unknown_directive, .{
+                try tokens.reporter.report(.unsupported_directive, .{
                     .directive = span,
                 }).abort();
             },
@@ -207,7 +207,7 @@ pub fn expectEol(tokens: *TokenIter) error{Reported}!void {
         error.Eof => return,
     };
     if (token.value != .newline) {
-        try tokens.reporter.report(.unexpected_token, .{
+        try tokens.reporter.report(.expected_eol, .{
             .token = token,
         }).abort();
     }
@@ -335,7 +335,7 @@ pub const Argument = union(enum) {
         expected: []const TokenKind,
     ) error{Reported}!noreturn {
         if (token.value == .newline) {
-            try reporter.report(.unexpected_line_end, .{
+            try reporter.report(.unexpected_eol, .{
                 .span = token.span,
                 .expected = expected,
             }).abort();
@@ -433,7 +433,7 @@ fn ensureSupported(
                                     .alias = alias,
                                 }).collect(&result);
                             } else if (entry.callback == null) {
-                                tokens.reporter.report(.unknown_trap_vect, .{
+                                tokens.reporter.report(.undeclared_trap_vect, .{
                                     .vect = vect,
                                     .span = token.span,
                                 }).collect(&result);

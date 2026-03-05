@@ -25,7 +25,7 @@ pub fn new(
 ) ?Parser {
     for (source_, 0..) |char, i| {
         if (!Token.isValidChar(char)) {
-            reporter_.report(.invalid_byte, .{
+            reporter_.report(.invalid_source_byte, .{
                 .byte = i,
             }).abort() catch
                 return null;
@@ -112,7 +112,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             }
 
             if (parser.getExistingLabel(air, token.span.view(parser.source()))) |existing_label| {
-                try parser.reporter().report(.duplicate_label, .{
+                try parser.reporter().report(.redeclared_label, .{
                     .existing = existing_label,
                     .new = token.span,
                 }).abort();
@@ -121,7 +121,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             }
 
             if (try parser.tokens.nextMatching(.colon)) |colon| {
-                try parser.reporter().report(.nonstandard_label_colon, .{
+                try parser.reporter().report(.label_colon, .{
                     .colon = colon.span,
                 }).handle();
             }
@@ -130,7 +130,7 @@ fn parseLine(parser: *Parser, air: *Air, gpa: Allocator) InnerError!Control {
             // This should also be checked when the second label is parsed, but
             // this reports a more appropriate message
             if (try parser.tokens.nextMatching(.label)) |label| {
-                try parser.reporter().report(.unexpected_label, .{
+                try parser.reporter().report(.multiple_labels, .{
                     .existing = token.span,
                     .new = label.span,
                 }).handle();
@@ -252,7 +252,7 @@ fn parseDirective(
     switch (directive) {
         .end => {
             if (parser.current_label) |label| {
-                try parser.reporter().report(.useless_label, .{
+                try parser.reporter().report(.invalid_label_target, .{
                     .label = label,
                     .token = span,
                 }).handle();
@@ -263,7 +263,7 @@ fn parseDirective(
         .orig => {
             // FIXME: This should technically be removed I think ??
             if (parser.current_label) |label| {
-                try parser.reporter().report(.useless_label, .{
+                try parser.reporter().report(.invalid_label_target, .{
                     .label = label,
                     .token = span,
                 }).handle();
@@ -395,7 +395,7 @@ fn parseInstruction(
         => |regular| {
             switch (regular) {
                 .push, .pop, .call, .rets => {
-                    try parser.reporter().report(.nonstandard_stack_instruction, .{
+                    try parser.reporter().report(.stack_instruction, .{
                         .instruction = instruction,
                         .span = span,
                     }).handle();
