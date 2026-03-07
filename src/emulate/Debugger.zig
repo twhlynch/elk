@@ -22,13 +22,13 @@ pub const Command = union(enum) {
     goto: struct { location: Location.Memory },
     assembly: struct { location: Location.Memory },
     eval: struct { instruction: Span },
-    Echo: struct { string: Span },
-    Reset,
-    Quit,
-    Exit,
-    BreakList,
-    breakadd: struct { location: Location.Memory },
-    breakremove: struct { location: Location.Memory },
+    echo: struct { string: Span },
+    reset,
+    quit,
+    exit,
+    break_list,
+    break_add: struct { location: Location.Memory },
+    break_remove: struct { location: Location.Memory },
 
     pub const Location = union(enum) {
         register: u3,
@@ -47,22 +47,134 @@ pub const Command = union(enum) {
     };
 };
 
+fn parseCommand(string: []const u8) !Command {
+    var lexer = Lexer.new(string, false);
+
+    const tag_span = lexer.next() orelse
+        return error.EmptyCommand;
+
+    const tag = parseCommandTag(tag_span.view(string)) orelse
+        return error.InvalidCommandTag;
+
+    std.debug.print("{t}\n", .{tag});
+
+    return error.Unimplemented;
+}
+
+const TAGS: std.EnumArray(
+    std.meta.Tag(Command),
+    struct { []const []const u8, []const []const u8 },
+) = .init(.{
+    .help = .{
+        &.{ "h", "help", "--help", "-h", ":h", "man", "info", "wtf" },
+        &.{},
+    },
+    .@"continue" = .{
+        &.{ "c", "continue", "cont" },
+        &.{ "con", "proceed" },
+    },
+    .print = .{
+        &.{ "p", "print" },
+        &.{ "get", "show", "display", "put", "puts", "out" },
+    },
+    .move = .{
+        &.{ "m", "move" },
+        &.{ "set", "mov", "mv", "assign" },
+    },
+    .registers = .{
+        &.{ "r", "registers", "reg" },
+        &.{ "dump", "register", "regs" },
+    },
+    .goto = .{
+        &.{ "g", "goto" },
+        &.{ "jump", "call", "go", "go-to", "jsr", "jsrr", "br", "brn", "brz", "brp", "brnz", "brnp", "brzp", "brnzp" },
+    },
+    .assembly = .{
+        &.{ "a", "assembly", "asm" },
+        &.{ "source", "src", "ass", "inspect" },
+    },
+    .eval = .{
+        &.{ "e", "eval", "evil", "evaluate" },
+        &.{ "run", "exec", "execute", "sim", "simulate", "instruction", "instr" },
+    },
+    .reset = .{
+        &.{ "z", "reset" },
+        &.{ "restart", "refresh", "reboot" },
+    },
+    .echo = .{
+        &.{"echo"},
+        &.{},
+    },
+    .quit = .{
+        &.{ "q", "quit" },
+        &.{},
+    },
+    .exit = .{
+        &.{ "x", "exit", ":q", ":wq", "^C" },
+        &.{ "halt", "end", "stop" },
+    },
+    .step_over = .{
+        &.{},
+        &.{ "next", "step-over", "stepover" },
+    },
+    .step_into = .{
+        &.{ "si", "stepinto" },
+        &.{ "into", "in", "stepin", "step-into", "step-in", "stepi", "step-i", "sin" },
+    },
+    .step_out = .{
+        &.{ "so", "stepout" },
+        &.{ "finish", "fin", "out", "step-out", "stepo", "step-o", "sout" },
+    },
+    .break_list = .{
+        &.{ "bl", "breaklist" },
+        &.{ "break-list", "break-ls", "blist", "bls", "bp", "breakpoint", "breakpointlist", "breakpoint-list" },
+    },
+    .break_add = .{
+        &.{ "ba", "breakadd" },
+        &.{ "break-add", "badd", "breakpointadd", "breakpoint-add" },
+    },
+    .break_remove = .{
+        &.{ "br", "breakremove" },
+        &.{ "break-remove", "break-rm", "bremove", "brm", "breakpointremove", "breakpoint-remove" },
+    },
+});
+
+fn parseCommandTag(string: []const u8) ?std.meta.Tag(Command) {
+    for (std.meta.tags(std.meta.Tag(Command))) |tag| {
+        const aliases, const misspellings = TAGS.get(tag);
+        for (aliases) |alias| {
+            if (std.ascii.eqlIgnoreCase(string, alias))
+                return tag;
+        }
+        for (misspellings) |misspelling| {
+            if (std.ascii.eqlIgnoreCase(string, misspelling)) {
+                std.debug.print("DID YOU MEAN: {s}\n", .{misspelling});
+                return null;
+            }
+        }
+    }
+
+    return null;
+}
+
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     std.debug.print("[INVOKE DEBUGGER]\n", .{});
 
     var command_buffer: [20]u8 = undefined;
 
-    const command_string = try debugger.readCommand(runtime, &command_buffer);
+    while (true) {
+        std.debug.print("\n", .{});
 
-    std.debug.print("[{s}]\n", .{command_string});
+        const command_string = try debugger.readCommand(runtime, &command_buffer);
 
-    var lexer = Lexer.new(command_string, false);
+        const command = parseCommand(command_string) catch |err| {
+            std.debug.print("Error: {t}\n", .{err});
+            continue;
+        };
 
-    while (lexer.next()) |span| {
-        std.debug.print("[{s}]\n", .{span.view(command_string)});
+        std.debug.print("Command: {}\n", .{command});
+        return null;
     }
-
-    return null;
 }
 
 fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {
@@ -74,7 +186,7 @@ fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8
 
     while (true) {
         std.debug.print("\r\x1b[K", .{});
-        std.debug.print("{s}", .{buffer[0..length]});
+        std.debug.print("> {s}", .{buffer[0..length]});
 
         const char = try runtime.readByte();
 
