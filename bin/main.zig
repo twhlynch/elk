@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !u8 {
         var writer = Io.File.stdout().writer(io, &write_buffer);
         var reader = Io.File.stdin().reader(io, &.{});
 
-        var instr_count: InstrCount = .initFill(0);
+        // var instr_count: InstrCount = .initFill(0);
 
         const hooks: lcz.Runtime.Hooks = .{
             // .pre_decode = .withoutData(preDecodeHook),
@@ -106,14 +106,14 @@ pub fn main(init: std.process.Init) !u8 {
         try runtime.writer.ensureNewline();
         try runtime.writer.interface.flush();
 
-        for (runtime.registers, 0..) |register, i| {
-            std.debug.print("r{}: 0x{x:04}\n", .{ i, register });
-        }
-
-        for (std.meta.tags(std.meta.Tag(lcz.Runtime.Instruction))) |field| {
-            const count = instr_count.get(field);
-            std.debug.print("{t:20}: {}\n", .{ field, count });
-        }
+        // for (runtime.registers, 0..) |register, i| {
+        //     std.debug.print("r{}: 0x{x:04}\n", .{ i, register });
+        // }
+        //
+        // for (std.meta.tags(std.meta.Tag(lcz.Runtime.Instruction))) |field| {
+        //     const count = instr_count.get(field);
+        //     std.debug.print("{t:20}: {}\n", .{ field, count });
+        // }
     }
 
     return 0;
