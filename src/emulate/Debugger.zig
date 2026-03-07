@@ -1,15 +1,32 @@
+const Debugger = @This();
+
 const std = @import("std");
 
 const Runtime = @import("Runtime.zig");
 const Control = Runtime.Control;
 
-pub fn invoke(runtime: *Runtime) !?Control {
+pub fn new() Debugger {
+    return .{};
+}
+
+pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Control {
     std.debug.print("[INVOKE DEBUGGER]\n", .{});
 
-    try runtime.tty.enableRawMode();
+    var command_buffer: [10]u8 = undefined;
 
-    var buffer: [64]u8 = undefined;
+    const command_string = try debugger.readCommand(runtime, &command_buffer);
+
+    std.debug.print("[{s}]\n", .{command_string});
+
+    return null;
+}
+
+fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {
+    _ = debugger;
+
     var length: usize = 0;
+
+    try runtime.tty.enableRawMode();
 
     while (true) {
         std.debug.print("\r\x1b[K", .{});
@@ -33,10 +50,8 @@ pub fn invoke(runtime: *Runtime) !?Control {
         }
     }
 
+    std.debug.print("\n", .{});
     try runtime.tty.disableRawMode();
 
-    std.debug.print("\n", .{});
-    std.debug.print("[{s}]\n", .{buffer[0..length]});
-
-    return null;
+    return buffer[0..length];
 }

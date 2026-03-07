@@ -26,6 +26,7 @@ traps: *const Traps,
 hooks: Hooks,
 policies: *const Policies,
 
+debugger: Debugger,
 writer: NewlineTracker,
 reader: *Io.Reader,
 tty: Tty,
@@ -83,6 +84,7 @@ pub fn init(
         .traps = traps,
         .hooks = hooks,
         .policies = policies,
+        .debugger = .new(),
         .writer = .new(writer),
         .reader = reader,
         .tty = .uninit,
@@ -118,7 +120,7 @@ pub const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
-        if (try Debugger.invoke(runtime)) |control| switch (control) {
+        if (try runtime.debugger.invoke(runtime)) |control| switch (control) {
             .@"continue" => continue,
             .@"break" => break,
         };
