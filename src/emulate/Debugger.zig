@@ -12,9 +12,6 @@ pub fn new() Debugger {
 
 pub const Command = union(enum) {
     help,
-    step_over,
-    step_into: struct { count: u16 },
-    step_out,
     @"continue",
     registers,
     print: struct { location: Location },
@@ -26,6 +23,9 @@ pub const Command = union(enum) {
     reset,
     quit,
     exit,
+    step_over,
+    step_into: struct { count: u16 },
+    step_out,
     break_list,
     break_add: struct { location: Location.Memory },
     break_remove: struct { location: Location.Memory },
@@ -45,116 +45,225 @@ pub const Command = union(enum) {
         name: Span,
         offset: i16,
     };
+
+    pub fn tagString(command: std.meta.Tag(Command)) [:0]const u8 {
+        return switch (command) {
+            .help => "help",
+            .@"continue" => "continue",
+            .registers => "registers",
+            .print => "print",
+            .move => "move",
+            .goto => "goto",
+            .assembly => "assembly",
+            .eval => "eval",
+            .echo => "echo",
+            .reset => "reset",
+            .quit => "quit",
+            .exit => "exit",
+            .step_over => "step over",
+            .step_into => "step into",
+            .step_out => "step out",
+            .break_list => "break list",
+            .break_add => "break add",
+            .break_remove => "break remove",
+        };
+    }
+};
+
+const tag_maps = struct {
+    pub const Candidates = []const []const u8;
+    pub const TagMap = std.EnumArray(
+        std.meta.Tag(Command),
+        struct { Candidates, Candidates },
+    );
+
+    pub const single: TagMap = .init(.{
+        .help = .{
+            &.{ "h", "help", "--help", "-h", ":h", "man", "info", "wtf" },
+            &.{},
+        },
+        .@"continue" = .{
+            &.{ "c", "continue", "cont" },
+            &.{ "con", "proceed" },
+        },
+        .print = .{
+            &.{ "p", "print" },
+            &.{ "get", "show", "display", "put", "puts", "out" },
+        },
+        .move = .{
+            &.{ "m", "move" },
+            &.{ "set", "mov", "mv", "assign" },
+        },
+        .registers = .{
+            &.{ "r", "registers", "reg" },
+            &.{ "dump", "register", "regs" },
+        },
+        .goto = .{
+            &.{ "g", "goto" },
+            &.{ "jump", "call", "go", "go-to", "jsr", "jsrr", "br", "brn", "brz", "brp", "brnz", "brnp", "brzp", "brnzp" },
+        },
+        .assembly = .{
+            &.{ "a", "assembly", "asm" },
+            &.{ "source", "src", "ass", "inspect" },
+        },
+        .eval = .{
+            &.{ "e", "eval", "evil", "evaluate" },
+            &.{ "run", "exec", "execute", "sim", "simulate", "instruction", "instr" },
+        },
+        .reset = .{
+            &.{ "z", "reset" },
+            &.{ "restart", "refresh", "reboot" },
+        },
+        .echo = .{
+            &.{"echo"},
+            &.{},
+        },
+        .quit = .{
+            &.{ "q", "quit" },
+            &.{},
+        },
+        .exit = .{
+            &.{ "x", "exit", ":q", ":wq", "^C" },
+            &.{ "halt", "end", "stop" },
+        },
+        .step_over = .{
+            &.{},
+            &.{ "next", "step-over", "stepover" },
+        },
+        .step_into = .{
+            &.{ "si", "stepinto" },
+            &.{ "into", "in", "stepin", "step-into", "step-in", "stepi", "step-i", "sin" },
+        },
+        .step_out = .{
+            &.{ "so", "stepout" },
+            &.{ "finish", "fin", "out", "step-out", "stepo", "step-o", "sout" },
+        },
+        .break_list = .{
+            &.{ "bl", "breaklist" },
+            &.{ "break-list", "break-ls", "blist", "bls", "bp", "breakpoint", "breakpointlist", "breakpoint-list" },
+        },
+        .break_add = .{
+            &.{ "ba", "breakadd" },
+            &.{ "break-add", "badd", "breakpointadd", "breakpoint-add" },
+        },
+        .break_remove = .{
+            &.{ "br", "breakremove" },
+            &.{ "break-remove", "break-rm", "bremove", "brm", "breakpointremove", "breakpoint-remove" },
+        },
+    });
+
+    pub const first_step: Candidates = &.{
+        "s", "step",
+    };
+    pub const first_break: Candidates = &.{
+        "b", "break",
+    };
+
+    pub const second_step: TagMap = .initDefault(.{ &.{}, &.{} }, .{
+        .step_over = .{
+            &.{},
+            &.{"next"},
+        },
+        .step_into = .{
+            &.{ "i", "into" },
+            &.{"in"},
+        },
+        .step_out = .{
+            &.{ "o", "out" },
+            &.{ "finish", "fin" },
+        },
+    });
+
+    pub const second_break: TagMap = .initDefault(.{ &.{}, &.{} }, .{
+        .break_list = .{
+            &.{ "l", "list" },
+            &.{ "print", "show", "display", "dump", "ls" },
+        },
+        .break_add = .{
+            &.{ "a", "add" },
+            &.{ "set", "move" },
+        },
+        .break_remove = .{
+            &.{ "r", "remove" },
+            &.{ "delete", "rm" },
+        },
+    });
 };
 
 fn parseCommand(string: []const u8) !Command {
     var lexer = Lexer.new(string, false);
 
-    const tag_span = lexer.next() orelse
-        return error.EmptyCommand;
-
-    const tag = parseCommandTag(tag_span.view(string)) orelse
-        return error.InvalidCommandTag;
+    const tag = try parseCommandTag(&lexer, string);
 
     std.debug.print("{t}\n", .{tag});
 
     return error.Unimplemented;
 }
 
-const TAGS: std.EnumArray(
-    std.meta.Tag(Command),
-    struct { []const []const u8, []const []const u8 },
-) = .init(.{
-    .help = .{
-        &.{ "h", "help", "--help", "-h", ":h", "man", "info", "wtf" },
-        &.{},
-    },
-    .@"continue" = .{
-        &.{ "c", "continue", "cont" },
-        &.{ "con", "proceed" },
-    },
-    .print = .{
-        &.{ "p", "print" },
-        &.{ "get", "show", "display", "put", "puts", "out" },
-    },
-    .move = .{
-        &.{ "m", "move" },
-        &.{ "set", "mov", "mv", "assign" },
-    },
-    .registers = .{
-        &.{ "r", "registers", "reg" },
-        &.{ "dump", "register", "regs" },
-    },
-    .goto = .{
-        &.{ "g", "goto" },
-        &.{ "jump", "call", "go", "go-to", "jsr", "jsrr", "br", "brn", "brz", "brp", "brnz", "brnp", "brzp", "brnzp" },
-    },
-    .assembly = .{
-        &.{ "a", "assembly", "asm" },
-        &.{ "source", "src", "ass", "inspect" },
-    },
-    .eval = .{
-        &.{ "e", "eval", "evil", "evaluate" },
-        &.{ "run", "exec", "execute", "sim", "simulate", "instruction", "instr" },
-    },
-    .reset = .{
-        &.{ "z", "reset" },
-        &.{ "restart", "refresh", "reboot" },
-    },
-    .echo = .{
-        &.{"echo"},
-        &.{},
-    },
-    .quit = .{
-        &.{ "q", "quit" },
-        &.{},
-    },
-    .exit = .{
-        &.{ "x", "exit", ":q", ":wq", "^C" },
-        &.{ "halt", "end", "stop" },
-    },
-    .step_over = .{
-        &.{},
-        &.{ "next", "step-over", "stepover" },
-    },
-    .step_into = .{
-        &.{ "si", "stepinto" },
-        &.{ "into", "in", "stepin", "step-into", "step-in", "stepi", "step-i", "sin" },
-    },
-    .step_out = .{
-        &.{ "so", "stepout" },
-        &.{ "finish", "fin", "out", "step-out", "stepo", "step-o", "sout" },
-    },
-    .break_list = .{
-        &.{ "bl", "breaklist" },
-        &.{ "break-list", "break-ls", "blist", "bls", "bp", "breakpoint", "breakpointlist", "breakpoint-list" },
-    },
-    .break_add = .{
-        &.{ "ba", "breakadd" },
-        &.{ "break-add", "badd", "breakpointadd", "breakpoint-add" },
-    },
-    .break_remove = .{
-        &.{ "br", "breakremove" },
-        &.{ "break-remove", "break-rm", "bremove", "brm", "breakpointremove", "breakpoint-remove" },
-    },
-});
+fn parseCommandTag(lexer: *Lexer, source: []const u8) !std.meta.Tag(Command) {
+    const first = lexer.next() orelse
+        return error.EmptyCommand;
 
-fn parseCommandTag(string: []const u8) ?std.meta.Tag(Command) {
+    if (try matchTagSubcommand(
+        first,
+        lexer,
+        source,
+        tag_maps.first_step,
+        &tag_maps.second_step,
+        .step_over,
+    )) |tag|
+        return tag;
+
+    if (try matchTagSubcommand(
+        first,
+        lexer,
+        source,
+        tag_maps.first_break,
+        &tag_maps.second_break,
+        null,
+    )) |tag|
+        return tag;
+
+    return findTagMatch(&tag_maps.single, first.view(source)) orelse
+        error.InvalidCommand;
+}
+
+fn matchTagSubcommand(
+    first: Span,
+    lexer: *Lexer,
+    source: []const u8,
+    candidates: tag_maps.Candidates,
+    map: *const tag_maps.TagMap,
+    default: ?std.meta.Tag(Command),
+) !?std.meta.Tag(Command) {
+    if (tagMatches(candidates, first.view(source))) {
+        const second = lexer.next() orelse
+            return default orelse error.MissingSubcommand;
+        return findTagMatch(map, second.view(source)) orelse
+            error.InvalidSubcommand;
+    }
+    return null;
+}
+
+fn findTagMatch(map: *const tag_maps.TagMap, string: []const u8) ?std.meta.Tag(Command) {
     for (std.meta.tags(std.meta.Tag(Command))) |tag| {
-        const aliases, const misspellings = TAGS.get(tag);
-        for (aliases) |alias| {
-            if (std.ascii.eqlIgnoreCase(string, alias))
-                return tag;
-        }
-        for (misspellings) |misspelling| {
-            if (std.ascii.eqlIgnoreCase(string, misspelling)) {
-                std.debug.print("DID YOU MEAN: {s}\n", .{misspelling});
-                return null;
-            }
+        const aliases, const suggestions = map.get(tag);
+        if (tagMatches(aliases, string))
+            return tag;
+        if (tagMatches(suggestions, string)) {
+            std.debug.print("DID YOU MEAN: {s}\n", .{Command.tagString(tag)});
+            return null;
         }
     }
-
     return null;
+}
+
+fn tagMatches(candidates: []const []const u8, string: []const u8) bool {
+    for (candidates) |candidate| {
+        if (std.ascii.eqlIgnoreCase(string, candidate))
+            return true;
+    }
+    return false;
 }
 
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
