@@ -28,7 +28,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
         debugger.reporter.source = command_string;
 
-        const command = parseCommand(command_string) catch |err| {
+        const command = parseCommand(command_string, debugger.reporter) catch |err| {
             debugger.reporter.report(.debugger_any, .{
                 .code = err,
                 .span = .{ .offset = 0, .len = command_string.len },
