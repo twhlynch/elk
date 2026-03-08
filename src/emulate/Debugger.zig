@@ -236,11 +236,13 @@ fn findDoubleMatch(
 
 fn findSingleMatch(singles: *const tags.SingleMap, string: []const u8) ?Command.Tag {
     for (std.meta.tags(Command.Tag)) |tag| {
-        const entry = singles.get(tag);
-        if (anyCandidateMatches(entry.aliases, string))
+        if (anyCandidateMatches(singles.get(tag).aliases, string))
             return tag;
-        if (anyCandidateMatches(entry.suggestions, string)) {
-            std.debug.print("DID YOU MEAN: {s}\n", .{Command.tagString(tag)});
+    }
+    for (std.meta.tags(Command.Tag)) |tag| {
+        if (anyCandidateMatches(singles.get(tag).suggestions, string)) {
+            // TODO: Report
+            std.debug.print("HELP: DID YOU MEAN: {s}\n", .{Command.tagString(tag)});
             return null;
         }
     }
