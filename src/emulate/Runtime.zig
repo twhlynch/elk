@@ -6,7 +6,7 @@ const Allocator = std.mem.Allocator;
 
 const Policies = @import("../Policies.zig");
 const Traps = @import("../Traps.zig");
-const Debugger = @import("Debugger.zig");
+const Debugger = @import("debugger/Debugger.zig");
 const NewlineTracker = @import("NewlineTracker.zig");
 const Tty = @import("Tty.zig");
 
