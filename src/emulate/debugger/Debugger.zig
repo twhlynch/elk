@@ -9,11 +9,14 @@ const Input = @import("Input.zig");
 const parseCommand = @import("parse.zig").parseCommand;
 
 input: Input,
+reporter: *Reporter,
+
 io: Io,
 
-pub fn new(io: Io, reader: *Io.Reader, writer: *Io.Writer) Debugger {
+pub fn new(io: Io, reader: *Io.Reader, writer: *Io.Writer, reporter: *Reporter) Debugger {
     return .{
         .input = .new(reader, writer),
+        .reporter = reporter,
         .io = io,
     };
 }
@@ -23,18 +26,13 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
     var command_buffer: [20]u8 = undefined;
 
-    var reporter_buffer: [1024]u8 = undefined;
-    var reporter_writer = Io.File.stderr().writer(debugger.io, &reporter_buffer);
-    var reporter_impl = Reporter.Stderr.new(&reporter_writer.interface);
-    var reporter = reporter_impl.interface();
-
     while (true) {
         const command_string = try debugger.readCommand(runtime, &command_buffer);
 
-        reporter.source = command_string;
+        debugger.reporter.source = command_string;
 
         const command = parseCommand(command_string) catch |err| {
-            reporter.report(.debugger_any, .{
+            debugger.reporter.report(.debugger_any, .{
                 .code = err,
                 .span = .{ .offset = 0, .len = command_string.len },
             }).abort() catch

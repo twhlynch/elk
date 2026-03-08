@@ -6,11 +6,11 @@ const Allocator = std.mem.Allocator;
 
 const Policies = @import("../Policies.zig");
 const Traps = @import("../Traps.zig");
-const Debugger = @import("debugger/Debugger.zig");
 const NewlineTracker = @import("NewlineTracker.zig");
 const Tty = @import("Tty.zig");
 
 pub const Callback = @import("../callback.zig").Callback;
+pub const Debugger = @import("debugger/Debugger.zig");
 pub const Instruction = @import("decode.zig").Instruction;
 
 const MEMORY_SIZE = 0x1_0000;
@@ -73,7 +73,7 @@ pub fn init(
     traps: *const Traps,
     hooks: Hooks,
     policies: *const Policies,
-    enable_debugger: bool,
+    debugger: Debugger,
 ) !Runtime {
     const buffer = try gpa.alloc(u16, MEMORY_SIZE);
     @memset(buffer, 0x0000);
@@ -86,7 +86,7 @@ pub fn init(
         .traps = traps,
         .hooks = hooks,
         .policies = policies,
-        .debugger = if (enable_debugger) .new(io, reader, writer) else null,
+        .debugger = debugger,
         .reader = reader,
         .writer = .new(writer),
         .tty = .uninit,
