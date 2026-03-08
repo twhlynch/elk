@@ -27,8 +27,9 @@ hooks: Hooks,
 policies: *const Policies,
 
 debugger: ?Debugger,
-writer: NewlineTracker,
+
 reader: *Io.Reader,
+writer: NewlineTracker,
 tty: Tty,
 io: Io,
 
@@ -85,9 +86,9 @@ pub fn init(
         .traps = traps,
         .hooks = hooks,
         .policies = policies,
-        .debugger = if (debugger) .new() else null,
-        .writer = .new(writer),
+        .debugger = if (debugger) .new(reader, writer) else null,
         .reader = reader,
+        .writer = .new(writer),
         .tty = .uninit,
         .io = io,
     };
