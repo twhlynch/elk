@@ -31,7 +31,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     while (true) {
         const command_string = try debugger.readCommand(runtime, &command_buffer);
 
-        reporter_impl.source = command_string;
+        reporter.source = command_string;
 
         const command = parseCommand(command_string) catch |err| {
             reporter.report(.debugger_any, .{
