@@ -34,7 +34,8 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
                 .span = .{ .offset = 0, .len = command_string.len },
             }).abort() catch
                 continue;
-        };
+        } orelse
+            continue; // No tokens lexed
 
         std.debug.print("Command: {}\n", .{command});
         return null;
