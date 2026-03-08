@@ -33,13 +33,20 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {
     _ = debugger;
 
+    const prompt = "> ";
+
     var length: usize = 0;
+    var cursor: usize = 0;
 
     try runtime.tty.enableRawMode();
 
     while (true) {
+        std.debug.assert(cursor <= length);
+
         std.debug.print("\r\x1b[K", .{});
-        std.debug.print("> {s}", .{buffer[0..length]});
+        std.debug.print(prompt, .{});
+        std.debug.print("{s}", .{buffer[0..length]});
+        std.debug.print("\x1b[{}G", .{cursor + prompt.len + 1});
 
         const char = try runtime.readByte();
 
@@ -48,20 +55,36 @@ fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8
 
             control_code.bs,
             control_code.del,
-            => if (length > 0) {
+            => if (cursor > 0) {
+                // Shift characters down
+                if (cursor < length) {
+                    for (cursor..length) |i| {
+                        buffer[i - 1] = buffer[i];
+                    }
+                }
+                cursor -= 1;
                 length -= 1;
             },
 
             control_code.esc => {
                 if (try runtime.readByte() == '[') {
                     const command = try runtime.readByte();
-                    _ = command;
+                    switch (command) {
+                        'C' => if (cursor < length) {
+                            cursor += 1;
+                        },
+                        'D' => if (cursor > 0) {
+                            cursor -= 1;
+                        },
+                        else => {},
+                    }
                 }
             },
 
             0x20...0x7e => if (length < buffer.len) {
                 buffer[length] = char;
                 length += 1;
+                cursor += 1;
             },
 
             else => {},
