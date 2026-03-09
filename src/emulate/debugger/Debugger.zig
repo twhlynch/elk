@@ -51,7 +51,14 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
         } orelse
             continue; // No tokens lexed
 
-        std.debug.print("Command: {}\n", .{command});
+        switch (command) {
+            // TODO: Implement all commands
+            else => {
+                std.debug.print("Command: {}\n", .{command});
+            },
+
+            .exit => return .@"break",
+        }
     }
 
     return .@"continue";
