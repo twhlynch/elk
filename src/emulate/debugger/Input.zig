@@ -13,28 +13,30 @@ cursor: usize,
 
 buffer: []u8,
 
-history: std.ArrayList(u8),
+history: History,
+
 scrollback: ?usize,
 
 reader: *Io.Reader,
 writer: *Io.Writer,
-gpa: Allocator,
 
 pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
     return .{
         .length = 0,
         .cursor = 0,
         .buffer = &.{},
-        .history = .empty,
+        .history = .{
+            .store = .empty,
+            .gpa = gpa,
+        },
         .scrollback = null,
         .reader = reader,
         .writer = writer,
-        .gpa = gpa,
     };
 }
 
 pub fn deinit(input: *Input) void {
-    input.history.deinit(input.gpa);
+    input.history.store.deinit(input.history.gpa);
 }
 
 pub fn clear(input: *Input) void {
@@ -71,7 +73,7 @@ pub fn readLine(input: *Input) ![]const u8 {
 
     input.becomeActive();
     const line = input.getCurrent();
-    input.historyPush(line);
+    input.history.push(line);
     return line;
 }
 
@@ -133,7 +135,7 @@ fn writePrompt(input: *const Input) !void {
 
 fn getCurrent(input: *const Input) []const u8 {
     if (input.scrollback) |scrollback| {
-        return input.historyGet(scrollback);
+        return input.history.getLast(scrollback);
     } else {
         return input.buffer[0..input.length];
     }
@@ -147,7 +149,7 @@ fn becomeActive(input: *Input) void {
     const scrollback = input.scrollback orelse
         return;
 
-    const historic = input.historyGet(scrollback);
+    const historic = input.history.getLast(scrollback);
 
     const length = @min(historic.len, input.buffer.len);
     @memcpy(input.buffer[0..length], historic[0..length]);
@@ -196,11 +198,11 @@ fn seek(input: *Input, direction: enum { left, right }) void {
 }
 
 fn historyBack(input: *Input) void {
-    if (input.history.items.len == 0)
+    if (input.history.length() == 0)
         return;
 
     if (input.scrollback) |*scrollback| {
-        if (scrollback.* + 1 < input.historyLength())
+        if (scrollback.* + 1 < input.history.length())
             scrollback.* += 1;
     } else {
         input.scrollback = 0;
@@ -218,49 +220,54 @@ fn historyForward(input: *Input) void {
     input.resetCursor();
 }
 
-fn historyPush(input: *Input, line: []const u8) void {
-    const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
-    if (trimmed.len == 0)
-        return;
+const History = struct {
+    store: std.ArrayList(u8),
+    gpa: Allocator,
 
-    // Don't push sequential duplicates
-    if (input.history.items.len > 0) {
-        if (std.mem.eql(u8, trimmed, input.historyGet(0)))
+    fn push(history: *History, line: []const u8) void {
+        const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
+        if (trimmed.len == 0)
             return;
+
+        // Don't push sequential duplicates
+        if (history.store.items.len > 0) {
+            if (std.mem.eql(u8, trimmed, history.getLast(0)))
+                return;
+        }
+
+        history.store.ensureUnusedCapacity(history.gpa, line.len + 1) catch {
+            // TODO: Shift items down until enough room is available
+            return;
+        };
+
+        history.store.appendSliceAssumeCapacity(line);
+        history.store.appendAssumeCapacity('\n');
     }
 
-    input.history.ensureUnusedCapacity(input.gpa, line.len + 1) catch {
-        // TODO: Shift items down until enough room is available
-        return;
-    };
+    fn length(history: *const History) usize {
+        return std.mem.countScalar(u8, history.store.items, '\n');
+    }
 
-    input.history.appendSliceAssumeCapacity(line);
-    input.history.appendAssumeCapacity('\n');
-}
+    fn getLast(history: *const History, recent_index: usize) []const u8 {
+        assert(history.store.items.len > 0);
 
-fn historyLength(input: *const Input) usize {
-    return std.mem.countScalar(u8, input.history.items, '\n');
-}
-
-fn historyGet(input: *const Input, recent_index: usize) []const u8 {
-    assert(input.history.items.len > 0);
-
-    var end: usize = input.history.items.len - 1;
-    {
-        var count: usize = recent_index;
-        while (end > 0) : (end -= 1) {
-            if (input.history.items[end] == '\n') {
-                if (count == 0)
-                    break;
-                count -= 1;
+        var end: usize = history.store.items.len - 1;
+        {
+            var count: usize = recent_index;
+            while (end > 0) : (end -= 1) {
+                if (history.store.items[end] == '\n') {
+                    if (count == 0)
+                        break;
+                    count -= 1;
+                }
             }
         }
+
+        const slice = history.store.items[0..end];
+
+        return if (std.mem.findScalarLast(u8, slice, '\n')) |start|
+            slice[start + 1 ..]
+        else
+            slice;
     }
-
-    const slice = input.history.items[0..end];
-
-    return if (std.mem.findScalarLast(u8, slice, '\n')) |start|
-        slice[start + 1 ..]
-    else
-        slice;
-}
+};
