@@ -63,47 +63,66 @@ fn readLineChar(input: *Input, buffer: []u8) !Runtime.Control {
         return .@"break";
 
     switch (char) {
-        '\n' => return .@"break",
+        '\n',
+        => return .@"break",
+
+        0x20...0x7e,
+        => input.insert(buffer, char),
 
         control_code.bs,
         control_code.del,
-        => if (input.cursor > 0) {
-            // Shift characters down
-            if (input.cursor < input.length) {
-                for (input.cursor..input.length) |i| {
-                    buffer[i - 1] = buffer[i];
-                }
-            }
-            input.cursor -= 1;
-            input.length -= 1;
-        },
+        => input.remove(buffer),
 
         control_code.esc => {
             if (try input.readByte() == '[') {
                 const command = try input.readByte() orelse
                     return .@"break";
                 switch (command) {
-                    'C' => if (input.cursor < input.length) {
-                        input.cursor += 1;
-                    },
-                    'D' => if (input.cursor > 0) {
-                        input.cursor -= 1;
-                    },
+                    'C' => input.seek(.left),
+                    'D' => input.seek(.right),
                     else => {},
                 }
             }
-        },
-
-        0x20...0x7e => if (input.length < buffer.len) {
-            buffer[input.length] = char;
-            input.length += 1;
-            input.cursor += 1;
         },
 
         else => {},
     }
 
     return .@"continue";
+}
+
+fn insert(input: *Input, buffer: []u8, char: u8) void {
+    if (input.length >= buffer.len)
+        return;
+    buffer[input.length] = char;
+    input.length += 1;
+    input.cursor += 1;
+}
+
+fn remove(input: *Input, buffer: []u8) void {
+    if (input.cursor == 0)
+        return;
+
+    // Shift characters down
+    if (input.cursor < input.length) {
+        for (input.cursor..input.length) |i| {
+            buffer[i - 1] = buffer[i];
+        }
+    }
+
+    input.cursor -= 1;
+    input.length -= 1;
+}
+
+fn seek(input: *Input, direction: enum { left, right }) void {
+    switch (direction) {
+        .left => if (input.cursor > 0) {
+            input.cursor -= 1;
+        },
+        .right => if (input.cursor < input.length) {
+            input.cursor += 1;
+        },
+    }
 }
 
 fn readByte(input: *Input) !?u8 {
