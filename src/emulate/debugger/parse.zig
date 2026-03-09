@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const Reporter = @import("../../report/Reporter.zig");
 const Span = @import("../../compile/Span.zig");
@@ -161,7 +162,7 @@ const Parser = struct {
         const label_string, const offset_string_opt =
             if (std.mem.findAny(u8, string, "+-")) |sign_index| .{
                 string[0..sign_index],
-                string[sign_index + 1 ..],
+                string[sign_index..], // Include sign character
             } else .{
                 string, null,
             };
@@ -184,22 +185,36 @@ const Parser = struct {
             }).abort();
         }
 
-        // TODO: Implement label offsets
-        if (offset_string_opt) |offset_string| {
-            const offset: Span = .{ // Include sign character
-                .offset = argument.offset + label_string.len,
-                .len = offset_string.len + 1,
-            };
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.UnimplementedLabelOffset,
-                .span = offset,
-            }).abort();
-        }
+        const offset_string = offset_string_opt orelse
+            return .{ .name = label, .offset = 0 };
 
-        return .{
-            .name = label,
-            .offset = 0,
+        const offset_span: Span = .{ // Include sign character
+            .offset = argument.offset + label_string.len,
+            .len = offset_string.len + 1,
         };
+
+        const integer = integers.tryInteger(offset_string) catch |err| {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = err,
+                .span = offset_span,
+            }).abort();
+        } orelse {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedInteger,
+                .span = offset_span,
+            }).abort();
+        };
+
+        assert(integer.form.sign.?.position == .pre_radix);
+
+        const offset = integer.castToSmaller(i16) catch {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.IntegerToolarge,
+                .span = argument,
+            }).abort();
+        };
+
+        return .{ .name = label, .offset = offset };
     }
 };
 
