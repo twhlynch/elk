@@ -10,7 +10,6 @@ const Runtime = @import("../Runtime.zig");
 
 length: usize,
 cursor: usize,
-eof: bool,
 
 history: std.ArrayList(u8),
 
@@ -22,7 +21,6 @@ pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
     return .{
         .length = 0,
         .cursor = 0,
-        .eof = false,
         .history = .empty,
         .reader = reader,
         .writer = writer,
@@ -39,12 +37,22 @@ pub fn clear(input: *Input) void {
     input.cursor = 0;
 }
 
-pub fn readLine(input: *Input, buffer: []u8) !?[]const u8 {
+pub fn readLine(input: *Input, buffer: []u8) ![]const u8 {
+    var eof = false;
+
     while (true) {
         try input.writePrompt(buffer);
         try input.writer.flush();
 
-        switch (try input.readLineChar(buffer)) {
+        const control: Runtime.Control = input.readLineChar(buffer) catch |err| switch (err) {
+            else => |err2| return err2,
+            error.EndOfStream => {
+                eof = true;
+                break;
+            },
+        };
+
+        switch (control) {
             .@"continue" => continue,
             .@"break" => break,
         }
@@ -52,6 +60,9 @@ pub fn readLine(input: *Input, buffer: []u8) !?[]const u8 {
 
     try input.writer.print("\n", .{});
     try input.writer.flush();
+
+    if (eof)
+        return error.EndOfStream;
 
     const line = buffer[0..input.length];
     input.pushHistory(line);
@@ -61,18 +72,14 @@ pub fn readLine(input: *Input, buffer: []u8) !?[]const u8 {
 fn readLineChar(input: *Input, buffer: []u8) !Runtime.Control {
     assert(input.cursor <= input.length);
 
-    const char = try input.readByte() orelse
-        return .@"break";
+    const char = try input.readByte();
 
     switch (char) {
         '\n',
         => return .@"break",
 
         control_code.eot,
-        => {
-            input.eof = true;
-            return .@"break";
-        },
+        => return error.EndOfStream,
 
         0x20...0x7e,
         => input.insert(buffer, char),
@@ -83,9 +90,7 @@ fn readLineChar(input: *Input, buffer: []u8) !Runtime.Control {
 
         control_code.esc => {
             if (try input.readByte() == '[') {
-                const command = try input.readByte() orelse
-                    return .@"break";
-                switch (command) {
+                switch (try input.readByte()) {
                     'C' => input.seek(.left),
                     'D' => input.seek(.right),
                     else => {},
@@ -99,10 +104,10 @@ fn readLineChar(input: *Input, buffer: []u8) !Runtime.Control {
     return .@"continue";
 }
 
-fn readByte(input: *Input) !?u8 {
+fn readByte(input: *Input) !u8 {
     var char: u8 = undefined;
     input.reader.readSliceAll(@ptrCast(&char)) catch |err| switch (err) {
-        error.EndOfStream => return null,
+        error.EndOfStream => return error.EndOfStream,
         else => return error.ReadFailed,
     };
     return char;

@@ -9,6 +9,8 @@ const Input = @import("Input.zig");
 const parseCommand = @import("parse.zig").parseCommand;
 
 input: Input,
+// TODO: Replace with `status`
+eof: bool,
 reporter: *Reporter,
 
 pub fn init(
@@ -19,6 +21,7 @@ pub fn init(
 ) Debugger {
     return .{
         .input = .init(gpa, reader, writer),
+        .eof = false,
         .reporter = reporter,
     };
 }
@@ -30,9 +33,14 @@ pub fn deinit(debugger: *Debugger) void {
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     var command_buffer: [20]u8 = undefined;
 
-    while (!debugger.input.eof) {
-        const command_string = try debugger.readCommand(runtime, &command_buffer) orelse
-            break;
+    while (!debugger.eof) {
+        const command_string = debugger.readCommand(runtime, &command_buffer) catch |err| switch (err) {
+            else => |err2| return err2,
+            error.EndOfStream => {
+                debugger.eof = true;
+                break;
+            },
+        };
 
         debugger.reporter.source = command_string;
 
@@ -49,9 +57,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     return .@"continue";
 }
 
-fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) !?[]const u8 {
+fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {
     try runtime.tty.enableRawMode();
-    const line = try debugger.input.readLine(buffer);
+    const line = debugger.input.readLine(buffer);
     try runtime.tty.disableRawMode();
     debugger.input.clear();
     return line;
