@@ -8,13 +8,11 @@ const control_code = std.ascii.control_code;
 
 const Runtime = @import("../Runtime.zig");
 
-length: usize,
-cursor: usize,
-
 buffer: []u8,
-
 history: History,
 
+length: usize,
+cursor: usize,
 scrollback: ?usize,
 
 reader: *Io.Reader,
@@ -22,13 +20,10 @@ writer: *Io.Writer,
 
 pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
     return .{
+        .buffer = &.{},
+        .history = .{ .store = .empty, .gpa = gpa },
         .length = 0,
         .cursor = 0,
-        .buffer = &.{},
-        .history = .{
-            .store = .empty,
-            .gpa = gpa,
-        },
         .scrollback = null,
         .reader = reader,
         .writer = writer,
@@ -37,11 +32,6 @@ pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
 
 pub fn deinit(input: *Input) void {
     input.history.store.deinit(input.history.gpa);
-}
-
-pub fn clear(input: *Input) void {
-    input.length = 0;
-    input.cursor = 0;
 }
 
 pub fn readLine(input: *Input) ![]const u8 {
@@ -156,6 +146,11 @@ fn becomeActive(input: *Input) void {
     input.length = length;
 
     input.scrollback = null;
+}
+
+pub fn clear(input: *Input) void {
+    input.length = 0;
+    input.cursor = 0;
 }
 
 fn insert(input: *Input, char: u8) void {
