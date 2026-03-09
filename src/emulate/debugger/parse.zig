@@ -130,11 +130,29 @@ const Parser = struct {
         argument: Span,
     ) error{Reported}!?Command.Location.Memory {
         // TODO: Implement pc offsets
-        // TODO: Implement absolute address
 
+        if (try parser.parseAddress(argument)) |address|
+            return .{ .address = address };
         if (try parser.parseLabel(argument)) |label|
             return .{ .label = label };
         return null;
+    }
+
+    fn parseAddress(parser: *Parser, argument: Span) error{Reported}!?u16 {
+        const integer = integers.tryInteger(argument.view(parser.source)) catch |err| {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = err,
+                .span = argument,
+            }).abort();
+        } orelse
+            return null;
+
+        return integer.castToUnsigned() orelse {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.IntegerToolarge,
+                .span = argument,
+            }).abort();
+        };
     }
 
     fn parseLabel(parser: *Parser, argument: Span) error{Reported}!?Command.Label {

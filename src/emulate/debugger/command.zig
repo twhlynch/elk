@@ -29,8 +29,8 @@ pub const Command = union(enum) {
         memory: Memory,
 
         pub const Memory = union(enum) {
-            pc_offset: i16,
             address: u16,
+            pc_offset: i16,
             label: Label,
         };
     };
