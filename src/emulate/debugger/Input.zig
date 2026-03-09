@@ -99,6 +99,24 @@ fn readLineChar(input: *Input, buffer: []u8) !Runtime.Control {
     return .@"continue";
 }
 
+fn readByte(input: *Input) !?u8 {
+    var char: u8 = undefined;
+    input.reader.readSliceAll(@ptrCast(&char)) catch |err| switch (err) {
+        error.EndOfStream => return null,
+        else => return error.ReadFailed,
+    };
+    return char;
+}
+
+fn writePrompt(input: *Input, buffer: []u8) !void {
+    const prompt = "> ";
+
+    try input.writer.print("\r\x1b[K", .{});
+    try input.writer.print(prompt, .{});
+    try input.writer.print("{s}", .{buffer[0..input.length]});
+    try input.writer.print("\x1b[{}G", .{input.cursor + prompt.len + 1});
+}
+
 fn insert(input: *Input, buffer: []u8, char: u8) void {
     if (input.length >= buffer.len)
         return;
@@ -133,31 +151,16 @@ fn seek(input: *Input, direction: enum { left, right }) void {
     }
 }
 
-fn readByte(input: *Input) !?u8 {
-    var char: u8 = undefined;
-    input.reader.readSliceAll(@ptrCast(&char)) catch |err| switch (err) {
-        error.EndOfStream => return null,
-        else => return error.ReadFailed,
-    };
-    return char;
-}
-
-fn writePrompt(input: *Input, buffer: []u8) !void {
-    const prompt = "> ";
-
-    try input.writer.print("\r\x1b[K", .{});
-    try input.writer.print(prompt, .{});
-    try input.writer.print("{s}", .{buffer[0..input.length]});
-    try input.writer.print("\x1b[{}G", .{input.cursor + prompt.len + 1});
-}
-
 fn pushHistory(input: *Input, line: []const u8) void {
     const trimmed = std.mem.trim(u8, line, &std.ascii.whitespace);
     if (trimmed.len == 0)
         return;
 
-    input.history.ensureUnusedCapacity(input.gpa, line.len + 1) catch
+    input.history.ensureUnusedCapacity(input.gpa, line.len + 1) catch {
+        // TODO: Shift items down until enough room is available
         return;
+    };
+
     input.history.appendSliceAssumeCapacity(line);
     input.history.appendAssumeCapacity('\n');
 }
