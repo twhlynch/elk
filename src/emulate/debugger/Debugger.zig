@@ -135,6 +135,11 @@ fn runCommand(
         .quit => return .disable_debugger,
         .exit => return .stop_runtime,
 
+        .help => {
+            try runtime.writer.interface.writeAll(@embedFile("help.txt"));
+            try runtime.writer.interface.flush();
+        },
+
         .registers => {
             try runtime.printRegisters();
         },
