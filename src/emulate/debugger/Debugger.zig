@@ -2,6 +2,7 @@ const Debugger = @This();
 
 const std = @import("std");
 const Io = std.Io;
+const assert = std.debug.assert;
 
 const Reporter = @import("../../report/Reporter.zig");
 const Runtime = @import("../Runtime.zig");
@@ -45,9 +46,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     if (debugger.status == .inactive)
         return .@"continue";
 
-    const action = try debugger.nextAction(runtime);
-
-    switch (action) {
+    switch (try debugger.nextAction(runtime)) {
         .proceed => {
             return .@"continue";
         },
@@ -62,6 +61,17 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 }
 
 fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
+    switch (debugger.status) {
+        .inactive => unreachable,
+        .get_action => {
+            return debugger.runCommand(runtime);
+        },
+    }
+}
+
+fn runCommand(debugger: *Debugger, runtime: *Runtime) !Action {
+    assert(debugger.status == .get_action);
+
     var command_buffer: [20]u8 = undefined;
 
     while (true) {
