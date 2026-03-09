@@ -223,6 +223,12 @@ fn historyPush(input: *Input, line: []const u8) void {
     if (trimmed.len == 0)
         return;
 
+    // Don't push sequential duplicates
+    if (input.history.items.len > 0) {
+        if (std.mem.eql(u8, trimmed, input.historyGet(0)))
+            return;
+    }
+
     input.history.ensureUnusedCapacity(input.gpa, line.len + 1) catch {
         // TODO: Shift items down until enough room is available
         return;
