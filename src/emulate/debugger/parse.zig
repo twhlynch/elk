@@ -43,6 +43,15 @@ pub fn parseCommand(
             break :command .{ .print = .{ .location = location } };
         },
 
+        .move => {
+            const location = try parser.nextLocation();
+            const value = try parser.nextInteger();
+            break :command .{ .move = .{
+                .location = location,
+                .value = value,
+            } };
+        },
+
         .step_into => {
             const count = try parser.nextOptionalPositiveInt();
             break :command .{ .step_into = .{ .count = count } };
@@ -77,6 +86,12 @@ const Parser = struct {
                 .span = .emptyAt(parser.source.len),
             }).abort();
         };
+    }
+
+    fn nextInteger(parser: *Parser) error{Reported}!u16 {
+        const argument = try parser.next();
+        const integer = try parser.parseInteger(argument);
+        return integer.underlying;
     }
 
     fn nextOptionalPositiveInt(parser: *Parser) error{Reported}!u16 {
@@ -124,6 +139,24 @@ const Parser = struct {
             .code = error.invalidargumentkind,
             .span = argument,
         }).abort();
+    }
+
+    fn parseInteger(parser: *Parser, argument: Span) error{Reported}!integers.SourceInt(16) {
+        return try parser.tryParseInteger(argument) orelse {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.InvalidArgumentKind,
+                .span = argument,
+            }).abort();
+        };
+    }
+
+    fn tryParseInteger(parser: *Parser, argument: Span) error{Reported}!?integers.SourceInt(16) {
+        return integers.tryInteger(argument.view(parser.source)) catch |err| {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = err,
+                .span = argument,
+            }).abort();
+        };
     }
 
     fn parseMemoryLocation(
