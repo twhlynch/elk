@@ -117,14 +117,22 @@ fn readByte(input: *Input) !u8 {
     return char;
 }
 
-fn writePrompt(input: *Input, buffer: []u8) !void {
+fn writePrompt(input: *const Input, buffer: []u8) !void {
     const prompt = "> ";
 
     try input.writer.print("\r\x1b[K", .{});
     try input.writer.print("{?:04}", .{input.scrollback});
     try input.writer.print(prompt, .{});
-    try input.writer.print("{s}", .{buffer[0..input.length]});
+    try input.writer.print("{s}", .{input.getCurrent(buffer)});
     try input.writer.print("\x1b[{}G", .{input.cursor + prompt.len + 1 + 4});
+}
+
+pub fn getCurrent(input: *const Input, buffer: []u8) []const u8 {
+    if (input.scrollback) |scrollback| {
+        return input.historyGet(scrollback);
+    } else {
+        return buffer[0..input.length];
+    }
 }
 
 fn insert(input: *Input, buffer: []u8, char: u8) void {
@@ -196,4 +204,27 @@ fn historyPush(input: *Input, line: []const u8) void {
 
 fn historyLength(input: *const Input) usize {
     return std.mem.countScalar(u8, input.history.items, '\n');
+}
+
+fn historyGet(input: *const Input, recent_index: usize) []const u8 {
+    assert(input.history.items.len > 0);
+
+    var end: usize = input.history.items.len - 1;
+    {
+        var count: usize = recent_index;
+        while (end > 0) : (end -= 1) {
+            if (input.history.items[end] == '\n') {
+                if (count == 0)
+                    break;
+                count -= 1;
+            }
+        }
+    }
+
+    const slice = input.history.items[0..end];
+
+    return if (std.mem.findScalarLast(u8, slice, '\n')) |start|
+        slice[start + 1 ..]
+    else
+        slice;
 }
