@@ -113,6 +113,25 @@ fn runCommand(debugger: *Debugger, runtime: *Runtime) !?Action {
             .quit => return .disable_debugger,
             .exit => return .stop_runtime,
 
+            .print => |arguments| switch (arguments.location) {
+                .register => |register| {
+                    try runtime.writer.interface.print("Register R{}:", .{register});
+                    try runtime.printInteger(runtime.registers[register]);
+                    try runtime.writer.interface.flush();
+                },
+                .memory => |memory| {
+                    const address = switch (memory) {
+                        .address => |address| address,
+                        // TODO:
+                        .pc_offset => continue,
+                        .label => continue,
+                    };
+                    try runtime.writer.interface.print("Memory at address 0x{x:04}:", .{address});
+                    try runtime.printInteger(runtime.memory[address]);
+                    try runtime.writer.interface.flush();
+                },
+            },
+
             .step_into => |arguments| {
                 debugger.status = .{ .step_into = .{
                     .count = arguments.count - 1,

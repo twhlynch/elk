@@ -319,6 +319,18 @@ pub fn printRegisters(runtime: *Runtime) error{WriteFailed}!void {
     try runtime.writer.interface.print("+-----------------+-----------------+\n", .{});
 }
 
+pub fn printInteger(runtime: *Runtime, integer: u16) error{WriteFailed}!void {
+    try runtime.writer.ensureNewline();
+    try runtime.writer.interface.print("+-------------------------------+\n", .{});
+    try runtime.writer.interface.print("|    hex      int    uint   chr |\n", .{});
+
+    try runtime.writer.interface.print("| ", .{});
+    try runtime.printIntegerForms(integer);
+    try runtime.writer.interface.print(" |\n", .{});
+
+    try runtime.writer.interface.print("+-------------------------------+\n", .{});
+}
+
 fn printIntegerForms(runtime: *Runtime, word: u16) error{WriteFailed}!void {
     try runtime.writer.interface.print(
         "0x{x:04}  {:7}  {:6}   ",
