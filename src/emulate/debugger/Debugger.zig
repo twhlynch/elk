@@ -176,7 +176,9 @@ fn resolveMemoryLocation(
             const assembly = try debugger.getAssembly(label.name);
             const address = try debugger.resolveLabelIndex(assembly, label.name, source);
 
-            return std.math.cast(u16, address + assembly.air.origin) orelse {
+            const combined = @as(isize, @intCast(address + assembly.air.origin)) + label.offset;
+
+            return std.math.cast(u16, combined) orelse {
                 try debugger.reporter.report(.debugger_any_err, .{
                     .code = error.AddressTooLarge,
                     .span = label.name,
