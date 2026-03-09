@@ -91,8 +91,8 @@ fn readLineChar(input: *Input) !Runtime.Control {
                 switch (try input.readByte()) {
                     'A' => input.historyBack(),
                     'B' => input.historyForward(),
-                    'C' => input.seek(.left),
-                    'D' => input.seek(.right),
+                    'C' => input.seek(.right),
+                    'D' => input.seek(.left),
                     else => {},
                 }
             }
