@@ -24,7 +24,7 @@ pub fn parseCommand(
         .reporter = reporter,
     };
 
-    const command: Command = command: switch (tag) {
+    const command: Command = switch (tag) {
         // Allow trailing arguments
         .help => return .help,
 
@@ -38,24 +38,18 @@ pub fn parseCommand(
         .break_list,
         => |void_tag| @unionInit(Command, @tagName(void_tag), {}),
 
-        .print => {
-            const location = try parser.nextLocation();
-            break :command .{ .print = .{ .location = location } };
-        },
+        .print => .{ .print = .{
+            .location = try parser.nextLocation(),
+        } },
 
-        .move => {
-            const location = try parser.nextLocation();
-            const value = try parser.nextInteger();
-            break :command .{ .move = .{
-                .location = location,
-                .value = value,
-            } };
-        },
+        .move => .{ .move = .{
+            .location = try parser.nextLocation(),
+            .value = try parser.nextInteger(),
+        } },
 
-        .step_into => {
-            const count = try parser.nextOptionalPositiveInt();
-            break :command .{ .step_into = .{ .count = count } };
-        },
+        .step_into => .{ .step_into = .{
+            .count = try parser.nextOptionalPositiveInt(),
+        } },
 
         // TODO:
 
