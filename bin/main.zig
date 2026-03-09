@@ -79,7 +79,7 @@ pub fn main(init: std.process.Init) !u8 {
             &reader.interface,
             &writer.interface,
             &reporter,
-            &air,
+            .{ .air = &air, .source = source },
         );
         defer debugger.deinit();
 

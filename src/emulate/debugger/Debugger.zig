@@ -13,8 +13,13 @@ const parseCommand = @import("parse.zig").parseCommand;
 input: Input,
 status: Status,
 
-air: ?*Air,
+assembly: ?Assembly,
 reporter: *Reporter,
+
+const Assembly = struct {
+    air: *Air,
+    source: []const u8,
+};
 
 const Status = union(enum) {
     inactive,
@@ -33,12 +38,12 @@ pub fn init(
     reader: *Io.Reader,
     writer: *Io.Writer,
     reporter: *Reporter,
-    air: ?*Air,
+    assembly: ?Assembly,
 ) Debugger {
     return .{
         .input = .init(gpa, reader, writer),
         .status = .get_action,
-        .air = air,
+        .assembly = assembly,
         .reporter = reporter,
     };
 }
