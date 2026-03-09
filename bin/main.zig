@@ -89,7 +89,7 @@ pub fn main(init: std.process.Init) !u8 {
             &traps,
             hooks,
             &policies,
-            debugger,
+            &debugger,
         );
         defer runtime.deinit(gpa);
 

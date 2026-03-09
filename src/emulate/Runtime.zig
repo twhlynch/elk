@@ -26,7 +26,7 @@ traps: *const Traps,
 hooks: Hooks,
 policies: *const Policies,
 
-debugger: ?Debugger,
+debugger: ?*Debugger,
 
 reader: *Io.Reader,
 writer: NewlineTracker,
@@ -71,7 +71,7 @@ pub fn init(
     traps: *const Traps,
     hooks: Hooks,
     policies: *const Policies,
-    debugger: Debugger,
+    debugger: *Debugger,
 ) !Runtime {
     const buffer = try gpa.alloc(u16, MEMORY_SIZE);
     @memset(buffer, 0x0000);
@@ -119,7 +119,7 @@ pub const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
     while (true) {
-        if (runtime.debugger) |*debugger| {
+        if (runtime.debugger) |debugger| {
             if (try debugger.invoke(runtime)) |control| switch (control) {
                 .@"continue" => {},
                 .@"break" => break,
