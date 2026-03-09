@@ -9,9 +9,20 @@ const Input = @import("Input.zig");
 const parseCommand = @import("parse.zig").parseCommand;
 
 input: Input,
-// TODO: Replace with `status`
-eof: bool,
+status: Status,
+
 reporter: *Reporter,
+
+const Status = enum {
+    inactive,
+    get_action,
+};
+
+const Action = enum {
+    proceed,
+    disable_debugger,
+    stop_runtime,
+};
 
 pub fn init(
     gpa: std.mem.Allocator,
@@ -21,7 +32,7 @@ pub fn init(
 ) Debugger {
     return .{
         .input = .init(gpa, reader, writer),
-        .eof = false,
+        .status = .get_action,
         .reporter = reporter,
     };
 }
@@ -31,14 +42,33 @@ pub fn deinit(debugger: *Debugger) void {
 }
 
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
+    if (debugger.status == .inactive)
+        return .@"continue";
+
+    const action = try debugger.nextAction(runtime);
+
+    switch (action) {
+        .proceed => {
+            return .@"continue";
+        },
+        .disable_debugger => {
+            debugger.status = .inactive;
+            return .@"continue";
+        },
+        .stop_runtime => {
+            return .@"break";
+        },
+    }
+}
+
+fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
     var command_buffer: [20]u8 = undefined;
 
-    while (!debugger.eof) {
+    while (true) {
         const command_string = debugger.readCommand(runtime, &command_buffer) catch |err| switch (err) {
             else => |err2| return err2,
             error.EndOfStream => {
-                debugger.eof = true;
-                break;
+                return .disable_debugger;
             },
         };
 
@@ -57,11 +87,10 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
                 std.debug.print("Command: {}\n", .{command});
             },
 
-            .exit => return .@"break",
+            .quit => return .disable_debugger,
+            .exit => return .stop_runtime,
         }
     }
-
-    return .@"continue";
 }
 
 fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {

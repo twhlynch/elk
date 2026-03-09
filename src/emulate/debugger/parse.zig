@@ -16,8 +16,6 @@ pub fn parseCommand(
     const tag = try parseCommandTag(&lexer, string, reporter) orelse
         return null;
 
-    std.debug.print("{t}\n", .{tag});
-
     var parser: Parser = .{
         .lexer = &lexer,
         .source = string,
