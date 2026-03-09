@@ -115,7 +115,9 @@ fn runCommandLoop(debugger: *Debugger, runtime: *Runtime) !?Action {
         } orelse
             continue; // No tokens lexed
 
-        if (try debugger.runCommand(runtime, command, command_string)) |action|
+        const action_opt = try debugger.runCommand(runtime, command, command_string);
+        try runtime.writer.interface.flush();
+        if (action_opt) |action|
             return action;
     }
 }
@@ -137,7 +139,6 @@ fn runCommand(
 
         .help => {
             try runtime.writer.interface.writeAll(@embedFile("help.txt"));
-            try runtime.writer.interface.flush();
         },
 
         .registers => {
@@ -148,29 +149,25 @@ fn runCommand(
             .register => |register| {
                 try runtime.writer.interface.print("Register R{}:\n", .{register});
                 try runtime.printInteger(runtime.registers[register]);
-                try runtime.writer.interface.flush();
             },
             .memory => |memory| {
                 const address = debugger.resolveMemoryLocation(memory, source) catch
                     return null;
                 try runtime.writer.interface.print("Memory at address 0x{x:04}:\n", .{address});
                 try runtime.printInteger(runtime.memory[address]);
-                try runtime.writer.interface.flush();
             },
         },
 
         .move => |arguments| switch (arguments.location) {
             .register => |register| {
                 runtime.registers[register] = arguments.value;
-                try runtime.writer.interface.print("Updated register R{} to 0x{x:04}.\n", .{ register, arguments.value });
-                try runtime.writer.interface.flush();
+                try runtime.writer.interface.print("Updated register R{} to 0x{x:04}.n", .{ register, arguments.value });
             },
             .memory => |memory| {
                 const address = debugger.resolveMemoryLocation(memory, source) catch
                     return null;
                 runtime.memory[address] = arguments.value;
                 try runtime.writer.interface.print("Updated memory at address 0x{x:04} to 0x{x:04}.\n:", .{ address, arguments.value });
-                try runtime.writer.interface.flush();
             },
         },
 
