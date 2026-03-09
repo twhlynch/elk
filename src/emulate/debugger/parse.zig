@@ -37,7 +37,7 @@ pub fn parseCommand(
         => |void_tag| @unionInit(Command, @tagName(void_tag), {}),
 
         .step_into => {
-            const count = @max(1, try parser.nextOptionalUint() orelse 0);
+            const count = try parser.nextOptionalPositiveInt();
             break :command .{ .step_into = .{ .count = count } };
         },
 
@@ -72,9 +72,9 @@ const Parser = struct {
         };
     }
 
-    fn nextOptionalUint(parser: *Parser) error{Reported}!?u16 {
+    fn nextOptionalPositiveInt(parser: *Parser) error{Reported}!u16 {
         const argument = parser.lexer.next() orelse
-            return null;
+            return 1;
 
         const integer = integers.tryInteger(argument.view(parser.source)) catch |err| {
             try parser.reporter.report(.debugger_any_err, .{
@@ -87,6 +87,13 @@ const Parser = struct {
                 .span = argument,
             }).abort();
         };
+
+        if (integer.underlying == 0) {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ArgumentTooSmall,
+                .span = argument,
+            }).abort();
+        }
 
         return integer.castToUnsigned() orelse {
             try parser.reporter.report(.debugger_any_err, .{
