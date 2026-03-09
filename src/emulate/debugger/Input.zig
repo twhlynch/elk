@@ -39,7 +39,7 @@ pub fn clear(input: *Input) void {
     input.cursor = 0;
 }
 
-pub fn readLine(input: *Input, buffer: []u8) ![]const u8 {
+pub fn readLine(input: *Input, buffer: []u8) !?[]const u8 {
     while (true) {
         try input.writePrompt(buffer);
         try input.writer.flush();

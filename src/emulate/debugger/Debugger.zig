@@ -31,7 +31,8 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     var command_buffer: [20]u8 = undefined;
 
     while (!debugger.input.eof) {
-        const command_string = try debugger.readCommand(runtime, &command_buffer);
+        const command_string = try debugger.readCommand(runtime, &command_buffer) orelse
+            break;
 
         debugger.reporter.source = command_string;
 
@@ -48,7 +49,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     return .@"continue";
 }
 
-fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) ![]const u8 {
+fn readCommand(debugger: *Debugger, runtime: *Runtime, buffer: []u8) !?[]const u8 {
     try runtime.tty.enableRawMode();
     const line = try debugger.input.readLine(buffer);
     try runtime.tty.disableRawMode();
