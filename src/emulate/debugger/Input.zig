@@ -190,7 +190,7 @@ const Lines = struct {
             return;
 
         lines.becomeActive();
-        lines.edit.insert(char);
+        lines.edit.insert(lines.cursor, char);
         lines.cursor += 1;
     }
 
@@ -244,17 +244,31 @@ const Edit = struct {
         edit.length = 0;
     }
 
-    pub fn insert(edit: *Edit, char: u8) void {
-        edit.buffer[edit.length] = char;
+    pub fn insert(edit: *Edit, index: usize, char: u8) void {
+        assert(edit.length < edit.buffer.len);
+        assert(index <= edit.length);
+
+        // Shift characters up
+        if (index < edit.length) {
+            var i = edit.length;
+            while (i > index) : (i -= 1)
+                edit.buffer[i] = edit.buffer[i - 1];
+        }
+
+        edit.buffer[index] = char;
         edit.length += 1;
     }
 
     pub fn remove(edit: *Edit, index: usize) void {
+        assert(edit.length > 0);
+        assert(index <= edit.length);
+
         // Shift characters down
         if (index < edit.length) {
             for (index..edit.length) |i|
                 edit.buffer[i - 1] = edit.buffer[i];
         }
+
         edit.length -= 1;
     }
 };
