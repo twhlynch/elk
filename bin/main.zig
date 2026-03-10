@@ -63,7 +63,16 @@ pub fn main(init: std.process.Init) !u8 {
 
         .emulate => {
             const file = try Io.Dir.cwd().openFile(io, cli.filepath, .{});
-            try emulate(io, gpa, .{ .file = file }, cli.debug, &traps, hooks, &policies, &reporter);
+            try emulate(
+                io,
+                gpa,
+                .{ .object = file },
+                cli.debug,
+                &traps,
+                hooks,
+                &policies,
+                &reporter,
+            );
         },
 
         .assemble_emulate => {
@@ -75,7 +84,16 @@ pub fn main(init: std.process.Init) !u8 {
             var air = try assemble(gpa, source, &traps, &reporter);
             defer air.deinit(gpa);
 
-            try emulate(io, gpa, .{ .air = &air }, cli.debug, &traps, hooks, &policies, &reporter);
+            try emulate(
+                io,
+                gpa,
+                .{ .assembly = .{ .air = &air, .source = source } },
+                cli.debug,
+                &traps,
+                hooks,
+                &policies,
+                &reporter,
+            );
         },
     }
 
@@ -124,8 +142,8 @@ fn emulate(
     io: Io,
     gpa: Allocator,
     runtime_source: union(enum) {
-        file: Io.File,
-        air: *const lcz.Air,
+        object: Io.File,
+        assembly: struct { air: *const lcz.Air, source: []const u8 },
     },
     debug: bool,
     traps: *const lcz.Traps,
@@ -142,12 +160,10 @@ fn emulate(
         &reader.interface,
         &writer.interface,
         reporter,
-        // TODO:
-        null,
-        // switch (runtime_source) {
-        //     .file => null,
-        //     .air => |air| .{ .air = &air, .source = source },
-        // },
+        switch (runtime_source) {
+            .object => null,
+            .assembly => |assembly| .{ .air = assembly.air, .source = assembly.source },
+        },
     ) else null;
     defer if (debugger_opt) |*debugger| debugger.deinit();
 
@@ -163,12 +179,12 @@ fn emulate(
     defer runtime.deinit(gpa);
 
     switch (runtime_source) {
-        .file => |file| {
+        .object => |file| {
             var read_buffer: [1024]u8 = undefined;
             try runtime.readFromFile(io, file, &read_buffer);
         },
-        .air => |air| {
-            try air.emitRuntime(&runtime);
+        .assembly => |assembly| {
+            try assembly.air.emitRuntime(&runtime);
         },
     }
 
