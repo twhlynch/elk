@@ -68,11 +68,13 @@ pub fn parseCommand(
         } },
     };
 
-    if (lexer.next()) |span| {
+    if (parser.next()) |span| {
         try reporter.report(.debugger_any_err, .{
             .code = error.UnexpectedArgument,
             .span = span,
         }).abort();
+    } else |err| switch (err) {
+        error.Eof => {}, // Good
     }
 
     return command;
@@ -84,24 +86,28 @@ const Parser = struct {
     reporter: *Reporter,
 
     // TODO: Ignore commas
-    fn next(parser: *Parser) error{Reported}!Span {
-        return parser.lexer.next() orelse {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.ExpectedArgument,
-                .span = .emptyAt(parser.source.len),
-            }).abort();
-        };
+
+    fn next(parser: *Parser) error{Eof}!Span {
+        return parser.lexer.next() orelse
+            return error.Eof;
     }
 
     fn nextInteger(parser: *Parser) error{Reported}!u16 {
-        const argument = try parser.next();
+        const argument = parser.next() catch |err| switch (err) {
+            error.Eof => try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedArgument,
+                .span = .emptyAt(parser.source.len),
+            }).abort(),
+        };
+
         const integer = try parser.parseInteger(argument);
         return integer.underlying;
     }
 
     fn nextOptionalPositiveInt(parser: *Parser) error{Reported}!u16 {
-        const argument = parser.lexer.next() orelse
-            return 1;
+        const argument = parser.next() catch |err| switch (err) {
+            error.Eof => return 1,
+        };
 
         const integer = try parser.parseInteger(argument);
 
@@ -121,7 +127,12 @@ const Parser = struct {
     }
 
     fn nextLocation(parser: *Parser) error{Reported}!Command.Location {
-        const argument = try parser.next();
+        const argument = parser.next() catch |err| switch (err) {
+            error.Eof => try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedArgument,
+                .span = .emptyAt(parser.source.len),
+            }).abort(),
+        };
 
         if (parsing.tryRegister(argument.view(parser.source))) |register|
             return .{ .register = register };
@@ -136,7 +147,12 @@ const Parser = struct {
     }
 
     fn nextMemoryLocation(parser: *Parser) error{Reported}!Command.Location.Memory {
-        const argument = try parser.next();
+        const argument = parser.next() catch |err| switch (err) {
+            error.Eof => try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedArgument,
+                .span = .emptyAt(parser.source.len),
+            }).abort(),
+        };
 
         if (try parser.parseMemoryLocation(argument)) |memory|
             return memory;
@@ -261,8 +277,9 @@ const Parser = struct {
     }
 
     fn parseCommandTag(parser: *Parser) error{Reported}!?Spanned(Command.Tag) {
-        const first = parser.lexer.next() orelse
-            return null;
+        const first = parser.next() catch |err| switch (err) {
+            error.Eof => return null,
+        };
 
         for (tags.double) |double| {
             if (try parser.findDoubleTagMatch(double, first)) |tag|
@@ -289,21 +306,23 @@ const Parser = struct {
     }
 
     fn findDoubleTagMatch(
-        parser: *const Parser,
+        parser: *Parser,
         double: tags.DoubleEntry,
         first: Span,
     ) error{Reported}!?Spanned(Command.Tag) {
         if (!anyCandidateMatches(double.first, first.view(parser.source)))
             return null;
 
-        const second = parser.lexer.next() orelse {
-            const tag = double.default orelse {
-                try parser.reporter.report(.debugger_any_err, .{
-                    .code = error.MissingSubcommand,
-                    .span = .emptyAt(parser.source.len),
-                }).abort();
-            };
-            return .{ .span = first, .value = tag };
+        const second = parser.next() catch |err| switch (err) {
+            error.Eof => {
+                const tag = double.default orelse {
+                    try parser.reporter.report(.debugger_any_err, .{
+                        .code = error.MissingSubcommand,
+                        .span = .emptyAt(parser.source.len),
+                    }).abort();
+                };
+                return .{ .span = first, .value = tag };
+            },
         };
 
         if (parser.findSingleTagMatch(.exact, &double.second, second)) |tag|
