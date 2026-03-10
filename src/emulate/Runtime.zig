@@ -29,7 +29,7 @@ writer: NewlineTracker,
 tty: Tty,
 
 const State = struct {
-    memory: *[MEMORY_SIZE]u16,
+    memory: []u16,
     registers: [8]u16,
     pc: u16,
     condition: Condition,
@@ -76,12 +76,12 @@ pub fn init(
     policies: *const Policies,
     debugger: ?*Debugger,
 ) !Runtime {
-    const buffer = try gpa.alloc(u16, MEMORY_SIZE);
-    @memset(buffer, 0x0000);
+    const memory = try gpa.alloc(u16, MEMORY_SIZE);
+    @memset(memory, 0x0000);
 
     return .{
         .state = .{
-            .memory = buffer[0..MEMORY_SIZE],
+            .memory = memory,
             .registers = .{ 0, 0, 0, 0, 0, 0, 0, USER_MEMORY_END },
             .pc = 0x0000,
             .condition = .zero,
