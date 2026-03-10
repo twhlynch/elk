@@ -77,7 +77,7 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
         switch (debugger.status) {
             .inactive => unreachable,
             .get_action => {
-                return try debugger.runCommandLoop(runtime) orelse
+                return try debugger.tryNextAction(runtime) orelse
                     continue;
             },
             .step_into => |*info| {
@@ -93,32 +93,29 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
     }
 }
 
-fn runCommandLoop(debugger: *Debugger, runtime: *Runtime) !?Action {
+fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
     assert(debugger.status == .get_action);
 
     var command_buffer: [20]u8 = undefined;
     debugger.input.editor.setBuffer(&command_buffer);
 
-    while (true) {
-        const command_string = debugger.readCommand(runtime) catch |err| switch (err) {
-            else => |err2| return err2,
-            error.EndOfStream => {
-                return .disable_debugger;
-            },
-        };
+    const command_string = debugger.readCommand(runtime) catch |err| switch (err) {
+        else => |err2| return err2,
+        error.EndOfStream => {
+            return .disable_debugger;
+        },
+    };
 
-        debugger.reporter.source = command_string;
+    debugger.reporter.source = command_string;
 
-        const command = parseCommand(command_string, debugger.reporter) catch |err| switch (err) {
-            error.Reported => continue,
-        } orelse
-            continue; // No tokens lexed
+    const command = parseCommand(command_string, debugger.reporter) catch |err| switch (err) {
+        error.Reported => return null,
+    } orelse
+        return null; // No tokens lexed
 
-        const action_opt = try debugger.runCommand(runtime, command, command_string);
-        try runtime.writer.interface.flush();
-        if (action_opt) |action|
-            return action;
-    }
+    const action = try debugger.runCommand(runtime, command, command_string);
+    try runtime.writer.interface.flush();
+    return action;
 }
 
 fn runCommand(
