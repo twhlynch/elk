@@ -8,15 +8,15 @@ const control_code = std.ascii.control_code;
 
 const Runtime = @import("../Runtime.zig");
 
-lines: Lines,
+editor: Editor,
 
 reader: *Io.Reader,
 writer: *Io.Writer,
 
 pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
     return .{
-        .lines = .{
-            .edit = .{
+        .editor = .{
+            .live = .{
                 .buffer = &.{},
                 .length = 0,
             },
@@ -33,7 +33,7 @@ pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
 }
 
 pub fn deinit(input: *Input) void {
-    input.lines.history.store.deinit(input.lines.history.gpa);
+    input.editor.history.store.deinit(input.editor.history.gpa);
 }
 
 pub fn readLine(input: *Input) ![]const u8 {
@@ -63,14 +63,14 @@ pub fn readLine(input: *Input) ![]const u8 {
     if (eof)
         return error.EndOfStream;
 
-    input.lines.becomeActive();
-    const line = input.lines.getString();
-    input.lines.history.push(line);
+    input.editor.makeLive();
+    const line = input.editor.getString();
+    input.editor.history.push(line);
     return line;
 }
 
 fn handleNextKey(input: *Input) error{ EndOfStream, ReadFailed }!Runtime.Control {
-    assert(input.lines.cursor <= input.lines.getString().len);
+    assert(input.editor.cursor <= input.editor.getString().len);
 
     const key = try input.readKey() orelse
         return .@"continue";
@@ -79,14 +79,14 @@ fn handleNextKey(input: *Input) error{ EndOfStream, ReadFailed }!Runtime.Control
         .enter => return .@"break",
         .eot => return error.EndOfStream,
 
-        .char => |char| input.lines.insert(char),
-        .bs => input.lines.remove(),
+        .char => |char| input.editor.insert(char),
+        .bs => input.editor.remove(),
 
         .escape => |escape| switch (escape) {
-            .cursor_up => input.lines.seekHistory(.backward),
-            .cursor_down => input.lines.seekHistory(.forward),
-            .cursor_forward => input.lines.seekLine(.right),
-            .cursor_back => input.lines.seekLine(.left),
+            .cursor_up => input.editor.seekHistory(.backward),
+            .cursor_down => input.editor.seekHistory(.forward),
+            .cursor_forward => input.editor.seekLine(.right),
+            .cursor_back => input.editor.seekLine(.left),
         },
     }
     return .@"continue";
@@ -143,138 +143,138 @@ fn writePrompt(input: *const Input) !void {
     const prompt = "> ";
 
     try input.writer.print("\r\x1b[K", .{});
-    try input.writer.print("{?:04}", .{input.lines.scrollback});
+    try input.writer.print("{?:04}", .{input.editor.scrollback});
     try input.writer.print(prompt, .{});
-    try input.writer.print("{s}", .{input.lines.getString()});
-    try input.writer.print("\x1b[{}G", .{input.lines.cursor + prompt.len + 1 + 4});
+    try input.writer.print("{s}", .{input.editor.getString()});
+    try input.writer.print("\x1b[{}G", .{input.editor.cursor + prompt.len + 1 + 4});
 }
 
-const Lines = struct {
-    edit: Edit,
+const Editor = struct {
+    live: Live,
     history: History,
     cursor: usize,
     scrollback: ?usize,
 
-    pub fn getString(lines: *const Lines) []const u8 {
-        return if (lines.scrollback) |scrollback|
-            lines.history.getLast(scrollback)
+    pub fn getString(editor: *const Editor) []const u8 {
+        return if (editor.scrollback) |scrollback|
+            editor.history.getLast(scrollback)
         else
-            lines.edit.getString();
+            editor.live.getString();
     }
 
-    pub fn becomeActive(lines: *Lines) void {
-        const scrollback = lines.scrollback orelse
+    pub fn makeLive(editor: *Editor) void {
+        const scrollback = editor.scrollback orelse
             return;
 
-        const historic = lines.history.getLast(scrollback);
-        lines.edit.copyFrom(historic);
-        lines.scrollback = null;
+        const historic = editor.history.getLast(scrollback);
+        editor.live.copyFrom(historic);
+        editor.scrollback = null;
     }
 
-    pub fn resetCursor(lines: *Lines) void {
-        lines.cursor = lines.getString().len;
+    pub fn resetCursor(editor: *Editor) void {
+        editor.cursor = editor.getString().len;
     }
 
-    pub fn clear(lines: *Lines) void {
-        lines.edit.clear();
-        lines.cursor = 0;
+    pub fn clear(editor: *Editor) void {
+        editor.live.clear();
+        editor.cursor = 0;
     }
 
-    pub fn insert(lines: *Lines, char: u8) void {
-        if (lines.edit.length >= lines.edit.buffer.len)
+    pub fn insert(editor: *Editor, char: u8) void {
+        if (editor.live.length >= editor.live.buffer.len)
             return;
 
-        lines.becomeActive();
-        lines.edit.insert(lines.cursor, char);
-        lines.cursor += 1;
+        editor.makeLive();
+        editor.live.insert(editor.cursor, char);
+        editor.cursor += 1;
     }
 
-    pub fn remove(lines: *Lines) void {
-        if (lines.cursor == 0)
+    pub fn remove(editor: *Editor) void {
+        if (editor.cursor == 0)
             return;
 
-        lines.becomeActive();
-        lines.edit.remove(lines.cursor);
-        lines.cursor -= 1;
+        editor.makeLive();
+        editor.live.remove(editor.cursor);
+        editor.cursor -= 1;
     }
 
-    pub fn seekLine(lines: *Lines, direction: enum { left, right }) void {
+    pub fn seekLine(editor: *Editor, direction: enum { left, right }) void {
         switch (direction) {
-            .left => if (lines.cursor > 0) {
-                lines.cursor -= 1;
+            .left => if (editor.cursor > 0) {
+                editor.cursor -= 1;
             },
-            .right => if (lines.cursor < lines.edit.length) {
-                lines.cursor += 1;
+            .right => if (editor.cursor < editor.live.length) {
+                editor.cursor += 1;
             },
         }
     }
 
-    pub fn seekHistory(lines: *Lines, direction: enum { backward, forward }) void {
+    pub fn seekHistory(editor: *Editor, direction: enum { backward, forward }) void {
         switch (direction) {
             .backward => {
-                if (lines.history.length() == 0)
+                if (editor.history.length() == 0)
                     return;
-                if (lines.scrollback) |*scrollback| {
-                    if (scrollback.* + 1 < lines.history.length())
+                if (editor.scrollback) |*scrollback| {
+                    if (scrollback.* + 1 < editor.history.length())
                         scrollback.* += 1;
                 } else {
-                    lines.scrollback = 0;
+                    editor.scrollback = 0;
                 }
             },
             .forward => {
-                const scrollback = lines.scrollback orelse
+                const scrollback = editor.scrollback orelse
                     return;
-                lines.scrollback = if (scrollback == 0) null else scrollback - 1;
+                editor.scrollback = if (scrollback == 0) null else scrollback - 1;
             },
         }
-        lines.resetCursor();
+        editor.resetCursor();
     }
 };
 
-const Edit = struct {
+const Live = struct {
     buffer: []u8,
     length: usize,
 
-    pub fn getString(edit: *const Edit) []const u8 {
-        return edit.buffer[0..edit.length];
+    pub fn getString(live: *const Live) []const u8 {
+        return live.buffer[0..live.length];
     }
 
-    pub fn copyFrom(edit: *Edit, string: []const u8) void {
-        const length = @min(string.len, edit.buffer.len);
-        @memcpy(edit.buffer[0..length], string[0..length]);
-        edit.length = length;
+    pub fn copyFrom(live: *Live, string: []const u8) void {
+        const length = @min(string.len, live.buffer.len);
+        @memcpy(live.buffer[0..length], string[0..length]);
+        live.length = length;
     }
 
-    pub fn clear(edit: *Edit) void {
-        edit.length = 0;
+    pub fn clear(live: *Live) void {
+        live.length = 0;
     }
 
-    pub fn insert(edit: *Edit, index: usize, char: u8) void {
-        assert(edit.length < edit.buffer.len);
-        assert(index <= edit.length);
+    pub fn insert(live: *Live, index: usize, char: u8) void {
+        assert(live.length < live.buffer.len);
+        assert(index <= live.length);
 
         // Shift characters up
-        if (index < edit.length) {
-            var i = edit.length;
+        if (index < live.length) {
+            var i = live.length;
             while (i > index) : (i -= 1)
-                edit.buffer[i] = edit.buffer[i - 1];
+                live.buffer[i] = live.buffer[i - 1];
         }
 
-        edit.buffer[index] = char;
-        edit.length += 1;
+        live.buffer[index] = char;
+        live.length += 1;
     }
 
-    pub fn remove(edit: *Edit, index: usize) void {
-        assert(edit.length > 0);
-        assert(index <= edit.length);
+    pub fn remove(live: *Live, index: usize) void {
+        assert(live.length > 0);
+        assert(index <= live.length);
 
         // Shift characters down
-        if (index < edit.length) {
-            for (index..edit.length) |i|
-                edit.buffer[i - 1] = edit.buffer[i];
+        if (index < live.length) {
+            for (index..live.length) |i|
+                live.buffer[i - 1] = live.buffer[i];
         }
 
-        edit.length -= 1;
+        live.length -= 1;
     }
 };
 

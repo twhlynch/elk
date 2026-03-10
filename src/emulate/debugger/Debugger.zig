@@ -97,7 +97,7 @@ fn runCommandLoop(debugger: *Debugger, runtime: *Runtime) !?Action {
     assert(debugger.status == .get_action);
 
     var command_buffer: [20]u8 = undefined;
-    debugger.input.lines.edit.buffer = &command_buffer;
+    debugger.input.editor.live.buffer = &command_buffer;
 
     while (true) {
         const command_string = debugger.readCommand(runtime) catch |err| switch (err) {
@@ -248,6 +248,6 @@ fn readCommand(debugger: *Debugger, runtime: *Runtime) ![]const u8 {
     try runtime.tty.enableRawMode();
     const line = debugger.input.readLine();
     try runtime.tty.disableRawMode();
-    debugger.input.lines.clear();
+    debugger.input.editor.clear();
     return line;
 }
