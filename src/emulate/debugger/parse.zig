@@ -270,12 +270,23 @@ fn parseCommandTag(
             return tag;
     }
 
-    return findSingleTagMatch(&tags.single, first, source, reporter) orelse {
-        try reporter.report(.debugger_any_err, .{
-            .code = error.InvalidCommand,
+    if (findSingleTagMatch(.exact, &tags.single, first, source)) |tag|
+        return tag;
+
+    const result = reporter.report(.debugger_any_err, .{
+        .code = error.InvalidCommand,
+        .span = first,
+    }).abort();
+
+    if (findSingleTagMatch(.nearest, &tags.single, first, source)) |tag| {
+        _ = tag;
+        reporter.report(.debugger_any_warn, .{
+            .code = error.CommandSuggestion,
             .span = first,
-        }).abort();
-    };
+        }).proceed();
+    }
+
+    try result;
 }
 
 fn findDoubleTagMatch(
@@ -296,36 +307,51 @@ fn findDoubleTagMatch(
             }).abort();
         };
 
-    return findSingleTagMatch(&double.second, second, source, reporter) orelse {
-        try reporter.report(.debugger_any_err, .{
-            .code = error.InvalidSubcommand,
+    if (findSingleTagMatch(.exact, &double.second, second, source)) |tag|
+        return tag;
+
+    const result = reporter.report(.debugger_any_err, .{
+        .code = error.InvalidSubcommand,
+        .span = second,
+    }).abort();
+
+    if (findSingleTagMatch(.nearest, &double.second, second, source)) |tag| {
+        _ = tag;
+        reporter.report(.debugger_any_warn, .{
+            .code = error.CommandSuggestion,
             .span = second,
-        }).abort();
-    };
+        }).proceed();
+    }
+
+    try result;
 }
 
 fn findSingleTagMatch(
+    comptime mode: enum { exact, nearest },
     singles: *const tags.SingleMap,
     span: Span,
     source: []const u8,
-    reporter: *Reporter,
 ) ?Command.Tag {
     const string = span.view(source);
 
-    for (std.meta.tags(Command.Tag)) |tag| {
-        if (anyCandidateMatches(singles.get(tag).aliases, string))
-            return tag;
+    switch (mode) {
+        .exact => {
+            for (std.meta.tags(Command.Tag)) |tag| {
+                if (anyCandidateMatches(singles.get(tag).aliases, string))
+                    return tag;
+            }
+        },
+
+        .nearest => {
+            assert(findSingleTagMatch(.exact, singles, span, source) == null);
+            for (std.meta.tags(Command.Tag)) |tag| {
+                if (anyCandidateMatches(singles.get(tag).suggestions, string))
+                    return tag;
+            }
+            // TODO: Find suggestion with low edit distance
+        },
     }
 
-    for (std.meta.tags(Command.Tag)) |tag| {
-        if (anyCandidateMatches(singles.get(tag).suggestions, string)) {
-            reporter.report(.debugger_any_warn, .{
-                .code = error.CommandSuggestion,
-                .span = span,
-            }).proceed();
-            return null;
-        }
-    }
     return null;
 }
 
