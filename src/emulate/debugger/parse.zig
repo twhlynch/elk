@@ -19,14 +19,14 @@ pub fn parseCommand(
 ) error{Reported}!?Command {
     var lexer = Lexer.new(string, false);
 
-    const tag = try parseCommandTag(&lexer, string, reporter) orelse
-        return null;
-
     var parser: Parser = .{
         .lexer = &lexer,
         .source = string,
         .reporter = reporter,
     };
+
+    const tag = try parser.parseCommandTag() orelse
+        return null;
 
     const command: Command = switch (tag.value) {
         // TODO: Parse all commands
@@ -259,114 +259,106 @@ const Parser = struct {
 
         return .{ .name = label, .offset = offset };
     }
-};
 
-// TODO: Move below to `Parser` ?
+    fn parseCommandTag(parser: *Parser) error{Reported}!?Spanned(Command.Tag) {
+        const first = parser.lexer.next() orelse
+            return null;
 
-fn parseCommandTag(
-    lexer: *Lexer,
-    source: []const u8,
-    reporter: *Reporter,
-) error{Reported}!?Spanned(Command.Tag) {
-    const first = lexer.next() orelse
-        return null;
+        for (tags.double) |double| {
+            if (try parser.findDoubleTagMatch(double, first)) |tag|
+                return tag;
+        }
 
-    for (tags.double) |double| {
-        if (try findDoubleTagMatch(double, first, lexer, source, reporter)) |tag|
+        if (parser.findSingleTagMatch(.exact, &tags.single, first)) |tag|
             return tag;
-    }
 
-    if (findSingleTagMatch(.exact, &tags.single, first, source)) |tag|
-        return tag;
-
-    const result = reporter.report(.debugger_any_err, .{
-        .code = error.InvalidCommand,
-        .span = first,
-    }).abort();
-
-    if (findSingleTagMatch(.nearest, &tags.single, first, source)) |tag| {
-        _ = tag;
-        reporter.report(.debugger_any_warn, .{
-            .code = error.CommandSuggestion,
+        const result = parser.reporter.report(.debugger_any_err, .{
+            .code = error.InvalidCommand,
             .span = first,
-        }).proceed();
+        }).abort();
+
+        if (parser.findSingleTagMatch(.nearest, &tags.single, first)) |tag| {
+            _ = tag;
+            parser.reporter.report(.debugger_any_warn, .{
+                .code = error.CommandSuggestion,
+                .span = first,
+            }).proceed();
+        }
+
+        try result;
     }
 
-    try result;
-}
+    fn findDoubleTagMatch(
+        parser: *const Parser,
+        double: tags.DoubleEntry,
+        first: Span,
+    ) error{Reported}!?Spanned(Command.Tag) {
+        if (!anyCandidateMatches(double.first, first.view(parser.source)))
+            return null;
 
-fn findDoubleTagMatch(
-    double: tags.DoubleEntry,
-    first: Span,
-    lexer: *Lexer,
-    source: []const u8,
-    reporter: *Reporter,
-) error{Reported}!?Spanned(Command.Tag) {
-    if (!anyCandidateMatches(double.first, first.view(source)))
-        return null;
-
-    const second = lexer.next() orelse {
-        const tag = double.default orelse {
-            try reporter.report(.debugger_any_err, .{
-                .code = error.MissingSubcommand,
-                .span = .emptyAt(source.len),
-            }).abort();
+        const second = parser.lexer.next() orelse {
+            const tag = double.default orelse {
+                try parser.reporter.report(.debugger_any_err, .{
+                    .code = error.MissingSubcommand,
+                    .span = .emptyAt(parser.source.len),
+                }).abort();
+            };
+            return .{ .span = first, .value = tag };
         };
-        return .{ .span = first, .value = tag };
-    };
 
-    if (findSingleTagMatch(.exact, &double.second, second, source)) |tag|
-        return .{ .span = first.join(second), .value = tag.value };
+        if (parser.findSingleTagMatch(.exact, &double.second, second)) |tag|
+            return .{ .span = first.join(second), .value = tag.value };
 
-    const result = reporter.report(.debugger_any_err, .{
-        .code = error.InvalidSubcommand,
-        .span = second,
-    }).abort();
-
-    if (findSingleTagMatch(.nearest, &double.second, second, source)) |tag| {
-        _ = tag;
-        reporter.report(.debugger_any_warn, .{
-            .code = error.CommandSuggestion,
+        const result = parser.reporter.report(.debugger_any_err, .{
+            .code = error.InvalidSubcommand,
             .span = second,
-        }).proceed();
+        }).abort();
+
+        if (parser.findSingleTagMatch(.nearest, &double.second, second)) |tag| {
+            _ = tag;
+            parser.reporter.report(.debugger_any_warn, .{
+                .code = error.CommandSuggestion,
+                .span = second,
+            }).proceed();
+        }
+
+        try result;
     }
 
-    try result;
-}
+    fn findSingleTagMatch(
+        parser: *const Parser,
+        comptime mode: enum { exact, nearest },
+        singles: *const tags.SingleMap,
+        span: Span,
+    ) ?Spanned(Command.Tag) {
+        const string = span.view(parser.source);
 
-fn findSingleTagMatch(
-    comptime mode: enum { exact, nearest },
-    singles: *const tags.SingleMap,
-    span: Span,
-    source: []const u8,
-) ?Spanned(Command.Tag) {
-    const string = span.view(source);
+        switch (mode) {
+            .exact => {
+                for (std.meta.tags(Command.Tag)) |tag| {
+                    if (anyCandidateMatches(singles.get(tag).aliases, string))
+                        return .{ .span = span, .value = tag };
+                }
+            },
 
-    switch (mode) {
-        .exact => {
-            for (std.meta.tags(Command.Tag)) |tag| {
-                if (anyCandidateMatches(singles.get(tag).aliases, string))
-                    return .{ .span = span, .value = tag };
-            }
-        },
+            .nearest => {
+                assert(parser.findSingleTagMatch(.exact, singles, span) == null);
+                for (std.meta.tags(Command.Tag)) |tag| {
+                    if (anyCandidateMatches(singles.get(tag).suggestions, string))
+                        return .{ .span = span, .value = tag };
+                }
+                // TODO: Find suggestion with low edit distance
+            },
+        }
 
-        .nearest => {
-            assert(findSingleTagMatch(.exact, singles, span, source) == null);
-            for (std.meta.tags(Command.Tag)) |tag| {
-                if (anyCandidateMatches(singles.get(tag).suggestions, string))
-                    return .{ .span = span, .value = tag };
-            }
-            // TODO: Find suggestion with low edit distance
-        },
+        return null;
     }
 
-    return null;
-}
-
-fn anyCandidateMatches(candidates: []const []const u8, string: []const u8) bool {
-    for (candidates) |candidate| {
-        if (std.ascii.eqlIgnoreCase(string, candidate))
-            return true;
+    fn anyCandidateMatches(candidates: []const []const u8, string: []const u8) bool {
+        for (candidates) |candidate| {
+            if (std.ascii.eqlIgnoreCase(string, candidate))
+                return true;
+        }
+        return false;
     }
-    return false;
-}
+};
