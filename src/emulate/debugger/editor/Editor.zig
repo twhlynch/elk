@@ -30,6 +30,10 @@ pub fn deinit(editor: *Editor) void {
     editor.history.store.deinit(editor.history.gpa);
 }
 
+pub fn setBuffer(editor: *Editor, buffer: []u8) void {
+    editor.live.buffer = buffer;
+}
+
 pub fn getString(editor: *const Editor) []const u8 {
     return if (editor.scrollback) |scrollback|
         editor.history.getLast(scrollback)
