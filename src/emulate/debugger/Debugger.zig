@@ -152,7 +152,7 @@ fn runCommand(
                 try runtime.printInteger(runtime.registers[register]);
             },
             .memory => |memory| {
-                const address = debugger.resolveMemoryLocation(memory, source) catch
+                const address = debugger.resolveMemoryLocation(runtime, memory, source) catch
                     return null;
                 try runtime.writer.interface.print("Memory at address 0x{x:04}:\n", .{address});
                 try runtime.printInteger(runtime.memory[address]);
@@ -165,7 +165,7 @@ fn runCommand(
                 try runtime.writer.interface.print("Updated register R{} to 0x{x:04}.n", .{ register, arguments.value });
             },
             .memory => |memory| {
-                const address = debugger.resolveMemoryLocation(memory, source) catch
+                const address = debugger.resolveMemoryLocation(runtime, memory, source) catch
                     return null;
                 runtime.memory[address] = arguments.value;
                 try runtime.writer.interface.print("Updated memory at address 0x{x:04} to 0x{x:04}.\n:", .{ address, arguments.value });
@@ -173,7 +173,7 @@ fn runCommand(
         },
 
         .goto => |arguments| {
-            const address = debugger.resolveMemoryLocation(arguments.location, source) catch
+            const address = debugger.resolveMemoryLocation(runtime, arguments.location, source) catch
                 return null;
             runtime.pc = address;
             try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n:", .{address});
@@ -191,14 +191,24 @@ fn runCommand(
 
 fn resolveMemoryLocation(
     debugger: *const Debugger,
+    runtime: *const Runtime,
     memory: Command.Location.Memory,
     source: []const u8,
 ) error{Reported}!u16 {
     switch (memory) {
         .address => |address| return address,
 
-        // TODO: Implement
-        .pc_offset => return error.Reported,
+        .pc_offset => |pc_offset| {
+            const combined = @as(isize, runtime.pc) + pc_offset;
+
+            return std.math.cast(u16, combined) orelse {
+                try debugger.reporter.report(.debugger_any_err, .{
+                    .code = error.AddressTooLarge,
+                    // TODO: Include proper span
+                    .span = .emptyAt(0),
+                }).abort();
+            };
+        },
 
         .label => |label| {
             const assembly = try debugger.getAssembly(label.name);
@@ -209,6 +219,7 @@ fn resolveMemoryLocation(
             return std.math.cast(u16, combined) orelse {
                 try debugger.reporter.report(.debugger_any_err, .{
                     .code = error.AddressTooLarge,
+                    // TODO: Include proper span
                     .span = label.name,
                 }).abort();
             };

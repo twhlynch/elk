@@ -163,13 +163,32 @@ const Parser = struct {
         parser: *Parser,
         argument: Span,
     ) error{Reported}!?Command.Location.Memory {
-        // TODO: Implement pc offsets
-
+        if (try parser.parsePcOffset(argument)) |pc_offset|
+            return .{ .pc_offset = pc_offset };
         if (try parser.parseAddress(argument)) |address|
             return .{ .address = address };
         if (try parser.parseLabel(argument)) |label|
             return .{ .label = label };
         return null;
+    }
+
+    fn parsePcOffset(parser: *Parser, argument: Span) error{Reported}!?i16 {
+        assert(argument.len > 0);
+
+        if (argument.view(parser.source)[0] != '^')
+            return null;
+
+        const integer_span: Span = .{ .offset = argument.offset + 1, .len = argument.len - 1 };
+
+        const integer = try parser.tryParseInteger(integer_span) orelse
+            return 0;
+
+        return integer.castToSmaller(i16) catch {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.IntegerToolarge,
+                .span = argument,
+            }).abort();
+        };
     }
 
     fn parseAddress(parser: *Parser, argument: Span) error{Reported}!?u16 {
