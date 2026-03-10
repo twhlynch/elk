@@ -143,7 +143,7 @@ fn emulate(
     gpa: Allocator,
     runtime_source: union(enum) {
         object: Io.File,
-        assembly: struct { air: *const lcz.Air, source: []const u8 },
+        assembly: lcz.Runtime.Debugger.Assembly,
     },
     debug: bool,
     traps: *const lcz.Traps,
@@ -162,7 +162,7 @@ fn emulate(
         reporter,
         switch (runtime_source) {
             .object => null,
-            .assembly => |assembly| .{ .air = assembly.air, .source = assembly.source },
+            .assembly => |assembly| assembly,
         },
     ) else null;
     defer if (debugger_opt) |*debugger| debugger.deinit();
