@@ -64,13 +64,13 @@ pub fn readLine(input: *Input) ![]const u8 {
         return error.EndOfStream;
 
     input.lines.becomeActive();
-    const line = input.lines.getCurrent();
+    const line = input.lines.getString();
     input.lines.history.push(line);
     return line;
 }
 
 fn handleNextKey(input: *Input) error{ EndOfStream, ReadFailed }!Runtime.Control {
-    assert(input.lines.cursor <= input.lines.getCurrent().len);
+    assert(input.lines.cursor <= input.lines.getString().len);
 
     const key = try input.readKey() orelse
         return .@"continue";
@@ -145,7 +145,7 @@ fn writePrompt(input: *const Input) !void {
     try input.writer.print("\r\x1b[K", .{});
     try input.writer.print("{?:04}", .{input.lines.scrollback});
     try input.writer.print(prompt, .{});
-    try input.writer.print("{s}", .{input.lines.getCurrent()});
+    try input.writer.print("{s}", .{input.lines.getString()});
     try input.writer.print("\x1b[{}G", .{input.lines.cursor + prompt.len + 1 + 4});
 }
 
@@ -155,12 +155,11 @@ const Lines = struct {
     cursor: usize,
     scrollback: ?usize,
 
-    pub fn getCurrent(lines: *const Lines) []const u8 {
-        if (lines.scrollback) |scrollback| {
-            return lines.history.getLast(scrollback);
-        } else {
-            return lines.edit.buffer[0..lines.edit.length];
-        }
+    pub fn getString(lines: *const Lines) []const u8 {
+        return if (lines.scrollback) |scrollback|
+            lines.history.getLast(scrollback)
+        else
+            lines.edit.getString();
     }
 
     pub fn becomeActive(lines: *Lines) void {
@@ -168,16 +167,12 @@ const Lines = struct {
             return;
 
         const historic = lines.history.getLast(scrollback);
-
-        const length = @min(historic.len, lines.edit.buffer.len);
-        @memcpy(lines.edit.buffer[0..length], historic[0..length]);
-        lines.edit.length = length;
-
+        lines.edit.copyFrom(historic);
         lines.scrollback = null;
     }
 
     pub fn resetCursor(lines: *Lines) void {
-        lines.cursor = lines.getCurrent().len;
+        lines.cursor = lines.getString().len;
     }
 
     pub fn clear(lines: *Lines) void {
@@ -239,6 +234,16 @@ const Lines = struct {
 const Edit = struct {
     buffer: []u8,
     length: usize,
+
+    pub fn getString(edit: *const Edit) []const u8 {
+        return edit.buffer[0..edit.length];
+    }
+
+    pub fn copyFrom(edit: *Edit, string: []const u8) void {
+        const length = @min(string.len, edit.buffer.len);
+        @memcpy(edit.buffer[0..length], string[0..length]);
+        edit.length = length;
+    }
 
     pub fn clear(edit: *Edit) void {
         edit.length = 0;
