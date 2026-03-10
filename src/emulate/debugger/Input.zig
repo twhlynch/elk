@@ -83,10 +83,10 @@ fn handleNextKey(input: *Input) error{ EndOfStream, ReadFailed }!Runtime.Control
         .bs => input.lines.remove(),
 
         .escape => |escape| switch (escape) {
-            .cursor_up => input.lines.historyBack(),
-            .cursor_down => input.lines.historyForward(),
-            .cursor_forward => input.lines.seek(.right),
-            .cursor_back => input.lines.seek(.left),
+            .cursor_up => input.lines.seekHistory(.backward),
+            .cursor_down => input.lines.seekHistory(.forward),
+            .cursor_forward => input.lines.seekLine(.right),
+            .cursor_back => input.lines.seekLine(.left),
         },
     }
     return .@"continue";
@@ -203,7 +203,7 @@ const Lines = struct {
         lines.cursor -= 1;
     }
 
-    pub fn seek(lines: *Lines, direction: enum { left, right }) void {
+    pub fn seekLine(lines: *Lines, direction: enum { left, right }) void {
         switch (direction) {
             .left => if (lines.cursor > 0) {
                 lines.cursor -= 1;
@@ -214,26 +214,24 @@ const Lines = struct {
         }
     }
 
-    pub fn historyBack(lines: *Lines) void {
-        if (lines.history.length() == 0)
-            return;
-
-        if (lines.scrollback) |*scrollback| {
-            if (scrollback.* + 1 < lines.history.length())
-                scrollback.* += 1;
-        } else {
-            lines.scrollback = 0;
+    pub fn seekHistory(lines: *Lines, direction: enum { backward, forward }) void {
+        switch (direction) {
+            .backward => {
+                if (lines.history.length() == 0)
+                    return;
+                if (lines.scrollback) |*scrollback| {
+                    if (scrollback.* + 1 < lines.history.length())
+                        scrollback.* += 1;
+                } else {
+                    lines.scrollback = 0;
+                }
+            },
+            .forward => {
+                const scrollback = lines.scrollback orelse
+                    return;
+                lines.scrollback = if (scrollback == 0) null else scrollback - 1;
+            },
         }
-
-        lines.resetCursor();
-    }
-
-    pub fn historyForward(lines: *Lines) void {
-        const scrollback = lines.scrollback orelse
-            return;
-
-        lines.scrollback = if (scrollback == 0) null else scrollback - 1;
-
         lines.resetCursor();
     }
 };
