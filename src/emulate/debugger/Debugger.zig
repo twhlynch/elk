@@ -216,8 +216,8 @@ fn runCommand(
             // FIXME: Handle OOB
             const line = assembly.air.lines.items[index];
 
-            // HACK: What the hell is this
-            const reporter = debugger.reporter;
+            // This is NOT a hack, I promise.
+            var reporter = debugger.reporter.copyImplementation();
             reporter.source = assembly.source;
 
             reporter.report(.debugger_any_info, .{
