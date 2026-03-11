@@ -6,8 +6,7 @@ const Span = @import("../../compile/Span.zig");
 const Lexer = @import("../../compile/parse/Lexer.zig");
 const parsing = @import("../../compile/parse/parsing.zig");
 const integers = @import("../../compile/parse/integers.zig");
-const Command = @import("command.zig").Command;
-const CommandSpanned = @import("command.zig").CommandSpanned;
+const Command = @import("Command.zig");
 const tags = @import("tags.zig");
 
 pub fn Spanned(comptime K: type) type {
@@ -17,7 +16,7 @@ pub fn Spanned(comptime K: type) type {
 pub fn parseCommand(
     string: []const u8,
     reporter: *Reporter,
-) error{Reported}!?CommandSpanned {
+) error{Reported}!?Command {
     var lexer = Lexer.new(string, false);
 
     var parser: Parser = .{
@@ -45,8 +44,8 @@ const Parser = struct {
     source: []const u8,
     reporter: *Reporter,
 
-    fn parseCommandArguments(parser: *Parser, tag: Spanned(Command.Tag)) !Command {
-        const value: Command = switch (tag.value) {
+    fn parseCommandArguments(parser: *Parser, tag: Spanned(Command.Tag)) !Command.Value {
+        const value: Command.Value = switch (tag.value) {
             // TODO: Parse all commands
             else => {
                 try parser.reporter.report(.debugger_any_err, .{
@@ -66,7 +65,7 @@ const Parser = struct {
             .step_over,
             .step_out,
             .break_list,
-            => |void_tag| @unionInit(Command, @tagName(void_tag), {}),
+            => |void_tag| @unionInit(Command.Value, @tagName(void_tag), {}),
 
             .print => .{ .print = .{
                 .location = try parser.nextLocation(),

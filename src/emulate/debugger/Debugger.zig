@@ -9,8 +9,7 @@ const Air = @import("../../compile/Air.zig");
 const Span = @import("../../compile/Span.zig");
 const Runtime = @import("../Runtime.zig");
 const Input = @import("Input.zig");
-const Command = @import("command.zig").Command;
-const CommandSpanned = @import("command.zig").CommandSpanned;
+const Command = @import("Command.zig");
 const parseCommand = @import("parse.zig").parseCommand;
 
 input: Input,
@@ -122,7 +121,7 @@ fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
 fn runCommand(
     debugger: *Debugger,
     runtime: *Runtime,
-    command: CommandSpanned,
+    command: Command,
     source: []const u8,
 ) !?Action {
     switch (command.value) {
