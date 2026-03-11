@@ -182,6 +182,8 @@ fn runCommand(
                     source,
                 ) catch
                     return null;
+                debugger.ensureUserAddress(address, arguments.location.span) catch
+                    return null;
                 runtime.state.memory[address] = arguments.value.value;
                 try runtime.writer.interface.print(
                     "Updated memory at address 0x{x:04} to 0x{x:04}.\n",
@@ -197,6 +199,8 @@ fn runCommand(
                 arguments.location.span,
                 source,
             ) catch
+                return null;
+            debugger.ensureUserAddress(address, arguments.location.span) catch
                 return null;
             runtime.state.pc = address;
             try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n", .{address});
