@@ -113,7 +113,10 @@ fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
     } orelse
         return null; // No tokens lexed
 
-    const action = try debugger.runCommand(runtime, command, command_string);
+    const action = debugger.runCommand(runtime, command, command_string) catch |err| switch (err) {
+        error.Reported => return null,
+        else => |err2| return err2,
+    };
     try runtime.writer.interface.flush();
     return action;
 }
@@ -197,6 +200,32 @@ fn runCommand(
                 return null;
             runtime.state.pc = address;
             try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n", .{address});
+        },
+
+        .assembly => |arguments| {
+            const assembly = try debugger.getAssembly(command.tag);
+            const address = debugger.resolveMemoryLocation(
+                runtime,
+                arguments.location.value,
+                arguments.location.span,
+                source,
+            ) catch return null;
+
+            // FIXME: Handle overflow
+            const index = address - assembly.air.origin;
+            // FIXME: Handle OOB
+            const line = assembly.air.lines.items[index];
+
+            std.debug.print("{s}\n", .{line.span.view(assembly.source)});
+
+            // HACK: What the hell is this
+            const reporter = debugger.reporter;
+            reporter.source = assembly.source;
+
+            reporter.report(.debugger_any_warn, .{
+                .code = error.ShowAssembly,
+                .span = line.span,
+            }).proceed();
         },
 
         .echo => |arguments| {
