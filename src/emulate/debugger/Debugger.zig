@@ -211,28 +211,8 @@ fn runCommand(
                 source,
             ) catch return null;
 
-            if (address < Runtime.USER_MEMORY_START or
-                address > Runtime.USER_MEMORY_END)
-            {
-                debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.AddressNotInUserMemory,
-                    .span = arguments.location.span,
-                }).abort() catch
-                    return null;
-            }
-
-            // Overflow is not possible since address is in user memory
-            const index = address - assembly.air.origin;
-
-            if (index >= assembly.air.lines.items.len) {
-                debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.AddressNotInAssembly,
-                    .span = arguments.location.span,
-                }).abort() catch
-                    return null;
-            }
-
-            const line = assembly.air.lines.items[index];
+            const line = debugger.getAssemblyLine(&assembly, address, arguments.location.span) catch
+                return null;
 
             // This is NOT a hack, I promise.
             var reporter = debugger.reporter.copyImplementation();
@@ -256,6 +236,33 @@ fn runCommand(
     }
 
     return null;
+}
+
+fn getAssemblyLine(
+    debugger: *Debugger,
+    assembly: *const Assembly,
+    address: u16,
+    span: Span,
+) error{Reported}!*const Air.Line {
+    if (address < Runtime.USER_MEMORY_START or
+        address > Runtime.USER_MEMORY_END)
+    {
+        try debugger.reporter.report(.debugger_any_err, .{
+            .code = error.AddressNotInUserMemory,
+            .span = span,
+        }).abort();
+    }
+
+    // Overflow is not possible since address is in user memory
+    const index = address - assembly.air.origin;
+    if (index >= assembly.air.lines.items.len) {
+        try debugger.reporter.report(.debugger_any_err, .{
+            .code = error.AddressNotInAssembly,
+            .span = span,
+        }).abort();
+    }
+
+    return &assembly.air.lines.items[index];
 }
 
 fn resolveMemoryLocation(
