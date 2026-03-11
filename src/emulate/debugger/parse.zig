@@ -41,7 +41,10 @@ const Parser = struct {
     source: []const u8,
     reporter: *Reporter,
 
-    fn parseCommandArguments(parser: *Parser, tag: Spanned(Command.Tag)) !Command.Value {
+    fn parseCommandArguments(
+        parser: *Parser,
+        tag: Spanned(Command.Tag),
+    ) error{Reported}!Command.Value {
         const value: Command.Value = switch (tag.value) {
             // TODO: Parse all commands
             else => {
@@ -67,18 +70,22 @@ const Parser = struct {
             .print => .{ .print = .{
                 .location = try parser.nextLocation(),
             } },
-
             .move => .{ .move = .{
                 .location = try parser.nextLocation(),
                 .value = try parser.nextInteger(),
             } },
-
             .goto => .{ .goto = .{
                 .location = try parser.nextMemoryLocation(),
             } },
-
+            .assembly => .{ .assembly = .{
+                .location = try parser.nextMemoryLocation(),
+            } },
             .step_into => .{ .step_into = .{
                 .count = try parser.nextOptionalPositiveInt(),
+            } },
+
+            .echo => .{ .echo = .{
+                .string = try parser.remainingString(),
             } },
         };
 
@@ -101,6 +108,22 @@ const Parser = struct {
             if (!std.mem.eql(u8, token.view(parser.source), ","))
                 return token;
         }
+    }
+
+    fn remainingString(parser: *Parser) error{Reported}!Span {
+        var first = parser.lexer.next() orelse {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedArgument,
+                .span = .emptyAt(parser.source.len),
+            }).abort();
+        };
+
+        const start = first.offset;
+        var end = first.end();
+        while (parser.lexer.next()) |token| {
+            end = token.end();
+        }
+        return .fromBounds(start, end);
     }
 
     fn nextInteger(parser: *Parser) error{Reported}!Spanned(u16) {

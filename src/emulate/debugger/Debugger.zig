@@ -181,7 +181,7 @@ fn runCommand(
                     return null;
                 runtime.state.memory[address] = arguments.value.value;
                 try runtime.writer.interface.print(
-                    "Updated memory at address 0x{x:04} to 0x{x:04}.\n:",
+                    "Updated memory at address 0x{x:04} to 0x{x:04}.\n",
                     .{ address, arguments.value.value },
                 );
             },
@@ -196,7 +196,11 @@ fn runCommand(
             ) catch
                 return null;
             runtime.state.pc = address;
-            try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n:", .{address});
+            try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n", .{address});
+        },
+
+        .echo => |arguments| {
+            try runtime.writer.interface.print("[{s}]\n", .{arguments.string.view(source)});
         },
 
         .step_into => |arguments| {
