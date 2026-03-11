@@ -90,6 +90,8 @@ const Parser = struct {
             } },
         };
 
+        assert(value == tag.value);
+
         if (parser.next()) |span| {
             try parser.reporter.report(.debugger_any_err, .{
                 .code = error.UnexpectedArgument,
