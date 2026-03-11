@@ -243,8 +243,15 @@ const Parser = struct {
 
         const integer_span: Span = .{ .offset = argument.offset + 1, .len = argument.len - 1 };
 
-        const integer = try parser.tryParseInteger(integer_span) orelse
+        if (integer_span.len == 0)
             return 0;
+
+        const integer = try parser.tryParseInteger(integer_span) orelse {
+            try parser.reporter.report(.debugger_any_err, .{
+                .code = error.ExpectedInteger,
+                .span = integer_span,
+            }).abort();
+        };
 
         return integer.castToSmaller(i16) catch {
             try parser.reporter.report(.debugger_any_err, .{
