@@ -238,7 +238,7 @@ const Parser = struct {
     fn parsePcOffset(parser: *Parser, argument: Span) error{Reported}!?i16 {
         assert(argument.len > 0);
 
-        if (argument.view(parser.source)[0] != '^')
+        if (argument.view(parser.source)[0] != '~')
             return null;
 
         const integer_span: Span = .{ .offset = argument.offset + 1, .len = argument.len - 1 };
