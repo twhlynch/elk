@@ -13,6 +13,21 @@ editor: Editor,
 reader: *Io.Reader,
 writer: *Io.Writer,
 
+pub const Key = union(enum) {
+    char: u8,
+    enter,
+    eot,
+    bs,
+    escape: Escape,
+
+    pub const Escape = enum {
+        cursor_up,
+        cursor_down,
+        cursor_forward,
+        cursor_back,
+    };
+};
+
 pub fn init(gpa: Allocator, reader: *Io.Reader, writer: *Io.Writer) Input {
     return .{
         .editor = .init(gpa),
@@ -32,18 +47,25 @@ pub fn readLine(input: *Input) ![]const u8 {
         try input.writePrompt();
         try input.writer.flush();
 
-        const control: Runtime.Control = input.handleNextKey() catch |err| switch (err) {
+        const key = input.readKey() catch |err| switch (err) {
             else => |err2| return err2,
             error.EndOfStream => {
                 eof = true;
                 break;
             },
-        };
+        } orelse
+            continue;
 
-        switch (control) {
-            .@"continue" => continue,
-            .@"break" => break,
-        }
+        input.editor.handleKey(key) catch |err| switch (err) {
+            else => |err2| return err2,
+            error.EndOfLine => {
+                break;
+            },
+            error.EndOfStream => {
+                eof = true;
+                break;
+            },
+        };
     }
 
     try input.writer.print("\n", .{});
@@ -60,44 +82,6 @@ pub fn readLine(input: *Input) ![]const u8 {
     input.editor.clear();
     return line;
 }
-
-fn handleNextKey(input: *Input) error{ EndOfStream, ReadFailed }!Runtime.Control {
-    assert(input.editor.cursor <= input.editor.getString().len);
-
-    const key = try input.readKey() orelse
-        return .@"continue";
-
-    switch (key) {
-        .enter => return .@"break",
-        .eot => return error.EndOfStream,
-
-        .char => |char| input.editor.insert(char),
-        .bs => input.editor.remove(),
-
-        .escape => |escape| switch (escape) {
-            .cursor_up => input.editor.seekHistory(.backward),
-            .cursor_down => input.editor.seekHistory(.forward),
-            .cursor_forward => input.editor.seekLine(.right),
-            .cursor_back => input.editor.seekLine(.left),
-        },
-    }
-    return .@"continue";
-}
-
-const Key = union(enum) {
-    char: u8,
-    enter,
-    eot,
-    bs,
-    escape: Escape,
-
-    pub const Escape = enum {
-        cursor_up,
-        cursor_down,
-        cursor_forward,
-        cursor_back,
-    };
-};
 
 fn readKey(input: *Input) error{ EndOfStream, ReadFailed }!?Key {
     return switch (try input.readByte()) {
