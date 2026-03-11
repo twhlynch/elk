@@ -134,7 +134,7 @@ fn runCommand(
                 return null;
         },
 
-        // .quit => return .disable_debugger,
+        .quit => return .disable_debugger,
         .exit => return .stop_runtime,
 
         .help => {
@@ -145,7 +145,7 @@ fn runCommand(
             try runtime.printRegisters();
         },
 
-        .print => |arguments| switch (arguments.location) {
+        .print => |arguments| switch (arguments.location.value) {
             .register => |register| {
                 try runtime.writer.interface.print("Register R{}:\n", .{register});
                 try runtime.printInteger(runtime.state.registers[register]);
@@ -158,21 +158,27 @@ fn runCommand(
             },
         },
 
-        .move => |arguments| switch (arguments.location) {
+        .move => |arguments| switch (arguments.location.value) {
             .register => |register| {
-                runtime.state.registers[register] = arguments.value;
-                try runtime.writer.interface.print("Updated register R{} to 0x{x:04}.n", .{ register, arguments.value });
+                runtime.state.registers[register] = arguments.value.value;
+                try runtime.writer.interface.print(
+                    "Updated register R{} to 0x{x:04}.n",
+                    .{ register, arguments.value.value },
+                );
             },
             .memory => |memory| {
                 const address = debugger.resolveMemoryLocation(runtime, memory, source) catch
                     return null;
-                runtime.state.memory[address] = arguments.value;
-                try runtime.writer.interface.print("Updated memory at address 0x{x:04} to 0x{x:04}.\n:", .{ address, arguments.value });
+                runtime.state.memory[address] = arguments.value.value;
+                try runtime.writer.interface.print(
+                    "Updated memory at address 0x{x:04} to 0x{x:04}.\n:",
+                    .{ address, arguments.value.value },
+                );
             },
         },
 
         .goto => |arguments| {
-            const address = debugger.resolveMemoryLocation(runtime, arguments.location, source) catch
+            const address = debugger.resolveMemoryLocation(runtime, arguments.location.value, source) catch
                 return null;
             runtime.state.pc = address;
             try runtime.writer.interface.print("Set program counter to 0x{x:04}.\n:", .{address});
@@ -180,7 +186,7 @@ fn runCommand(
 
         .step_into => |arguments| {
             debugger.status = .{ .step_into = .{
-                .count = arguments.count - 1,
+                .count = arguments.count.value - 1,
             } };
         },
     }

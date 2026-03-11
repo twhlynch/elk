@@ -4,6 +4,10 @@ const std = @import("std");
 
 const Span = @import("../../compile/Span.zig");
 
+pub fn Spanned(comptime K: type) type {
+    return struct { span: Span, value: K };
+}
+
 line: Span,
 tag: Span,
 value: Value,
@@ -12,21 +16,40 @@ pub const Value = union(enum) {
     help,
     @"continue",
     registers,
-    print: struct { location: Location },
-    move: struct { location: Location, value: u16 },
-    goto: struct { location: Location.Memory },
-    assembly: struct { location: Location.Memory },
-    eval: struct { instruction: Span },
-    echo: struct { string: Span },
+    print: struct {
+        location: Spanned(Location),
+    },
+    move: struct {
+        location: Spanned(Location),
+        value: Spanned(u16),
+    },
+    goto: struct {
+        location: Spanned(Location.Memory),
+    },
+    assembly: struct {
+        location: Spanned(Location.Memory),
+    },
+    eval: struct {
+        instruction: Span,
+    },
+    echo: struct {
+        string: Span,
+    },
     reset,
     quit,
     exit,
     step_over,
-    step_into: struct { count: u16 },
+    step_into: struct {
+        count: Spanned(u16),
+    },
     step_out,
     break_list,
-    break_add: struct { location: Location.Memory },
-    break_remove: struct { location: Location.Memory },
+    break_add: struct {
+        location: Spanned(Location.Memory),
+    },
+    break_remove: struct {
+        location: Spanned(Location.Memory),
+    },
 };
 
 pub const Tag = std.meta.Tag(Value);

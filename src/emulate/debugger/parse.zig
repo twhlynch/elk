@@ -8,10 +8,7 @@ const parsing = @import("../../compile/parse/parsing.zig");
 const integers = @import("../../compile/parse/integers.zig");
 const Command = @import("Command.zig");
 const tags = @import("tags.zig");
-
-pub fn Spanned(comptime K: type) type {
-    return struct { span: Span, value: K };
-}
+const Spanned = Command.Spanned;
 
 pub fn parseCommand(
     string: []const u8,
@@ -106,7 +103,7 @@ const Parser = struct {
         }
     }
 
-    fn nextInteger(parser: *Parser) error{Reported}!u16 {
+    fn nextInteger(parser: *Parser) error{Reported}!Spanned(u16) {
         const argument = parser.next() catch |err| switch (err) {
             error.Eof => try parser.reporter.report(.debugger_any_err, .{
                 .code = error.ExpectedArgument,
@@ -115,12 +112,14 @@ const Parser = struct {
         };
 
         const integer = try parser.parseInteger(argument);
-        return integer.underlying;
+
+        return .{ .span = argument, .value = integer.underlying };
     }
 
-    fn nextOptionalPositiveInt(parser: *Parser) error{Reported}!u16 {
+    fn nextOptionalPositiveInt(parser: *Parser) error{Reported}!Spanned(u16) {
         const argument = parser.next() catch |err| switch (err) {
-            error.Eof => return 1,
+            // TODO: Maybe instead, change return to ?Spanned(u16)
+            error.Eof => return .{ .span = .emptyAt(parser.source.len), .value = 1 },
         };
 
         const integer = try parser.parseInteger(argument);
@@ -132,15 +131,17 @@ const Parser = struct {
             }).abort();
         }
 
-        return integer.castToUnsigned() orelse {
+        const value = integer.castToUnsigned() orelse {
             try parser.reporter.report(.debugger_any_err, .{
                 .code = error.IntegerToolarge,
                 .span = argument,
             }).abort();
         };
+
+        return .{ .span = argument, .value = value };
     }
 
-    fn nextLocation(parser: *Parser) error{Reported}!Command.Location {
+    fn nextLocation(parser: *Parser) error{Reported}!Spanned(Command.Location) {
         const argument = parser.next() catch |err| switch (err) {
             error.Eof => try parser.reporter.report(.debugger_any_err, .{
                 .code = error.ExpectedArgument,
@@ -149,10 +150,10 @@ const Parser = struct {
         };
 
         if (parsing.tryRegister(argument.view(parser.source))) |register|
-            return .{ .register = register };
+            return .{ .span = argument, .value = .{ .register = register } };
 
         if (try parser.parseMemoryLocation(argument)) |memory|
-            return .{ .memory = memory };
+            return .{ .span = argument, .value = .{ .memory = memory } };
 
         try parser.reporter.report(.debugger_any_err, .{
             .code = error.InvalidArgumentKind,
@@ -160,7 +161,7 @@ const Parser = struct {
         }).abort();
     }
 
-    fn nextMemoryLocation(parser: *Parser) error{Reported}!Command.Location.Memory {
+    fn nextMemoryLocation(parser: *Parser) error{Reported}!Spanned(Command.Location.Memory) {
         const argument = parser.next() catch |err| switch (err) {
             error.Eof => try parser.reporter.report(.debugger_any_err, .{
                 .code = error.ExpectedArgument,
@@ -169,7 +170,7 @@ const Parser = struct {
         };
 
         if (try parser.parseMemoryLocation(argument)) |memory|
-            return memory;
+            return .{ .span = argument, .value = memory };
 
         try parser.reporter.report(.debugger_any_err, .{
             .code = error.InvalidArgumentKind,
