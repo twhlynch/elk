@@ -102,16 +102,16 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
 fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
     assert(debugger.status == .get_action);
 
-    if (debugger.should_echo_pc)
-        std.debug.print("| Program counter is at: 0x{x:04}.\n", .{runtime.state.pc});
     if (debugger.instruction_count > 0)
         std.debug.print("| Executed {} instruction{s}.\n", .{
             debugger.instruction_count,
             if (debugger.instruction_count == 1) "" else "s",
         });
+    if (debugger.should_echo_pc)
+        std.debug.print("| Program counter is at: 0x{x:04}.\n", .{runtime.state.pc});
 
-    debugger.should_echo_pc = false;
     debugger.instruction_count = 0;
+    debugger.should_echo_pc = false;
 
     var command_buffer: [20]u8 = undefined;
     debugger.input.editor.setBuffer(&command_buffer);
