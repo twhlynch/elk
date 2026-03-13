@@ -181,7 +181,6 @@ fn runCommand(
     source: []const u8,
 ) !?Action {
     switch (command.value) {
-        // TODO: Implement all commands
         else => {
             debugger.reporter.report(.debugger_any_err, .{
                 .code = error.UnimplementedCommand,
@@ -190,16 +189,32 @@ fn runCommand(
                 return null;
         },
 
+        .help => {
+            try runtime.writer.interface.writeAll(@embedFile("help.txt"));
+        },
+
         .quit => return .disable_debugger,
         .exit => return .stop_runtime,
 
-        .help => {
-            try runtime.writer.interface.writeAll(@embedFile("help.txt"));
+        .reset => {
+            const state = debugger.initial_state orelse {
+                debugger.reporter.report(.debugger_any_err, .{
+                    .code = error.NoInitialState,
+                    .span = command.tag,
+                }).abort() catch
+                    return null;
+            };
+            runtime.state.copyFrom(state);
+            try runtime.writer.interface.print("| Reset registers and memory to initial state.\n", .{});
+            debugger.should_echo_pc = true;
         },
 
         .registers => {
             try runtime.printRegisters();
         },
+
+        // TODO:
+        // .@"continue" => {},
 
         .print => |arguments| switch (arguments.location.value) {
             .register => |register| {
@@ -282,22 +297,15 @@ fn runCommand(
             }).proceed();
         },
 
+        // TODO:
+        // .eval => {},
+
         .echo => |arguments| {
             try runtime.writer.interface.print("[{s}]\n", .{arguments.string.view(source)});
         },
 
-        .reset => {
-            const state = debugger.initial_state orelse {
-                debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.NoInitialState,
-                    .span = command.tag,
-                }).abort() catch
-                    return null;
-            };
-            runtime.state.copyFrom(state);
-            try runtime.writer.interface.print("| Reset registers and memory to initial state.\n", .{});
-            debugger.should_echo_pc = true;
-        },
+        // TODO:
+        // .step_over => {},
 
         .step_into => |arguments| {
             debugger.status = .{ .step_into = .{
@@ -305,6 +313,18 @@ fn runCommand(
             } };
             debugger.should_echo_pc = true;
         },
+
+        // TODO:
+        // .step_out => {},
+
+        // TODO:
+        // .break_list => {},
+
+        // TODO:
+        // .break_add => {},
+
+        // TODO:
+        // .break_remove => {},
     }
 
     return null;

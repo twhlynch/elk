@@ -49,11 +49,11 @@ const Parser = struct {
             // Allow trailing arguments
             .help => return .help,
 
-            inline .@"continue",
-            .registers,
-            .reset,
-            .quit,
+            inline .quit,
             .exit,
+            .reset,
+            .registers,
+            .@"continue",
             .step_over,
             .step_out,
             .break_list,
