@@ -67,7 +67,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
     if (debugger.halt_address) |address| {
         if (address == runtime.state.pc)
-            debugger.should_echo_pc = false;
+            debugger.should_echo_pc = false
+        else
+            debugger.halt_address = null;
     }
 
     switch (try debugger.nextAction(runtime)) {
@@ -81,12 +83,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
         },
     }
 
-    if (debugger.halt_address) |address| {
-        if (address == runtime.state.pc) {
-            try runtime.writer.interface.print("| Currently halted at 0x{x:04}.\n", .{runtime.state.pc});
-            return .@"continue";
-        }
-        debugger.halt_address = null;
+    if (debugger.halt_address == runtime.state.pc) {
+        try runtime.writer.interface.print("| Currently halted at 0x{x:04}.\n", .{runtime.state.pc});
+        return .@"continue";
     }
 
     debugger.instruction_count += 1;
