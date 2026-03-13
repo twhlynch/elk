@@ -33,6 +33,16 @@ pub const State = struct {
     registers: [8]u16,
     pc: u16,
     condition: Condition,
+
+    pub fn empty(memory: []u16) State {
+        @memset(memory, 0x0000);
+        return .{
+            .memory = memory,
+            .registers = .{ 0, 0, 0, 0, 0, 0, 0, USER_MEMORY_END },
+            .pc = 0x0000,
+            .condition = .zero,
+        };
+    }
 };
 
 pub const Error = ProgramError || IoError;
@@ -77,15 +87,9 @@ pub fn init(
     debugger: ?*Debugger,
 ) !Runtime {
     const memory = try gpa.alloc(u16, MEMORY_SIZE);
-    @memset(memory, 0x0000);
 
     return .{
-        .state = .{
-            .memory = memory,
-            .registers = .{ 0, 0, 0, 0, 0, 0, 0, USER_MEMORY_END },
-            .pc = 0x0000,
-            .condition = .zero,
-        },
+        .state = .empty(memory),
         .traps = traps,
         .hooks = hooks,
         .policies = policies,
