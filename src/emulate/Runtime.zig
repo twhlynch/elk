@@ -34,7 +34,8 @@ pub const State = struct {
     pc: u16,
     condition: Condition,
 
-    pub fn empty(memory: []u16) State {
+    pub fn init(gpa: Allocator) error{OutOfMemory}!State {
+        const memory = try gpa.alloc(u16, MEMORY_SIZE);
         @memset(memory, 0x0000);
         return .{
             .memory = memory,
@@ -42,6 +43,10 @@ pub const State = struct {
             .pc = 0x0000,
             .condition = .zero,
         };
+    }
+
+    pub fn deinit(state: *State, gpa: Allocator) void {
+        defer gpa.free(state.memory);
     }
 };
 
@@ -86,10 +91,8 @@ pub fn init(
     policies: *const Policies,
     debugger: ?*Debugger,
 ) !Runtime {
-    const memory = try gpa.alloc(u16, MEMORY_SIZE);
-
     return .{
-        .state = .empty(memory),
+        .state = try .init(gpa),
         .traps = traps,
         .hooks = hooks,
         .policies = policies,
@@ -100,8 +103,8 @@ pub fn init(
     };
 }
 
-pub fn deinit(runtime: Runtime, gpa: Allocator) void {
-    defer gpa.free(runtime.state.memory);
+pub fn deinit(runtime: *Runtime, gpa: Allocator) void {
+    runtime.state.deinit(gpa);
 }
 
 pub fn readFromFile(runtime: *Runtime, io: Io, file: Io.File, buffer: []u8) !void {
