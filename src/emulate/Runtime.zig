@@ -28,7 +28,7 @@ reader: *Io.Reader,
 writer: NewlineTracker,
 tty: Tty,
 
-const State = struct {
+pub const State = struct {
     memory: []u16,
     registers: [8]u16,
     pc: u16,

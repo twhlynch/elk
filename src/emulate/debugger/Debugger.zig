@@ -17,9 +17,9 @@ instruction_count: usize,
 should_echo_pc: bool,
 halt_address: ?u16,
 
-input: Input,
-
+initial_state: ?Runtime.State,
 assembly: ?Assembly,
+input: Input,
 reporter: *Reporter,
 
 pub const Assembly = struct {
@@ -51,8 +51,9 @@ pub fn init(
         .instruction_count = 0,
         .should_echo_pc = true,
         .halt_address = null,
-        .input = .init(gpa, reader, writer),
+        .initial_state = null,
         .assembly = assembly,
+        .input = .init(gpa, reader, writer),
         .reporter = reporter,
     };
 }
