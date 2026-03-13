@@ -286,6 +286,19 @@ fn runCommand(
             try runtime.writer.interface.print("[{s}]\n", .{arguments.string.view(source)});
         },
 
+        .reset => {
+            const state = debugger.initial_state orelse {
+                debugger.reporter.report(.debugger_any_err, .{
+                    .code = error.NoInitialState,
+                    .span = command.tag,
+                }).abort() catch
+                    return null;
+            };
+            runtime.state.copyFrom(state);
+            try runtime.writer.interface.print("| Reset registers and memory to initial state.\n", .{});
+            debugger.should_echo_pc = true;
+        },
+
         .step_into => |arguments| {
             debugger.status = .{ .step_into = .{
                 .count = arguments.count.value - 1,
