@@ -236,7 +236,7 @@ fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
                 error.Halt => {
                     const debugger = runtime.debugger orelse
                         return .@"break";
-                    debugger.catchHalt(runtime);
+                    try debugger.catchHalt(runtime);
                 },
             };
         },

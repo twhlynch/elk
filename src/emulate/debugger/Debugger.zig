@@ -67,7 +67,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
     if (debugger.halt_address) |address| {
         if (address == runtime.state.pc)
-            std.log.debug("at halt address", .{});
+            try runtime.writer.interface.print("| Currently halted.\n", .{});
     }
 
     switch (try debugger.nextAction(runtime)) {
@@ -92,8 +92,8 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     return null;
 }
 
-pub fn catchHalt(debugger: *Debugger, runtime: *const Runtime) void {
-    std.log.debug("caught halt", .{});
+pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!void {
+    try runtime.writer.interface.print("| Program halted at 0x{x:04}.\n", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
 }
@@ -123,12 +123,14 @@ fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
     assert(debugger.status == .get_action);
 
     if (debugger.instruction_count > 0)
-        std.debug.print("| Executed {} instruction{s}.\n", .{
+        try runtime.writer.interface.print("| Executed {} instruction{s}.\n", .{
             debugger.instruction_count,
             if (debugger.instruction_count == 1) "" else "s",
         });
     if (debugger.should_echo_pc)
-        std.debug.print("| Program counter is at: 0x{x:04}.\n", .{runtime.state.pc});
+        try runtime.writer.interface.print("| Program counter is at: 0x{x:04}.\n", .{
+            runtime.state.pc,
+        });
 
     debugger.instruction_count = 0;
     debugger.should_echo_pc = false;
