@@ -32,6 +32,7 @@ const Status = union(enum) {
     inactive,
     get_action,
     step_into: struct { count: u32 },
+    @"continue",
 };
 
 const Action = enum {
@@ -78,12 +79,10 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     if (debugger.status == .inactive)
         return .@"continue";
 
-    if (debugger.halt_address) |address| {
-        if (address == runtime.state.pc)
-            debugger.should_echo_pc = false
-        else
-            debugger.halt_address = null;
-    }
+    if (debugger.isHalted(runtime))
+        debugger.should_echo_pc = false
+    else
+        debugger.halt_address = null;
 
     switch (try debugger.nextAction(runtime)) {
         .proceed => {},
@@ -96,8 +95,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
         },
     }
 
-    if (debugger.halt_address == runtime.state.pc) {
+    if (debugger.isHalted(runtime)) {
         try runtime.writer.interface.print("| Currently halted at 0x{x:04}.\n", .{runtime.state.pc});
+        debugger.status = .get_action;
         return .@"continue";
     }
 
@@ -110,6 +110,10 @@ pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!void
     try runtime.writer.interface.print("| Program halted at 0x{x:04}.\n", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
+}
+
+fn isHalted(debugger: *const Debugger, runtime: *const Runtime) bool {
+    return debugger.halt_address == runtime.state.pc;
 }
 
 fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
@@ -126,6 +130,9 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
                 } else {
                     debugger.status = .get_action;
                 }
+                return .proceed;
+            },
+            .@"continue" => {
                 return .proceed;
             },
         }
@@ -213,8 +220,12 @@ fn runCommand(
             try runtime.printRegisters();
         },
 
-        // TODO:
-        // .@"continue" => {},
+        .@"continue" => {
+            debugger.status = .@"continue";
+            debugger.should_echo_pc = true;
+            if (!debugger.isHalted(runtime))
+                try runtime.writer.interface.print("| Continuing program execution...\n", .{});
+        },
 
         .print => |arguments| switch (arguments.location.value) {
             .register => |register| {
