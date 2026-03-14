@@ -41,6 +41,7 @@ pub fn deinit(input: *Input) void {
 }
 
 pub fn readLine(input: *Input) ![]const u8 {
+    input.editor.clear();
     var eof = false;
 
     while (true) {
@@ -79,7 +80,6 @@ pub fn readLine(input: *Input) ![]const u8 {
     input.editor.makeLive();
     const line = input.editor.getString();
     input.editor.history.push(line);
-    input.editor.clear();
     return line;
 }
 
