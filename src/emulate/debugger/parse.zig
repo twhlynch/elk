@@ -70,7 +70,7 @@ const Parser = struct {
                 .location = try parser.nextMemoryLocation(),
             } },
             .assembly => .{ .assembly = .{
-                .location = try parser.nextMemoryLocation(),
+                .location = try parser.nextOptionalMemoryLocation(),
             } },
             .step_into => .{ .step_into = .{
                 .count = try parser.nextOptionalPositiveInt(),
@@ -180,6 +180,25 @@ const Parser = struct {
 
         if (try parser.parseMemoryLocation(argument)) |memory|
             return .{ .span = argument, .value = .{ .memory = memory } };
+
+        try parser.reporter.report(.debugger_any_err, .{
+            .code = error.InvalidArgumentKind,
+            .span = argument,
+        }).abort();
+    }
+
+    fn nextOptionalMemoryLocation(
+        parser: *Parser,
+    ) error{Reported}!Spanned(Command.Location.Memory) {
+        const argument = parser.next() catch |err| switch (err) {
+            error.Eof => return .{
+                .value = .{ .pc_offset = 0 },
+                .span = .emptyAt(parser.source.len),
+            },
+        };
+
+        if (try parser.parseMemoryLocation(argument)) |memory|
+            return .{ .span = argument, .value = memory };
 
         try parser.reporter.report(.debugger_any_err, .{
             .code = error.InvalidArgumentKind,
