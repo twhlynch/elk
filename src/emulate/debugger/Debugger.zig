@@ -9,6 +9,7 @@ const Reporter = @import("../../report/Reporter.zig");
 const Air = @import("../../compile/Air.zig");
 const Span = @import("../../compile/Span.zig");
 const Runtime = @import("../Runtime.zig");
+const Instruction = @import("../decode.zig").Instruction;
 const Input = @import("Input.zig");
 const Command = @import("Command.zig");
 const parse = @import("parse.zig");
@@ -136,6 +137,7 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
             .step_over => |*info| {
                 if (runtime.state.pc != info.return_address)
                     return .proceed;
+                // TODO: Print description
                 debugger.status = .get_action;
                 continue;
             },
@@ -148,6 +150,11 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
                 return .proceed;
             },
             .step_out => {
+                const instruction = getNextInstruction(runtime);
+                if (instruction == .ret_rets) {
+                    // TODO: Print description
+                    debugger.status = .get_action;
+                }
                 return .proceed;
             },
             .@"continue" => {
@@ -156,6 +163,20 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
         }
         comptime unreachable;
     }
+}
+
+fn getNextInstruction(runtime: *const Runtime) ?enum { ret_rets } {
+    const word = runtime.state.memory[runtime.state.pc];
+    const instruction = Instruction.decode(word) catch
+        return null;
+    switch (instruction) {
+        .jmp_ret => |operands| if (operands.base == 7)
+            return .ret_rets,
+        .pop_push_rets_call => |variant| if (variant == .rets)
+            return .ret_rets,
+        else => {},
+    }
+    return null;
 }
 
 fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
