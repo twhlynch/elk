@@ -187,6 +187,30 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
     return .@"continue";
 }
 
+// TODO: Add explicit error return
+pub fn parseInstructionLine(parser: *Parser) !Instruction {
+    const token = try parser.tokens.nextExcluding(&.{.newline});
+
+    switch (token.value) {
+        .instruction => |instruction| {
+            const instr = try parser.parseInstruction(instruction, token.span) orelse
+                return error.Reported;
+            try parser.tokens.expectEol();
+            return instr;
+        },
+
+        // TODO:
+        // .trap_alias => |vect| {},
+
+        else => {
+            try parser.reporter().report(.unexpected_token_kind, .{
+                .found = token,
+                .expected = &.{.instruction},
+            }).abort();
+        },
+    }
+}
+
 fn appendLine(
     parser: *Parser,
     gpa: Allocator,
@@ -365,6 +389,7 @@ fn parseDirective(
     return .@"continue";
 }
 
+// TODO: Narrow returned error set ?
 fn parseInstruction(
     parser: *Parser,
     instruction: Token.Value.Instruction,

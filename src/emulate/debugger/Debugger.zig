@@ -5,9 +5,11 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
+const Traps = @import("../../Traps.zig");
 const Reporter = @import("../../report/Reporter.zig");
 const Air = @import("../../compile/Air.zig");
 const Span = @import("../../compile/Span.zig");
+const Parser = @import("../../compile/parse/Parser.zig");
 const Runtime = @import("../Runtime.zig");
 const Instruction = @import("../decode.zig").Instruction;
 const Input = @import("Input.zig");
@@ -346,7 +348,42 @@ fn runCommand(
         },
 
         // TODO:
-        // .eval => {},
+        .eval => |arguments| {
+            std.debug.print("[{s}]\n", .{arguments.instruction.view(source)});
+
+            const assembly_source = arguments.instruction.view(source);
+
+            // TODO: Use user-provided traps!
+            const traps: Traps = comptime .initBuiltins(&.{ Traps.Standard, Traps.Debug });
+
+            // This is NOT a hack, I promise.
+            // TODO: use `source` as reporter/parser source, but advance past `eval` tag
+            // TODO: Suppress warnings ? ie. use low strictness and permissive policies
+            var reporter = debugger.reporter.copyImplementation();
+            reporter.source = assembly_source;
+
+            var parser = Parser.new(&traps, assembly_source, &reporter) orelse
+                return null;
+
+            const instr = parser.parseInstructionLine() catch
+                return null;
+
+            std.debug.print("[{}]\n", .{instr});
+
+            const word = instr.encode();
+
+            std.debug.print("0x{x:04}\n", .{word});
+
+            const instr2 = Instruction.decode(word) catch
+                unreachable;
+
+            std.debug.print("[{}]\n", .{instr2});
+
+            // TODO: Handle control flow (break -> halt)
+            const control = try runtime.runInstruction(instr2);
+
+            std.debug.print("[{}]\n", .{control});
+        },
 
         .echo => |arguments| {
             try runtime.writer.print("[{s}]\n", .{arguments.string.view(source)});

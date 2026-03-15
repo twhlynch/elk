@@ -172,7 +172,7 @@ pub fn run(runtime: *Runtime) Error!void {
     }
 }
 
-fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
+pub fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
     switch (instr) {
         inline .add, .@"and" => |operands, instr_subset| {
             const lhs = runtime.state.registers[operands.src_a];
