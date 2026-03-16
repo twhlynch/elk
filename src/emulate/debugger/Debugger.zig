@@ -433,16 +433,11 @@ fn parseInstructionLine(
     index: usize,
 ) error{Reported}!Parser.Instruction {
     var reporter = debugger.copyReporter(line);
-
     var parser = Parser.new(debugger.traps, line, &reporter) orelse
         return error.Reported;
 
     var instruction = try parser.parseInstructionLine();
-
-    // FIXME: Breaks when reporting suggested label name
-    // (tries to view assembly.air span with command line source)
     try parser.resolveInstructionLabel(assembly.air, assembly.source, &instruction, index);
-
     return instruction;
 }
 
