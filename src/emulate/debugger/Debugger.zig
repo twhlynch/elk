@@ -348,7 +348,6 @@ fn runCommand(
             }).proceed();
         },
 
-        // TODO:
         .eval => |arguments| {
             const assembly = try debugger.getAssembly(command.tag);
             try debugger.evalCommand(runtime, assembly, arguments.instruction, source);
@@ -438,9 +437,7 @@ fn parseInstructionLine(
     var parser = Parser.new(debugger.traps, line, &reporter) orelse
         return error.Reported;
 
-    // FIXME: Handle `error.Eof` ??!!
-    var instruction = parser.parseInstructionLine() catch
-        return error.Reported;
+    var instruction = try parser.parseInstructionLine();
 
     // FIXME: Breaks when reporting suggested label name
     // (tries to view assembly.air span with command line source)

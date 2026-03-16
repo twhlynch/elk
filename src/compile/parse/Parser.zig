@@ -188,8 +188,12 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
     return .@"continue";
 }
 
-pub fn parseInstructionLine(parser: *Parser) error{ Reported, Eof }!Instruction {
-    const token = try parser.tokens.nextExcluding(&.{.newline});
+/// Asserts that at least one non-`newline` token exists before EOF.
+pub fn parseInstructionLine(parser: *Parser) error{Reported}!Instruction {
+    const token = parser.tokens.nextExcluding(&.{.newline}) catch |err| switch (err) {
+        error.Reported => return error.Reported,
+        error.Eof => unreachable,
+    };
 
     switch (token.value) {
         .instruction => |instruction| {
