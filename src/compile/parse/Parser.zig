@@ -187,8 +187,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
     return .@"continue";
 }
 
-// TODO: Add explicit error return
-pub fn parseInstructionLine(parser: *Parser) !Instruction {
+pub fn parseInstructionLine(parser: *Parser) error{ Reported, Eof }!Instruction {
     const token = try parser.tokens.nextExcluding(&.{.newline});
 
     switch (token.value) {
@@ -399,12 +398,11 @@ fn parseDirective(
     return .@"continue";
 }
 
-// TODO: Narrow returned error set ?
 fn parseInstruction(
     parser: *Parser,
     instruction: Token.Value.Instruction,
     span: Span,
-) InnerError!?Instruction {
+) error{ Reported, Eof }!?Instruction {
     switch (instruction) {
         inline // Automatic parsing for 'regular' instructions
         .add,
