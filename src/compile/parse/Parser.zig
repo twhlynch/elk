@@ -152,8 +152,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
         },
 
         .instruction => |instruction| {
-            const instr = try parser.parseInstruction(instruction, token.span) orelse
-                return error.Reported;
+            const instr = try parser.parseInstruction(instruction, token.span);
             const span: Span = .fromBounds(
                 token.span.offset,
                 parser.tokens.getIndex(),
@@ -192,8 +191,7 @@ pub fn parseInstructionLine(parser: *Parser) error{ Reported, Eof }!Instruction 
 
     switch (token.value) {
         .instruction => |instruction| {
-            const instr = try parser.parseInstruction(instruction, token.span) orelse
-                return error.Reported;
+            const instr = try parser.parseInstruction(instruction, token.span);
             try parser.tokens.expectEol();
             return instr;
         },
@@ -402,7 +400,7 @@ fn parseInstruction(
     parser: *Parser,
     instruction: Token.Value.Instruction,
     span: Span,
-) error{ Reported, Eof }!?Instruction {
+) error{ Reported, Eof }!Instruction {
     switch (instruction) {
         inline // Automatic parsing for 'regular' instructions
         .add,
