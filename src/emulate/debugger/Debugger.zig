@@ -353,15 +353,18 @@ fn runCommand(
 
         // TODO:
         .eval => |arguments| {
-            std.debug.print("[{s}]\n", .{arguments.instruction.view(source)});
-
             const assembly_source = arguments.instruction.view(source);
 
             // This is NOT a hack, I promise.
-            // TODO: use `source` as reporter/parser source, but advance past `eval` tag
-            // TODO: Suppress warnings ? ie. use low strictness and permissive policies
             var reporter = debugger.reporter.copyImplementation();
             reporter.source = assembly_source;
+
+            reporter.options.strictness = .normal;
+
+            var policies = reporter.options.policies.*;
+            policies.smell = .permit_all;
+            policies.style = .permit_all;
+            reporter.options.policies = &policies;
 
             var parser = Parser.new(debugger.traps, assembly_source, &reporter) orelse
                 return null;
@@ -369,16 +372,11 @@ fn runCommand(
             const instr = parser.parseInstructionLine() catch
                 return null;
 
-            std.debug.print("[{}]\n", .{instr});
-
             const word = instr.encode();
 
-            std.debug.print("0x{x:04}\n", .{word});
-
             const instr2 = Instruction.decode(word) catch
+                // Any encoded instruction must be valid to decode
                 unreachable;
-
-            std.debug.print("[{}]\n", .{instr2});
 
             if (try runtime.runInstruction(instr2, false) == .@"break") {
                 // TODO: Avoid unnecessary increment/decrement of PC
