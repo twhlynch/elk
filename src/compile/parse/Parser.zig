@@ -522,10 +522,9 @@ pub fn resolveLabels(parser: *Parser, air: *Air) void {
         const label = line.label orelse
             continue;
         if (label.references == 0) {
-            parser.reporter().report(
-                .unused_label,
-                .{ .label = label.span },
-            ).proceed();
+            parser.reporter().report(.unused_label, .{
+                .label = label.span,
+            }).proceed();
         }
     }
 }
