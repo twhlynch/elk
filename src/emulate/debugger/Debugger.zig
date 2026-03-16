@@ -353,7 +353,8 @@ fn runCommand(
 
         // TODO:
         .eval => |arguments| {
-            try debugger.evalCommand(runtime, arguments.instruction.view(source));
+            const assembly = try debugger.getAssembly(command.tag);
+            try debugger.evalCommand(runtime, assembly, arguments.instruction.view(source));
         },
 
         .echo => |arguments| {
@@ -395,7 +396,13 @@ fn runCommand(
     return null;
 }
 
-fn evalCommand(debugger: *Debugger, runtime: *Runtime, source: []const u8) !void {
+fn evalCommand(
+    debugger: *Debugger,
+    runtime: *Runtime,
+    assembly: Assembly,
+    source: []const u8,
+) !void {
+
     // This is NOT a hack, I promise.
     var reporter = debugger.reporter.copyImplementation();
     reporter.source = source;
@@ -412,10 +419,16 @@ fn evalCommand(debugger: *Debugger, runtime: *Runtime, source: []const u8) !void
     var parser = Parser.new(debugger.traps, source, &reporter) orelse
         return;
 
-    const asm_instr = parser.parseInstructionLine() catch
+    var asm_instr = parser.parseInstructionLine() catch
         return;
 
-    // FIXME: Resolve label !!!
+    parser.resolveInstructionLabel(
+        assembly.air,
+        assembly.source,
+        &asm_instr,
+        runtime.state.pc - assembly.air.origin,
+    ) catch
+        return;
 
     const runtime_instr = Instruction.decode(asm_instr.encode()) catch
         // Any encoded instruction must be valid to decode
