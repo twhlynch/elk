@@ -353,36 +353,7 @@ fn runCommand(
 
         // TODO:
         .eval => |arguments| {
-            const assembly_source = arguments.instruction.view(source);
-
-            // This is NOT a hack, I promise.
-            var reporter = debugger.reporter.copyImplementation();
-            reporter.source = assembly_source;
-
-            reporter.options.strictness = .normal;
-
-            var policies = reporter.options.policies.*;
-            policies.smell = .permit_all;
-            policies.style = .permit_all;
-            reporter.options.policies = &policies;
-
-            var parser = Parser.new(debugger.traps, assembly_source, &reporter) orelse
-                return null;
-
-            const instr = parser.parseInstructionLine() catch
-                return null;
-
-            const word = instr.encode();
-
-            const instr2 = Instruction.decode(word) catch
-                // Any encoded instruction must be valid to decode
-                unreachable;
-
-            if (try runtime.runInstruction(instr2, false) == .@"break") {
-                // TODO: Avoid unnecessary increment/decrement of PC
-                runtime.state.pc += 1;
-                try debugger.catchHalt(runtime);
-            }
+            try debugger.evalCommand(runtime, arguments.instruction.view(source));
         },
 
         .echo => |arguments| {
@@ -422,6 +393,40 @@ fn runCommand(
     }
 
     return null;
+}
+
+fn evalCommand(debugger: *Debugger, runtime: *Runtime, source: []const u8) !void {
+    // This is NOT a hack, I promise.
+    var reporter = debugger.reporter.copyImplementation();
+    reporter.source = source;
+
+    var policies: Reporter.Policies = .{
+        .extension = reporter.options.policies.extension,
+        .smell = .permit_all,
+        .style = .permit_all,
+    };
+
+    reporter.options.strictness = .normal;
+    reporter.options.policies = &policies;
+
+    var parser = Parser.new(debugger.traps, source, &reporter) orelse
+        return;
+
+    const asm_instr = parser.parseInstructionLine() catch
+        return;
+
+    // FIXME: Resolve label !!!
+
+    const runtime_instr = Instruction.decode(asm_instr.encode()) catch
+        // Any encoded instruction must be valid to decode
+        unreachable;
+
+    const control = try runtime.runInstruction(runtime_instr, false);
+    if (control == .@"break") {
+        // TODO: Avoid unnecessary increment/decrement of PC
+        runtime.state.pc += 1;
+        try debugger.catchHalt(runtime);
+    }
 }
 
 fn getAssemblyLine(
