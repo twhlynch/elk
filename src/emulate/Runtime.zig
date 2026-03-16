@@ -165,14 +165,18 @@ pub fn run(runtime: *Runtime) Error!void {
         if (runtime.hooks.pre_execute) |pre_execute|
             try pre_execute.call(.{ runtime, instr });
 
-        switch (try runtime.runInstruction(instr)) {
+        switch (try runtime.runInstruction(instr, true)) {
             .@"continue" => continue,
             .@"break" => break,
         }
     }
 }
 
-pub fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
+pub fn runInstruction(
+    runtime: *Runtime,
+    instr: Instruction,
+    comptime catch_halt: bool,
+) Error!Control {
     switch (instr) {
         inline .add, .@"and" => |operands, instr_subset| {
             const lhs = runtime.state.registers[operands.src_a];
@@ -252,9 +256,11 @@ pub fn runInstruction(runtime: *Runtime, instr: Instruction) Error!Control {
                 else => |err2| return err2,
 
                 error.Halt => {
-                    const debugger = runtime.debugger orelse
-                        return .@"break";
-                    try debugger.catchHalt(runtime);
+                    if (catch_halt) if (runtime.debugger) |debugger| {
+                        try debugger.catchHalt(runtime);
+                        return .@"continue";
+                    };
+                    return .@"break";
                 },
             };
         },

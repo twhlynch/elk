@@ -381,9 +381,11 @@ fn runCommand(
             std.debug.print("[{}]\n", .{instr2});
 
             // TODO: Handle control flow (break -> halt)
-            const control = try runtime.runInstruction(instr2);
+            const control = try runtime.runInstruction(instr2, false);
 
             std.debug.print("[{}]\n", .{control});
+
+            std.debug.print("0x{x:04}\n", .{runtime.state.pc});
         },
 
         .echo => |arguments| {
