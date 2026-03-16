@@ -354,7 +354,7 @@ fn runCommand(
         // TODO:
         .eval => |arguments| {
             const assembly = try debugger.getAssembly(command.tag);
-            try debugger.evalCommand(runtime, assembly, arguments.instruction.view(source));
+            try debugger.evalCommand(runtime, assembly, arguments.instruction, source);
         },
 
         .echo => |arguments| {
@@ -400,12 +400,14 @@ fn evalCommand(
     debugger: *Debugger,
     runtime: *Runtime,
     assembly: Assembly,
+    span: Span,
     source: []const u8,
 ) !void {
+    const line = span.view(source);
 
     // This is NOT a hack, I promise.
     var reporter = debugger.reporter.copyImplementation();
-    reporter.source = source;
+    reporter.source = line;
 
     var policies: Reporter.Policies = .{
         .extension = reporter.options.policies.extension,
@@ -416,7 +418,7 @@ fn evalCommand(
     reporter.options.strictness = .normal;
     reporter.options.policies = &policies;
 
-    var parser = Parser.new(debugger.traps, source, &reporter) orelse
+    var parser = Parser.new(debugger.traps, line, &reporter) orelse
         return;
 
     var asm_instr = parser.parseInstructionLine() catch
@@ -434,7 +436,19 @@ fn evalCommand(
         // Any encoded instruction must be valid to decode
         unreachable;
 
-    const control = try runtime.runInstruction(runtime_instr, false);
+    const control = runtime.runInstruction(runtime_instr, false) catch |err| switch (err) {
+        inline error.WriteFailed,
+        error.ReadFailed,
+        error.EndOfStream,
+        error.TermiosFailed,
+        => return err,
+
+        else => try debugger.reporter.report(.debugger_any_err, .{
+            .code = err,
+            .span = span,
+        }).abort(),
+    };
+
     if (control == .@"break") {
         // TODO: Avoid unnecessary increment/decrement of PC
         runtime.state.pc += 1;
