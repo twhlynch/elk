@@ -560,6 +560,7 @@ fn resolveFieldLabel(
             try parser.reporter().report(.undeclared_label, .{
                 .reference = operand.span,
                 .nearest = near_match,
+                .declaration_source = air_source,
             }).abort();
         };
 
@@ -570,6 +571,7 @@ fn resolveFieldLabel(
             .offset = calculateOffset(i17, definition, index) orelse
                 unreachable,
             .bits = @typeInfo(Int).int.bits,
+            .declaration_source = air_source,
         }).abort();
     };
 

@@ -87,7 +87,7 @@ pub const Diagnostic = union(enum) {
     shadowed_label: struct { existing: Span, new: Span },
     label_colon: struct { colon: Span },
     redeclared_label: struct { existing: Span, new: Span },
-    undeclared_label: struct { reference: Span, nearest: ?Span },
+    undeclared_label: struct { reference: Span, nearest: ?Span, declaration_source: []const u8 },
 
     // Integer syntax
     malformed_integer: struct { integer: Span },
@@ -100,7 +100,7 @@ pub const Diagnostic = union(enum) {
 
     // Integer bounds
     integer_too_large: struct { integer: Span, type_info: std.builtin.Type.Int },
-    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16 },
+    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, declaration_source: []const u8 },
     unexpected_negative_integer: struct { integer: Span },
 
     // Strings
@@ -329,7 +329,8 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Label is not declared", .{});
                 ctx.deepen().printSourceNote("Label used here", .{}, info.reference);
                 if (info.nearest) |close_match| {
-                    ctx.deepen().printSourceNote("This label declaration is similar", .{}, close_match);
+                    ctx.deepen().withSource(info.declaration_source)
+                        .printSourceNote("This label declaration is similar", .{}, close_match);
                     ctx.deepen().printNote("Label names are case-sensitive", .{});
                 }
             },
@@ -387,7 +388,8 @@ pub const Diagnostic = union(enum) {
             .offset_too_large => |info| {
                 ctx.printTitle("Calculated label offset is too large", .{});
                 ctx.deepen().printSourceNote("Label declared here", .{}, info.definition);
-                ctx.deepen().printSourceNote("Label used here", .{}, info.reference);
+                ctx.deepen().withSource(info.declaration_source)
+                    .printSourceNote("Label used here", .{}, info.reference);
                 ctx.deepen().printNote("Address offset of {} words cannot be represented in {} bits", .{ info.offset, info.bits });
             },
             .unexpected_negative_integer => |info| {

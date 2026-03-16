@@ -50,6 +50,12 @@ pub fn deepen(ctx: Ctx) Ctx {
     return new_ctx;
 }
 
+pub fn withSource(ctx: Ctx, source: []const u8) Ctx {
+    var new_ctx = ctx;
+    new_ctx.source = source;
+    return new_ctx;
+}
+
 fn incrementItemCount(ctx: *const Ctx) void {
     if (ctx.item_count) |count|
         count.* += 1;
