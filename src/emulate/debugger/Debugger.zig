@@ -443,12 +443,7 @@ fn evalCommand(
         error.TermiosFailed,
         => |err2| return err2,
 
-        error.Halt => {
-            // TODO: Avoid unnecessary increment/decrement of PC
-            runtime.state.pc += 1;
-            try debugger.catchHalt(runtime);
-        },
-
+        // TODO: Add details depending on error code
         else => try debugger.reporter.report(.debugger_any_err, .{
             .code = err,
             .span = span,
