@@ -495,25 +495,41 @@ pub fn resolveLabels(parser: *Parser, air: *Air) void {
             .raw_word => continue,
             .instruction => |*instruction| instruction,
         };
-        _ = switch (instruction.*) {
-            .br => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
-            .jsr => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
-            .ld => |*operands| parser.resolveFieldLabel(air, &operands.src, index),
-            .ldi => |*operands| parser.resolveFieldLabel(air, &operands.src, index),
-            .lea => |*operands| parser.resolveFieldLabel(air, &operands.src, index),
-            .st => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
-            .sti => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
-            .call => |*operands| parser.resolveFieldLabel(air, &operands.dest, index),
-            else => {},
-        } catch |err| switch (err) {
+        parser.resolveInstructionLabel(
+            air,
+            parser.source(),
+            instruction,
+            index,
+        ) catch |err| switch (err) {
             error.Reported => continue,
         };
     }
 }
 
+pub fn resolveInstructionLabel(
+    parser: *Parser,
+    air: *const Air,
+    air_source: []const u8,
+    instruction: *Instruction,
+    index: usize,
+) error{Reported}!void {
+    return switch (instruction.*) {
+        .br => |*operands| parser.resolveFieldLabel(air, air_source, &operands.dest, index),
+        .jsr => |*operands| parser.resolveFieldLabel(air, air_source, &operands.dest, index),
+        .ld => |*operands| parser.resolveFieldLabel(air, air_source, &operands.src, index),
+        .ldi => |*operands| parser.resolveFieldLabel(air, air_source, &operands.src, index),
+        .lea => |*operands| parser.resolveFieldLabel(air, air_source, &operands.src, index),
+        .st => |*operands| parser.resolveFieldLabel(air, air_source, &operands.dest, index),
+        .sti => |*operands| parser.resolveFieldLabel(air, air_source, &operands.dest, index),
+        .call => |*operands| parser.resolveFieldLabel(air, air_source, &operands.dest, index),
+        else => {},
+    };
+}
+
 fn resolveFieldLabel(
     parser: *Parser,
     air: *const Air,
+    air_source: []const u8,
     operand: anytype,
     index: usize,
 ) error{Reported}!void {
@@ -531,9 +547,9 @@ fn resolveFieldLabel(
     const string = operand.span.view(parser.source());
 
     const definition, const definition_span =
-        air.findLabelDefinition(string, .sensitive, parser.source()) orelse {
+        air.findLabelDefinition(string, .sensitive, air_source) orelse {
             _, const near_match =
-                air.findLabelDefinition(string, .insensitive, parser.source()) orelse
+                air.findLabelDefinition(string, .insensitive, air_source) orelse
                 .{ {}, null };
             try parser.reporter().report(.undeclared_label, .{
                 .reference = operand.span,
