@@ -302,50 +302,41 @@ fn runCommand(
                 try debugger.printLine("Continuing program execution...", .{});
         },
 
-        // TODO: Extract logic shared with `move` as method
-        .print => |arguments| switch (arguments.location.value) {
-            .register => |register| {
-                try debugger.printLine("Register R{}:", .{register});
-                try debugger.input.writer.print("\x1b[34m", .{});
-                try runtime.printInteger(runtime.state.registers[register]);
-                try debugger.input.writer.print("\x1b[0m", .{});
-            },
-            .memory => |memory| {
-                const address = try debugger.resolveMemoryLocation(
-                    runtime,
-                    memory,
-                    arguments.location.span,
-                    source,
-                );
-                try debugger.printLine("Memory at address 0x{x:04}:", .{address});
-                try debugger.input.writer.print("\x1b[34m", .{});
-                try runtime.printInteger(runtime.state.memory[address]);
-                try debugger.input.writer.print("\x1b[0m", .{});
-            },
+        .print => |arguments| {
+            switch (try debugger.resolveLocation(runtime, arguments.location, source)) {
+                .register => |register| {
+                    try debugger.printLine("Register R{}:", .{register});
+                    try debugger.input.writer.print("\x1b[34m", .{});
+                    try runtime.printInteger(runtime.state.registers[register]);
+                    try debugger.input.writer.print("\x1b[0m", .{});
+                },
+                .address => |address| {
+                    try debugger.printLine("Memory at address 0x{x:04}:", .{address});
+                    try debugger.input.writer.print("\x1b[34m", .{});
+                    try runtime.printInteger(runtime.state.memory[address]);
+                    try debugger.input.writer.print("\x1b[0m", .{});
+                },
+            }
         },
 
-        .move => |arguments| switch (arguments.location.value) {
-            .register => |register| {
-                runtime.state.registers[register] = arguments.value.value;
-                try debugger.printLine(
-                    "| Updated register R{} to 0x{x:04}.n",
-                    .{ register, arguments.value.value },
-                );
-            },
-            .memory => |memory| {
-                const address = try debugger.resolveMemoryLocation(
-                    runtime,
-                    memory,
-                    arguments.location.span,
-                    source,
-                );
-                try debugger.ensureUserAddress(address, arguments.location.span);
-                runtime.state.memory[address] = arguments.value.value;
-                try debugger.printLine(
-                    "| Updated memory at address 0x{x:04} to 0x{x:04}.\n",
-                    .{ address, arguments.value.value },
-                );
-            },
+        .move => |arguments| {
+            switch (try debugger.resolveLocation(runtime, arguments.location, source)) {
+                .register => |register| {
+                    runtime.state.registers[register] = arguments.value.value;
+                    try debugger.printLine(
+                        "| Updated register R{} to 0x{x:04}.n",
+                        .{ register, arguments.value.value },
+                    );
+                },
+                .address => |address| {
+                    try debugger.ensureUserAddress(address, arguments.location.span);
+                    runtime.state.memory[address] = arguments.value.value;
+                    try debugger.printLine(
+                        "| Updated memory at address 0x{x:04} to 0x{x:04}.\n",
+                        .{ address, arguments.value.value },
+                    );
+                },
+            }
         },
 
         .goto => |arguments| {
@@ -520,6 +511,23 @@ fn getAssemblyLine(
         }).abort();
     }
     return &assembly.air.lines.items[index];
+}
+
+fn resolveLocation(
+    debugger: *Debugger,
+    runtime: *Runtime,
+    location: Command.Spanned(Command.Location),
+    source: []const u8,
+) error{Reported}!union(enum) { register: u3, address: u16 } {
+    switch (location.value) {
+        .register => |register| {
+            return .{ .register = register };
+        },
+        .memory => |memory| {
+            const address = try debugger.resolveMemoryLocation(runtime, memory, location.span, source);
+            return .{ .address = address };
+        },
+    }
 }
 
 fn resolveMemoryLocation(
