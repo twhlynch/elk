@@ -20,6 +20,7 @@ status: Status,
 instruction_count: usize,
 should_echo_pc: bool,
 halt_address: ?u16,
+breakpoints: Breakpoints,
 
 current_line: []const u8,
 input: Input,
@@ -32,6 +33,23 @@ reporter: *Reporter,
 pub const Assembly = struct {
     air: *const Air,
     source: []const u8,
+};
+
+const Breakpoints = struct {
+    entries: std.ArrayList(u16),
+    gpa: Allocator,
+
+    pub fn init(gpa: Allocator) Breakpoints {
+        return .{ .entries = .empty, .gpa = gpa };
+    }
+
+    pub fn deinit(breakpoints: *Breakpoints) void {
+        breakpoints.entries.deinit(breakpoints.gpa);
+    }
+
+    pub fn insert(breakpoints: *Breakpoints, address: u16) error{OutOfMemory}!void {
+        try breakpoints.entries.append(breakpoints.gpa, address);
+    }
 };
 
 const Status = union(enum) {
@@ -63,6 +81,7 @@ pub fn init(
         .instruction_count = 0,
         .should_echo_pc = true,
         .halt_address = null,
+        .breakpoints = .init(gpa),
         .current_line = "",
         .input = .init(gpa, reader, writer, command_buffer),
         .initial_state = null,
@@ -73,6 +92,7 @@ pub fn init(
 }
 
 pub fn deinit(debugger: *Debugger, gpa: Allocator) void {
+    debugger.breakpoints.deinit();
     debugger.input.deinit();
     if (debugger.initial_state) |state|
         state.deinit(gpa);
