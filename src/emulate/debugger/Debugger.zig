@@ -417,8 +417,12 @@ fn runCommand(
                 try debugger.printLine("Finishing subroutine execution...", .{});
         },
 
-        // TODO:
-        // .break_list => {},
+        .break_list => {
+            std.debug.print("breakpoints:\n", .{});
+            for (debugger.breakpoints.entries.items) |address| {
+                std.debug.print("\t0x{x:04}\n", .{address});
+            }
+        },
 
         // TODO:
         // .break_add => {},
