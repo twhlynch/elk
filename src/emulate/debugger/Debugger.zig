@@ -110,7 +110,7 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     }
 
     if (debugger.isHalted(runtime)) {
-        try runtime.writer.print("| Currently halted at 0x{x:04}.\n", .{runtime.state.pc});
+        try debugger.printLine("| Currently halted at 0x{x:04}.\n", .{runtime.state.pc});
         debugger.status = .get_action;
         return .@"continue";
     }
@@ -120,13 +120,17 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     return null;
 }
 
+fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void {
+    try debugger.input.writer.print(fmt, args);
+}
+
 pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runtime.Control {
     if (debugger.status == .inactive)
         return .@"break";
 
     // PC was incremented after decoding instruction; reverse that
     runtime.state.pc -= 1;
-    try runtime.writer.print("| Program halted at 0x{x:04}.\n", .{runtime.state.pc});
+    try debugger.printLine("| Program halted at 0x{x:04}.\n", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
     return .@"continue";
@@ -148,7 +152,7 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
                 if (runtime.state.pc != info.return_address)
                     return .proceed;
                 if (debugger.instruction_count > 1)
-                    try runtime.writer.print("| Reached end of subroutine.\n", .{});
+                    try debugger.printLine("| Reached end of subroutine.\n", .{});
                 debugger.status = .get_action;
                 continue;
             },
@@ -163,7 +167,7 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
             .step_out => {
                 const instruction = getNextInstruction(runtime);
                 if (instruction == .ret_rets) {
-                    try runtime.writer.print("| Reached end of subroutine.\n", .{});
+                    try debugger.printLine("| Reached end of subroutine.\n", .{});
                     debugger.status = .get_action;
                 }
                 return .proceed;
@@ -194,12 +198,12 @@ fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
     assert(debugger.status == .get_action);
 
     if (debugger.instruction_count > 0)
-        try runtime.writer.print("| Executed {} instruction{s}.\n", .{
+        try debugger.printLine("| Executed {} instruction{s}.\n", .{
             debugger.instruction_count,
             if (debugger.instruction_count == 1) "" else "s",
         });
     if (debugger.should_echo_pc)
-        try runtime.writer.print("| Program counter is at 0x{x:04}.\n", .{
+        try debugger.printLine("| Program counter is at 0x{x:04}.\n", .{
             runtime.state.pc,
         });
 
@@ -259,7 +263,7 @@ fn runCommand(
                     return null;
             };
             runtime.state.copyFrom(state);
-            try runtime.writer.print("| Reset registers and memory to initial state.\n", .{});
+            try debugger.printLine("| Reset registers and memory to initial state.\n", .{});
             debugger.should_echo_pc = true;
         },
 
@@ -271,12 +275,12 @@ fn runCommand(
             debugger.status = .@"continue";
             debugger.should_echo_pc = true;
             if (!debugger.isHalted(runtime))
-                try runtime.writer.print("| Continuing program execution...\n", .{});
+                try debugger.printLine("| Continuing program execution...\n", .{});
         },
 
         .print => |arguments| switch (arguments.location.value) {
             .register => |register| {
-                try runtime.writer.print("| Register R{}:\n", .{register});
+                try debugger.printLine("| Register R{}:\n", .{register});
                 try runtime.printInteger(runtime.state.registers[register]);
             },
             .memory => |memory| {
@@ -287,7 +291,7 @@ fn runCommand(
                     source,
                 ) catch
                     return null;
-                try runtime.writer.print("| Memory at address 0x{x:04}:\n", .{address});
+                try debugger.printLine("| Memory at address 0x{x:04}:\n", .{address});
                 try runtime.printInteger(runtime.state.memory[address]);
             },
         },
@@ -295,7 +299,7 @@ fn runCommand(
         .move => |arguments| switch (arguments.location.value) {
             .register => |register| {
                 runtime.state.registers[register] = arguments.value.value;
-                try runtime.writer.print(
+                try debugger.printLine(
                     "| Updated register R{} to 0x{x:04}.n",
                     .{ register, arguments.value.value },
                 );
@@ -311,7 +315,7 @@ fn runCommand(
                 debugger.ensureUserAddress(address, arguments.location.span) catch
                     return null;
                 runtime.state.memory[address] = arguments.value.value;
-                try runtime.writer.print(
+                try debugger.printLine(
                     "| Updated memory at address 0x{x:04} to 0x{x:04}.\n",
                     .{ address, arguments.value.value },
                 );
@@ -329,7 +333,7 @@ fn runCommand(
             debugger.ensureUserAddress(address, arguments.location.span) catch
                 return null;
             runtime.state.pc = address;
-            try runtime.writer.print("| Set program counter to 0x{x:04}.\n", .{address});
+            try debugger.printLine("| Set program counter to 0x{x:04}.\n", .{address});
             // debugger.should_echo_pc = true;
         },
 
@@ -358,7 +362,7 @@ fn runCommand(
         },
 
         .echo => |arguments| {
-            try runtime.writer.print("[{s}]\n", .{arguments.string.view(source)});
+            try debugger.printLine("[{s}]\n", .{arguments.string.view(source)});
         },
 
         .step_over => {
@@ -380,7 +384,7 @@ fn runCommand(
             debugger.status = .step_out;
             debugger.should_echo_pc = true;
             if (!debugger.isHalted(runtime))
-                try runtime.writer.print("| Finishing subroutine execution...\n", .{});
+                try debugger.printLine("| Finishing subroutine execution...\n", .{});
         },
 
         // TODO:
