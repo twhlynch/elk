@@ -416,11 +416,36 @@ fn runCommand(
         .break_list => {
             if (debugger.breakpoints.entries.items.len == 0) {
                 try debugger.printLine("No breakpoints exist", .{});
-            } else {
-                try debugger.printLine("Breakpoints:", .{});
-                for (debugger.breakpoints.entries.items) |address| {
-                    try debugger.printLine("- 0x{x:04}", .{address});
+                return null;
+            }
+            try debugger.printLine("Breakpoints:", .{});
+            for (debugger.breakpoints.entries.items) |address| {
+                try debugger.printLine("- 0x{x:04}", .{address});
+
+                const assembly = debugger.assembly orelse
+                    continue;
+                if (address < assembly.air.origin)
+                    continue;
+                const index = address - assembly.air.origin;
+                if (index >= assembly.air.lines.items.len)
+                    continue;
+                const line = assembly.air.lines.items[index];
+
+                if (line.label) |label| {
+                    try debugger.printLine("  - {s}", .{label.span.view(assembly.source)});
                 }
+
+                const line_string = line.span
+                    .getContainingLines(assembly.source)
+                    .view(assembly.source);
+
+                var lines = std.mem.splitScalar(u8, line_string, '\n');
+                const line_string2 = lines.next() orelse line_string;
+                const line_string3 = std.mem.trim(u8, line_string2, &std.ascii.whitespace);
+
+                try debugger.printLine("  - {s}", .{
+                    line_string3,
+                });
             }
         },
 
