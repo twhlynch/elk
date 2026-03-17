@@ -121,7 +121,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 }
 
 fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void {
+    try debugger.input.writer.print("\x1b[34m", .{});
     try debugger.input.writer.print("| " ++ fmt ++ "\n", args);
+    try debugger.input.writer.print("\x1b[0m", .{});
 }
 
 pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runtime.Control {
@@ -248,7 +250,9 @@ fn runCommand(
         },
 
         .help => {
+            try debugger.input.writer.print("\x1b[34m", .{});
             try runtime.writer.writeAll(@embedFile("help.txt"));
+            try debugger.input.writer.print("\x1b[0m", .{});
         },
 
         .quit => return .disable_debugger,
@@ -268,7 +272,9 @@ fn runCommand(
         },
 
         .registers => {
+            try debugger.input.writer.print("\x1b[34m", .{});
             try runtime.printRegisters();
+            try debugger.input.writer.print("\x1b[0m", .{});
         },
 
         .@"continue" => {
@@ -281,7 +287,9 @@ fn runCommand(
         .print => |arguments| switch (arguments.location.value) {
             .register => |register| {
                 try debugger.printLine("Register R{}:", .{register});
+                try debugger.input.writer.print("\x1b[34m", .{});
                 try runtime.printInteger(runtime.state.registers[register]);
+                try debugger.input.writer.print("\x1b[0m", .{});
             },
             .memory => |memory| {
                 const address = debugger.resolveMemoryLocation(
@@ -292,7 +300,9 @@ fn runCommand(
                 ) catch
                     return null;
                 try debugger.printLine("Memory at address 0x{x:04}:", .{address});
+                try debugger.input.writer.print("\x1b[34m", .{});
                 try runtime.printInteger(runtime.state.memory[address]);
+                try debugger.input.writer.print("\x1b[0m", .{});
             },
         },
 
