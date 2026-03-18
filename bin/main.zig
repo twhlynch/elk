@@ -156,7 +156,7 @@ fn emulate(
     var writer = Io.File.stdout().writer(io, &write_buffer);
     var reader = Io.File.stdin().reader(io, &.{});
 
-    var debugger_opt: ?lcz.Runtime.Debugger = if (debug) .init(
+    var debugger_opt: ?lcz.Runtime.Debugger = if (debug) try .init(
         gpa,
         &reader.interface,
         &writer.interface,

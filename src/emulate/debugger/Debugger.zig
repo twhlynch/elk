@@ -100,20 +100,31 @@ pub fn init(
     reader: *Io.Reader,
     writer: *Io.Writer,
     command_buffer: []u8,
-    assembly: ?Assembly,
+    assembly_opt: ?Assembly,
     traps: *const Traps,
     reporter: *Reporter,
-) Debugger {
+) error{OutOfMemory}!Debugger {
+    var breakpoints: Breakpoints = .init(gpa);
+    if (assembly_opt) |assembly| {
+        for (assembly.air.lines.items, assembly.air.origin..) |line, address| {
+            const label = line.label orelse
+                continue;
+            if (label.kind != .breakpoint)
+                continue;
+            assert(try breakpoints.insert(@intCast(address)));
+        }
+    }
+
     return .{
         .status = .get_action,
         .instruction_count = 0,
         .should_echo_pc = true,
         .halt_address = null,
-        .breakpoints = .init(gpa),
+        .breakpoints = breakpoints,
         .current_line = "",
         .input = .init(gpa, reader, writer, command_buffer),
         .initial_state = null,
-        .assembly = assembly,
+        .assembly = assembly_opt,
         .traps = traps,
         .reporter = reporter,
     };
