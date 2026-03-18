@@ -340,7 +340,7 @@ const Parser = struct {
 
         const offset_span: Span = .{ // Include sign character
             .offset = argument.offset + label_string.len,
-            .len = offset_string.len + 1,
+            .len = offset_string.len,
         };
 
         const integer = try parser.parseInteger(offset_span);
