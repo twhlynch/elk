@@ -141,9 +141,9 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
     try runtime.ensureWriterNewline();
 
-    if (debugger.isHalted(runtime))
-        debugger.should_echo_pc = false
-    else
+    if (!debugger.canProceed(runtime))
+        debugger.should_echo_pc = false;
+    if (!debugger.isHalted(runtime))
         debugger.halt_address = null;
 
     switch (try debugger.nextAction(runtime)) {
@@ -157,8 +157,11 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
         },
     }
 
-    if (debugger.isHalted(runtime)) {
+    if (debugger.isHalted(runtime))
         try debugger.printLine("Currently halted at 0x{x:04}.", .{runtime.state.pc});
+    if (debugger.isAtBreakpoint(runtime))
+        try debugger.printLine("Currently on breakpoint at 0x{x:04}.", .{runtime.state.pc});
+    if (!debugger.canProceed(runtime)) {
         debugger.status = .get_action;
         return .@"continue";
     }
@@ -186,8 +189,20 @@ pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runt
     return .@"continue";
 }
 
+fn canProceed(debugger: *const Debugger, runtime: *const Runtime) bool {
+    return !debugger.isHalted(runtime) and !debugger.isAtBreakpoint(runtime);
+}
+
 fn isHalted(debugger: *const Debugger, runtime: *const Runtime) bool {
     return debugger.halt_address == runtime.state.pc;
+}
+
+fn isAtBreakpoint(debugger: *const Debugger, runtime: *const Runtime) bool {
+    for (debugger.breakpoints.entries.items) |address| {
+        if (address == runtime.state.pc)
+            return true;
+    }
+    return false;
 }
 
 fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
@@ -319,7 +334,7 @@ fn runCommand(
         .@"continue" => {
             debugger.status = .@"continue";
             debugger.should_echo_pc = true;
-            if (!debugger.isHalted(runtime))
+            if (debugger.canProceed(runtime))
                 try debugger.printLine("Continuing program execution...", .{});
         },
 
@@ -418,7 +433,7 @@ fn runCommand(
         .step_out => {
             debugger.status = .step_out;
             debugger.should_echo_pc = true;
-            if (!debugger.isHalted(runtime))
+            if (debugger.canProceed(runtime))
                 try debugger.printLine("Finishing subroutine execution...", .{});
         },
 
