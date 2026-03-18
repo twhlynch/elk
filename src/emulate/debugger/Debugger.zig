@@ -460,7 +460,7 @@ fn runCommand(
             );
             const removed = debugger.breakpoints.remove(address);
             if (removed)
-                try debugger.printLine("Removed Breakpoint at 0x{x:04}", .{address})
+                try debugger.printLine("Removed breakpoint at 0x{x:04}", .{address})
             else
                 try debugger.printLine("No breakpoint exists at 0x{x:04}", .{address});
         },
