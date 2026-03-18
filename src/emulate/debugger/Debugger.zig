@@ -21,6 +21,7 @@ status: Status,
 instruction_count: usize,
 should_echo_pc: bool,
 halt_address: ?u16,
+current_breakpoint: ?u16,
 breakpoints: Breakpoints,
 
 current_line: []const u8,
@@ -76,6 +77,7 @@ pub fn init(
         .instruction_count = 0,
         .should_echo_pc = true,
         .halt_address = null,
+        .current_breakpoint = null,
         .breakpoints = breakpoints,
         .current_line = "",
         .input = .init(gpa, reader, writer, command_buffer),
@@ -124,13 +126,19 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
         },
     }
 
-    if (debugger.isHalted(runtime))
+    if (debugger.isHalted(runtime)) {
         try debugger.printLine("Currently halted at 0x{x:04}.", .{runtime.state.pc});
-    if (debugger.isAtBreakpoint(runtime))
-        try debugger.printLine("Currently on breakpoint at 0x{x:04}.", .{runtime.state.pc});
-    if (!debugger.canProceed(runtime)) {
         debugger.status = .get_action;
         return .@"continue";
+    }
+
+    if (debugger.isAtBreakpoint(runtime)) {
+        try debugger.printLine("Currently on breakpoint at 0x{x:04}.", .{runtime.state.pc});
+        debugger.current_breakpoint = runtime.state.pc;
+        debugger.status = .get_action;
+        return .@"continue";
+    } else {
+        debugger.current_breakpoint = null;
     }
 
     debugger.instruction_count += 1;
@@ -166,7 +174,8 @@ fn isHalted(debugger: *const Debugger, runtime: *const Runtime) bool {
 
 fn isAtBreakpoint(debugger: *const Debugger, runtime: *const Runtime) bool {
     for (debugger.breakpoints.entries.items) |entry| {
-        if (entry.address == runtime.state.pc)
+        if (entry.address == runtime.state.pc and
+            entry.address != debugger.current_breakpoint)
             return true;
     }
     return false;
