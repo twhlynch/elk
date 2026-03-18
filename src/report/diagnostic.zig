@@ -101,6 +101,7 @@ pub const Diagnostic = union(enum) {
 
     // Integer bounds
     integer_too_large: struct { integer: Span, type_info: std.builtin.Type.Int },
+    // TODO: Rename "declaration" or "definition" to make consistent, and elsewhere
     offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, declaration_source: []const u8 },
     unexpected_negative_integer: struct { integer: Span },
 
@@ -128,6 +129,15 @@ pub const Diagnostic = union(enum) {
         code: anyerror,
         span: ?Span,
     },
+
+    debugger_show_assembly: struct { line: Span, address: u16 },
+    // TODO: Distinguish command vs label
+    debugger_requires_assembly: struct { command: Span },
+    debugger_requires_state: struct { command: Span },
+    debugger_address_not_in_assembly: struct { address: Span, value: u16, max: u16 },
+    debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
+    debugger_label_partial_match: struct { reference: Span, nearest: Span, declaration_source: []const u8 },
+    debugger_no_space: struct {},
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
@@ -186,6 +196,14 @@ pub const Diagnostic = union(enum) {
             .debugger_any_err => .fatal,
             .debugger_any_warn => .minor,
             .debugger_any_info => .info,
+
+            .debugger_show_assembly => .info,
+            .debugger_requires_assembly => .fatal,
+            .debugger_requires_state => .fatal,
+            .debugger_address_not_in_assembly => .fatal,
+            .debugger_address_not_user_memory => .fatal,
+            .debugger_label_partial_match => .minor,
+            .debugger_no_space => .fatal,
         };
     }
 
@@ -453,6 +471,41 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Debugger info: {t}", .{info.code});
                 if (info.span) |span|
                     ctx.deepen().printSourceNote("Here", .{}, span);
+            },
+
+            .debugger_show_assembly => |info| {
+                ctx.printTitle("Inspect assembly source", .{});
+                ctx.deepen().printSourceNote("Address 0x{x:04}", .{info.address}, info.line);
+            },
+            .debugger_requires_assembly => |info| {
+                ctx.printTitle("Command requires access to assembly", .{});
+                ctx.deepen().printSourceNote("Command", .{}, info.command);
+                ctx.deepen().printNote("Debugger does not have access to original assembly", .{});
+            },
+            .debugger_requires_state => |info| {
+                ctx.printTitle("Command requires initial state to be set", .{});
+                ctx.deepen().printSourceNote("Command", .{}, info.command);
+                ctx.deepen().printNote("Debugger does not have access to initial emulator state", .{});
+            },
+            .debugger_address_not_in_assembly => |info| {
+                ctx.printTitle("Address 0x{x:04} is not contained in assembly source", .{info.value});
+                ctx.deepen().printSourceNote("Address", .{}, info.address);
+                ctx.deepen().printNote("Largest address in assembly is 0x{x:04}", .{info.max});
+            },
+            .debugger_address_not_user_memory => |info| {
+                ctx.printTitle("Address 0x{x:04} is not in user memory", .{info.value});
+                ctx.deepen().printSourceNote("Address", .{}, info.address);
+                ctx.deepen().printNote("Largest address in user memory is 0x{x:04}", .{info.max});
+            },
+            .debugger_label_partial_match => |info| {
+                ctx.printTitle("Label reference does not use correct case", .{});
+                ctx.deepen().printSourceNote("Label", .{}, info.reference);
+                ctx.deepen().withSource(info.declaration_source)
+                    .printSourceNote("This label declaration is similar", .{}, info.nearest);
+                ctx.deepen().printNote("Label names are case-sensitive", .{});
+            },
+            .debugger_no_space => {
+                ctx.deepen().printTitle("No space left", .{});
             },
         }
 
