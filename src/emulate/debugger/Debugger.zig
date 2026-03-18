@@ -66,16 +66,17 @@ const Breakpoints = struct {
     }
 
     pub fn remove(breakpoints: *Breakpoints, address: u16) bool {
-        // PERF: Make better
-        const length = breakpoints.entries.items.len;
-        var i: usize = 0;
-        while (i < breakpoints.entries.items.len) {
-            if (breakpoints.entries.items[i] != address)
+        var new_length: usize = 0;
+        for (0..breakpoints.entries.items.len) |j| {
+            if (breakpoints.entries.items[j] == address)
                 continue;
-            _ = breakpoints.entries.orderedRemove(i);
-            i += 1;
+            breakpoints.entries.items[new_length] = breakpoints.entries.items[j];
+            new_length += 1;
         }
-        return length > breakpoints.entries.items.len;
+
+        const removed = new_length < breakpoints.entries.items.len;
+        breakpoints.entries.shrinkRetainingCapacity(new_length);
+        return removed;
     }
 };
 
