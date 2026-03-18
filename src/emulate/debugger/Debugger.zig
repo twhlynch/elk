@@ -41,6 +41,7 @@ const Breakpoints = struct {
 
     const Entry = struct {
         address: u16,
+        is_label: bool,
     };
 
     pub fn init(gpa: Allocator) Breakpoints {
@@ -51,7 +52,7 @@ const Breakpoints = struct {
         breakpoints.entries.deinit(breakpoints.gpa);
     }
 
-    pub fn insert(breakpoints: *Breakpoints, address: u16) error{OutOfMemory}!bool {
+    pub fn insert(breakpoints: *Breakpoints, address: u16, is_label: bool) error{OutOfMemory}!bool {
         for (breakpoints.entries.items) |entry| {
             if (entry.address == address)
                 return false;
@@ -68,7 +69,7 @@ const Breakpoints = struct {
         try breakpoints.entries.insert(
             breakpoints.gpa,
             index,
-            .{ .address = address },
+            .{ .address = address, .is_label = is_label },
         );
         return true;
     }
@@ -119,7 +120,7 @@ pub fn init(
                 continue;
             if (label.kind != .breakpoint)
                 continue;
-            assert(try breakpoints.insert(@intCast(address)));
+            assert(try breakpoints.insert(@intCast(address), true));
         }
     }
 
@@ -473,7 +474,7 @@ fn runCommand(
                 source,
             );
             try debugger.ensureUserAddress(address, arguments.location.span);
-            const inserted = debugger.breakpoints.insert(address) catch {
+            const inserted = debugger.breakpoints.insert(address, false) catch {
                 try debugger.reporter.report(.debugger_any_err, .{
                     .code = error.OutOfMemory,
                     .span = command.tag,
@@ -505,17 +506,17 @@ fn runCommand(
 
 const max_label_len = 16;
 const max_source_len = 34;
-const empty_marker = "---";
+const empty_marker = "";
 
 fn printBreakpointTable(debugger: *Debugger) !void {
     try debugger.input.writer.print("\x1b[34m", .{});
 
-    const delimiter = "+---------+-" ++
+    const delimiter = "+---------+------------+-" ++
         ("-" ** max_label_len) ++ "-+-" ++
         ("-" ** max_source_len) ++ "-+\n";
 
     try debugger.input.writer.print(delimiter, .{});
-    try debugger.input.writer.print("| Address | {s:^[2]} | {s:^[3]} |\n", .{
+    try debugger.input.writer.print("| Address | Predefined | {s:^[2]} | {s:^[3]} |\n", .{
         "Label",       "Source",
         max_label_len, max_source_len,
     });
@@ -524,6 +525,11 @@ fn printBreakpointTable(debugger: *Debugger) !void {
     for (debugger.breakpoints.entries.items) |entry| {
         try debugger.input.writer.print("|  ", .{});
         try debugger.input.writer.print("0x{x:04}", .{entry.address});
+
+        try debugger.input.writer.print(" | ", .{});
+        try debugger.input.writer.print("{s:^10}", .{
+            if (entry.is_label) "Yes" else empty_marker,
+        });
 
         if (!try printBreakpointSource(debugger, entry.address)) {
             try debugger.input.writer.print(" | ", .{});
