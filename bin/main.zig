@@ -152,7 +152,7 @@ fn emulate(
     reporter: *lcz.Reporter,
 ) !void {
     var write_buffer: [64]u8 = undefined;
-    var debugger_buffer: [64]u8 = undefined;
+    var debugger_buffer: [256]u8 = undefined;
     var writer = Io.File.stdout().writer(io, &write_buffer);
     var reader = Io.File.stdin().reader(io, &.{});
 
