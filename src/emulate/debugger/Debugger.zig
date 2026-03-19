@@ -156,13 +156,16 @@ fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void
 pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runtime.Control {
     if (debugger.status == .inactive)
         return .@"break";
-
     // PC was incremented after decoding instruction; reverse that
     runtime.state.pc -= 1;
+    try debugger.registerHalt(runtime);
+    return .@"continue";
+}
+
+fn registerHalt(debugger: *Debugger, runtime: *const Runtime) error{WriteFailed}!void {
     try debugger.printLine("Program halted at 0x{x:04}.", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
-    return .@"continue";
 }
 
 fn canProceed(debugger: *const Debugger, runtime: *const Runtime) bool {
@@ -563,7 +566,7 @@ fn evalCommand(
         => |err2| return err2,
 
         error.Halt => {
-            try debugger.printLine("unimplemented...", .{});
+            try debugger.registerHalt(runtime);
         },
 
         else => |err2| try debugger.reporter.report(.emulate_program_error, .{
