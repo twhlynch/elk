@@ -172,9 +172,9 @@ const Parser = struct {
         }
 
         const value = integer.castToUnsigned() orelse {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.IntegerToolarge,
-                .span = argument,
+            try parser.reporter.report(.integer_too_large, .{
+                .integer = argument,
+                .type_info = @typeInfo(u16).int,
             }).abort();
         };
 
@@ -195,9 +195,8 @@ const Parser = struct {
         if (try parser.parseMemoryLocation(argument)) |memory|
             return .{ .span = argument, .value = .{ .memory = memory } };
 
-        try parser.reporter.report(.debugger_any_err, .{
-            .code = error.InvalidArgumentKind,
-            .span = argument,
+        try parser.reporter.report(.debugger_invalid_argument_kind, .{
+            .found = argument,
         }).abort();
     }
 
@@ -211,12 +210,13 @@ const Parser = struct {
             },
         };
 
+        // TODO: Report, if is register
+
         if (try parser.parseMemoryLocation(argument)) |memory|
             return .{ .span = argument, .value = memory };
 
-        try parser.reporter.report(.debugger_any_err, .{
-            .code = error.InvalidArgumentKind,
-            .span = argument,
+        try parser.reporter.report(.debugger_invalid_argument_kind, .{
+            .found = argument,
         }).abort();
     }
 
@@ -228,20 +228,20 @@ const Parser = struct {
             }).abort(),
         };
 
+        // TODO: Report, if is register
+
         if (try parser.parseMemoryLocation(argument)) |memory|
             return .{ .span = argument, .value = memory };
 
-        try parser.reporter.report(.debugger_any_err, .{
-            .code = error.InvalidArgumentKind,
-            .span = argument,
+        try parser.reporter.report(.debugger_invalid_argument_kind, .{
+            .found = argument,
         }).abort();
     }
 
     fn parseInteger(parser: *Parser, argument: Span) error{Reported}!integers.SourceInt(16) {
         return try parser.tryParseInteger(argument) orelse {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.InvalidArgumentKind,
-                .span = argument,
+            try parser.reporter.report(.debugger_invalid_argument_kind, .{
+                .found = argument,
             }).abort();
         };
     }
@@ -280,16 +280,15 @@ const Parser = struct {
             return 0;
 
         const integer = try parser.tryParseInteger(integer_span) orelse {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.ExpectedInteger,
-                .span = integer_span,
+            try parser.reporter.report(.debugger_invalid_argument_kind, .{
+                .found = integer_span,
             }).abort();
         };
 
         return integer.castToSmaller(i16) catch {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.IntegerToolarge,
-                .span = argument,
+            try parser.reporter.report(.integer_too_large, .{
+                .integer = argument,
+                .type_info = @typeInfo(i16).int,
             }).abort();
         };
     }
@@ -299,9 +298,9 @@ const Parser = struct {
             return null;
 
         return integer.castToUnsigned() orelse {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.IntegerToolarge,
-                .span = argument,
+            try parser.reporter.report(.integer_too_large, .{
+                .integer = argument,
+                .type_info = @typeInfo(u16).int,
             }).abort();
         };
     }
@@ -329,9 +328,8 @@ const Parser = struct {
         };
 
         if (!is_label) {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.InvalidArgumentKind,
-                .span = argument,
+            try parser.reporter.report(.debugger_invalid_argument_kind, .{
+                .found = argument,
             }).abort();
         }
 
@@ -348,9 +346,9 @@ const Parser = struct {
         assert(integer.form.sign.?.position == .pre_radix);
 
         const offset = integer.castToSmaller(i16) catch {
-            try parser.reporter.report(.debugger_any_err, .{
-                .code = error.IntegerToolarge,
-                .span = argument,
+            try parser.reporter.report(.integer_too_large, .{
+                .integer = argument,
+                .type_info = @typeInfo(i16).int,
             }).abort();
         };
 

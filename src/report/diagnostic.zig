@@ -67,6 +67,7 @@ pub const Diagnostic = union(enum) {
 
     // Misc tokens, statements
     invalid_token: struct { token: Span, guess: ?TokenKinds.Kind },
+    // TODO: Replace `[]const TokenKinds.Kind` with `TokenKinds`, and elsewhere
     unexpected_token_kind: struct { found: Token, expected: []const TokenKinds.Kind },
     unexpected_eol: struct { eol: Span, expected: []const TokenKinds.Kind },
     expected_eol: struct { found: Token },
@@ -138,6 +139,8 @@ pub const Diagnostic = union(enum) {
     debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
     debugger_label_partial_match: struct { reference: Span, nearest: Span, declaration_source: []const u8 },
     debugger_no_space: struct {},
+    // TODO: Add `expected` field (different type than `TokenKinds`)
+    debugger_invalid_argument_kind: struct { found: Span },
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
@@ -202,8 +205,9 @@ pub const Diagnostic = union(enum) {
             .debugger_requires_state => .fatal,
             .debugger_address_not_in_assembly => .fatal,
             .debugger_address_not_user_memory => .fatal,
-            .debugger_label_partial_match => .minor,
+            .debugger_label_partial_match => .major,
             .debugger_no_space => .fatal,
+            .debugger_invalid_argument_kind => .fatal,
         };
     }
 
@@ -506,6 +510,10 @@ pub const Diagnostic = union(enum) {
             },
             .debugger_no_space => {
                 ctx.deepen().printTitle("No space left", .{});
+            },
+            .debugger_invalid_argument_kind => |info| {
+                ctx.printTitle("Invalid argument kind", .{});
+                ctx.deepen().printSourceNote("Argument", .{}, info.found);
             },
         }
 
