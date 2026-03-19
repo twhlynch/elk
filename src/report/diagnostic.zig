@@ -4,6 +4,7 @@ const Policies = @import("../Policies.zig");
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Radix = @import("../compile/parse/integers.zig").Form.Radix;
+const Runtime = @import("../emulate/Runtime.zig");
 const Command = @import("../emulate/debugger/Debugger.zig").Command;
 const Reporter = @import("Reporter.zig");
 const Ctx = @import("Ctx.zig");
@@ -120,6 +121,9 @@ pub const Diagnostic = union(enum) {
     explicit_trap_vect: struct { vect: Span, value: u8, alias: []const u8 },
     undeclared_trap_vect: struct { vect: Span, value: u8 },
 
+    // Emulator
+    emulate_program_error: struct { code: Runtime.ProgramError },
+
     // Emulator debugger
     debugger_any_err: struct {
         code: anyerror,
@@ -206,6 +210,8 @@ pub const Diagnostic = union(enum) {
                 .integer => policyResponse(options, .style, .unconventional_case_integers),
             },
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
+
+            .emulate_program_error => .fatal,
 
             .debugger_any_err => .fatal,
             .debugger_any_warn => .minor,
@@ -475,6 +481,11 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Use of unknown trap vector 0x{x:02}", .{info.value});
                 ctx.deepen().printSourceNote("Trap vector", .{}, info.vect);
                 ctx.deepen().printNote("Traps vector 0x{x:02} is not recognized", .{info.value});
+            },
+
+            .emulate_program_error => |info| {
+                ctx.printTitle("Runtime exception: {t}", .{info.code});
+                // TODO: Add additional information
             },
 
             .debugger_any_err => |info| {

@@ -562,10 +562,12 @@ fn evalCommand(
         error.TermiosFailed,
         => |err2| return err2,
 
-        // TODO: Add details depending on error code
-        else => try debugger.reporter.report(.debugger_any_err, .{
-            .code = err,
-            .span = span,
+        error.Halt => {
+            try debugger.printLine("unimplemented...", .{});
+        },
+
+        else => |err2| try debugger.reporter.report(.emulate_program_error, .{
+            .code = err2,
         }).abort(),
     };
 }
