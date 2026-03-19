@@ -157,16 +157,30 @@ fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void
     try debugger.input.writer.print("\x1b[0m", .{});
 }
 
-pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runtime.Control {
-    if (debugger.status == .inactive)
-        return .@"break";
+pub fn catchEvent(
+    debugger: *Debugger,
+    event: (Runtime.Exception || error{Halt}),
+    runtime: *Runtime,
+) error{WriteFailed}!void {
+    assert(debugger.status != .inactive);
+
     // PC was incremented after decoding instruction; reverse that
     runtime.state.pc -= 1;
-    try debugger.registerHalt(runtime);
-    return .@"continue";
+
+    switch (event) {
+        error.Halt => {},
+        else => |exception| {
+            debugger.reporter.report(.emulate_exception, .{
+                .code = exception,
+            }).abort() catch
+                {};
+        },
+    }
+
+    try debugger.triggerHalt(runtime);
 }
 
-fn registerHalt(debugger: *Debugger, runtime: *const Runtime) error{WriteFailed}!void {
+fn triggerHalt(debugger: *Debugger, runtime: *const Runtime) error{WriteFailed}!void {
     try debugger.printLine("Program halted at 0x{x:04}.", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
@@ -570,7 +584,7 @@ fn evalCommand(
         => |err2| return err2,
 
         error.Halt => {
-            try debugger.registerHalt(runtime);
+            try debugger.triggerHalt(runtime);
         },
 
         else => |err2| try debugger.reporter.report(.emulate_exception, .{

@@ -152,42 +152,44 @@ pub fn run(runtime: *Runtime) Error!void {
             };
         }
 
-        switch (runtime.state.pc) {
-            USER_MEMORY_START...USER_MEMORY_END => {},
-            else => return error.PcOutOfBounds,
-        }
+        runtime.runNextInstruction() catch |err| switch (err) {
+            error.WriteFailed,
+            error.ReadFailed,
+            error.EndOfStream,
+            error.TermiosFailed,
+            => |err2| return err2,
 
-        const word = runtime.state.memory[runtime.state.pc];
-        runtime.state.pc += 1;
-
-        if (runtime.hooks.pre_decode) |pre_decode|
-            try pre_decode.call(.{ runtime, word });
-
-        const instr: Instruction = try .decode(word);
-
-        if (runtime.hooks.pre_execute) |pre_execute|
-            try pre_execute.call(.{ runtime, instr });
-
-        runtime.runInstruction(instr) catch |err| switch (err) {
-            // TODO: Debugger shall catch this !
-            else => |err2| return err2,
-
-            error.Halt => {
-                const debugger = runtime.debugger orelse
-                    break;
-                switch (try debugger.catchHalt(runtime)) {
-                    .@"continue" => continue,
-                    .@"break" => break,
+            else => |exception| {
+                if (runtime.debugger) |debugger| {
+                    if (debugger.status != .inactive)
+                        try debugger.catchEvent(exception, runtime);
                 }
             },
         };
     }
 }
 
-pub fn runInstruction(
-    runtime: *Runtime,
-    instr: Instruction,
-) (Error || error{Halt})!void {
+fn runNextInstruction(runtime: *Runtime) (Error || error{Halt})!void {
+    switch (runtime.state.pc) {
+        USER_MEMORY_START...USER_MEMORY_END => {},
+        else => return error.PcOutOfBounds,
+    }
+
+    const word = runtime.state.memory[runtime.state.pc];
+    runtime.state.pc += 1;
+
+    if (runtime.hooks.pre_decode) |pre_decode|
+        try pre_decode.call(.{ runtime, word });
+
+    const instr: Instruction = try .decode(word);
+
+    if (runtime.hooks.pre_execute) |pre_execute|
+        try pre_execute.call(.{ runtime, instr });
+
+    try runtime.runInstruction(instr);
+}
+
+pub fn runInstruction(runtime: *Runtime, instr: Instruction) (Error || error{Halt})!void {
     switch (instr) {
         inline .add, .@"and" => |operands, instr_subset| {
             const lhs = runtime.state.registers[operands.src_a];
