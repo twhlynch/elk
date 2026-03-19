@@ -637,7 +637,6 @@ fn getAssemblyLine(
     const index = address - assembly.air.origin;
     if (index >= assembly.air.lines.items.len) {
         try debugger.reporter.report(.debugger_address_not_in_assembly, .{
-            .address = span,
             .value = address,
             .max = @intCast(assembly.air.origin + assembly.air.lines.items.len - 1),
         }).abort();

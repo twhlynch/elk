@@ -130,7 +130,7 @@ pub const Diagnostic = union(enum) {
     // TODO: Distinguish command vs label
     debugger_requires_assembly: struct { command: Span },
     debugger_requires_state: struct { command: Span },
-    debugger_address_not_in_assembly: struct { address: Span, value: u16, max: u16 },
+    debugger_address_not_in_assembly: struct { value: u16, max: u16 },
     debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
     debugger_label_partial_match: struct { reference: Span, nearest: Span, declaration_source: []const u8 },
     debugger_no_space: struct {},
@@ -486,7 +486,6 @@ pub const Diagnostic = union(enum) {
             },
             .debugger_address_not_in_assembly => |info| {
                 ctx.printTitle("Address 0x{x:04} is not contained in assembly source", .{info.value});
-                ctx.deepen().printSourceNote("Address", .{}, info.address);
                 ctx.deepen().printNote("Largest address in assembly is 0x{x:04}", .{info.max});
             },
             .debugger_address_not_user_memory => |info| {
