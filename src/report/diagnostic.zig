@@ -62,6 +62,8 @@ fn policyResponse(
 }
 
 pub const Diagnostic = union(enum) {
+    // TODO: Prefix all fields with `compile_`, `debugger_`, etc ?????
+
     // Assembly file
     invalid_source_byte: struct { byte: usize },
     output_too_long: struct { statement: Span },
@@ -132,6 +134,8 @@ pub const Diagnostic = union(enum) {
         span: ?Span,
     },
 
+    // TODO: Reorder
+
     debugger_show_assembly: struct { line: Span, address: u16 },
     // TODO: Distinguish command vs label
     debugger_requires_assembly: struct { command: Span },
@@ -140,9 +144,14 @@ pub const Diagnostic = union(enum) {
     debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
     debugger_label_partial_match: struct { reference: Span, nearest: Span, declaration_source: []const u8 },
     debugger_no_space: struct {},
-    // TODO: Add `expected` field (different type than `TokenKinds`)
+    // TODO: Add `expected` field (different type than `TokenKinds`), AND ELSEWHERE
     debugger_invalid_argument_kind: struct { found: Span },
     debugger_invalid_command: struct { command: Span, nearest: ?Command.Tag },
+    debugger_missing_subcommand: struct { first: Span, eol: Span },
+    // TODO: Rename ? not eol but end of command
+    debugger_unexpected_eol: struct { eol: Span },
+    debugger_expected_eol: struct { found: Span },
+    debugger_integer_too_small: struct { integer: Span, minimum: u16 },
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
@@ -211,6 +220,10 @@ pub const Diagnostic = union(enum) {
             .debugger_no_space => .fatal,
             .debugger_invalid_argument_kind => .fatal,
             .debugger_invalid_command => .fatal,
+            .debugger_missing_subcommand => .fatal,
+            .debugger_unexpected_eol => .fatal,
+            .debugger_expected_eol => .fatal,
+            .debugger_integer_too_small => .fatal,
         };
     }
 
@@ -523,6 +536,24 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("Command", .{}, info.command);
                 if (info.nearest) |nearest|
                     ctx.deepen().printNote("Did you mean `{s}`?", .{Command.tagString(nearest)});
+            },
+            .debugger_missing_subcommand => |info| {
+                ctx.printTitle("Missing subcommand for `{s}`", .{info.first.view(source)});
+                ctx.deepen().printSourceNote("Command requires subcommand", .{}, info.eol);
+            },
+            .debugger_unexpected_eol => |info| {
+                ctx.printTitle("Missing argument", .{});
+                ctx.deepen().printSourceNote("Command ends too early", .{}, info.eol);
+            },
+            .debugger_expected_eol => |info| {
+                ctx.printTitle("Unexpected argument", .{});
+                ctx.deepen().printSourceNote("Argument", .{}, info.found);
+                ctx.deepen().printNote("Expected end of command", .{});
+            },
+            .debugger_integer_too_small => |info| {
+                ctx.printTitle("Integer argument is too small", .{});
+                ctx.deepen().printSourceNote("Argument", .{}, info.integer);
+                ctx.deepen().printNote("Minimum value is {}", .{info.minimum});
             },
         }
 
