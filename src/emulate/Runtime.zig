@@ -141,6 +141,9 @@ pub fn readFromFile(runtime: *Runtime, io: Io, file: Io.File, buffer: []u8) !voi
 pub const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
+    if (runtime.debugger) |debugger|
+        try debugger.start();
+
     while (true) {
         if (runtime.debugger) |debugger| {
             if (try debugger.invoke(runtime)) |control| switch (control) {

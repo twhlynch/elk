@@ -104,6 +104,10 @@ pub fn initState(
     debugger.initial_state.?.copyFrom(runtime.state);
 }
 
+pub fn start(debugger: *Debugger) !void {
+    try debugger.printLine("* Welcome to LCZ Debugger *", .{});
+}
+
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
     if (debugger.status == .inactive)
         return null;
