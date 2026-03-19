@@ -14,8 +14,9 @@ const Runtime = @import("../Runtime.zig");
 const Instruction = @import("../decode.zig").Instruction;
 const Breakpoints = @import("Breakpoints.zig");
 const Input = @import("Input.zig");
-const Command = @import("Command.zig");
 const parse = @import("parse.zig");
+
+pub const Command = @import("Command.zig");
 
 status: Status,
 instruction_count: usize,

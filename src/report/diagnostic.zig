@@ -4,6 +4,7 @@ const Policies = @import("../Policies.zig");
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Radix = @import("../compile/parse/integers.zig").Form.Radix;
+const Command = @import("../emulate/debugger/Debugger.zig").Command;
 const Reporter = @import("Reporter.zig");
 const Ctx = @import("Ctx.zig");
 
@@ -141,6 +142,7 @@ pub const Diagnostic = union(enum) {
     debugger_no_space: struct {},
     // TODO: Add `expected` field (different type than `TokenKinds`)
     debugger_invalid_argument_kind: struct { found: Span },
+    debugger_invalid_command: struct { command: Span, nearest: ?Command.Tag },
 
     pub fn getResponse(diag: Diagnostic, options: Reporter.Options) Reporter.Response {
         return switch (diag) {
@@ -208,6 +210,7 @@ pub const Diagnostic = union(enum) {
             .debugger_label_partial_match => .major,
             .debugger_no_space => .fatal,
             .debugger_invalid_argument_kind => .fatal,
+            .debugger_invalid_command => .fatal,
         };
     }
 
@@ -514,6 +517,12 @@ pub const Diagnostic = union(enum) {
             .debugger_invalid_argument_kind => |info| {
                 ctx.printTitle("Invalid argument kind", .{});
                 ctx.deepen().printSourceNote("Argument", .{}, info.found);
+            },
+            .debugger_invalid_command => |info| {
+                ctx.printTitle("Invalid command name", .{});
+                ctx.deepen().printSourceNote("Command", .{}, info.command);
+                if (info.nearest) |nearest|
+                    ctx.deepen().printNote("Did you mean `{s}`?", .{Command.tagString(nearest)});
             },
         }
 

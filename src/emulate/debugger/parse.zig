@@ -368,20 +368,16 @@ const Parser = struct {
         if (parser.findSingleTagMatch(.exact, &tags.single, first)) |tag|
             return tag;
 
-        const result = parser.reporter.report(.debugger_any_err, .{
-            .code = error.InvalidCommand,
-            .span = first,
+        const nearest =
+            if (parser.findSingleTagMatch(.nearest, &tags.single, first)) |nearest|
+                nearest.value
+            else
+                null;
+
+        try parser.reporter.report(.debugger_invalid_command, .{
+            .command = first,
+            .nearest = nearest,
         }).abort();
-
-        if (parser.findSingleTagMatch(.nearest, &tags.single, first)) |tag| {
-            _ = tag;
-            parser.reporter.report(.debugger_any_warn, .{
-                .code = error.CommandSuggestion,
-                .span = first,
-            }).proceed();
-        }
-
-        try result;
     }
 
     fn findDoubleTagMatch(
@@ -407,20 +403,16 @@ const Parser = struct {
         if (parser.findSingleTagMatch(.exact, &double.second, second)) |tag|
             return .{ .span = first.join(second), .value = tag.value };
 
-        const result = parser.reporter.report(.debugger_any_err, .{
-            .code = error.InvalidSubcommand,
-            .span = second,
+        const nearest =
+            if (parser.findSingleTagMatch(.nearest, &double.second, second)) |nearest|
+                nearest.value
+            else
+                null;
+
+        try parser.reporter.report(.debugger_invalid_command, .{
+            .command = second,
+            .nearest = nearest,
         }).abort();
-
-        if (parser.findSingleTagMatch(.nearest, &double.second, second)) |tag| {
-            _ = tag;
-            parser.reporter.report(.debugger_any_warn, .{
-                .code = error.CommandSuggestion,
-                .span = second,
-            }).proceed();
-        }
-
-        try result;
     }
 
     fn findSingleTagMatch(
