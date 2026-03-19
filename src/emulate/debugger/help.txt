@@ -39,7 +39,6 @@ Available Commands:
         Emulate an assembly instruction.
           - INSTRUCTION: Mnemonic, Operands...
         Note: Labels cannot be created or modified.
-        Note: HALT trap cannot be emulated.
     reset(z)
         Reset all memory and registers to initial state.
     quit(q)

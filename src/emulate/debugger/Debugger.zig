@@ -14,8 +14,9 @@ const Runtime = @import("../Runtime.zig");
 const Instruction = @import("../decode.zig").Instruction;
 const Breakpoints = @import("Breakpoints.zig");
 const Input = @import("Input.zig");
-const Command = @import("Command.zig");
 const parse = @import("parse.zig");
+
+pub const Command = @import("Command.zig");
 
 status: Status,
 instruction_count: usize,
@@ -159,13 +160,16 @@ fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void
 pub fn catchHalt(debugger: *Debugger, runtime: *Runtime) error{WriteFailed}!Runtime.Control {
     if (debugger.status == .inactive)
         return .@"break";
-
     // PC was incremented after decoding instruction; reverse that
     runtime.state.pc -= 1;
+    try debugger.registerHalt(runtime);
+    return .@"continue";
+}
+
+fn registerHalt(debugger: *Debugger, runtime: *const Runtime) error{WriteFailed}!void {
     try debugger.printLine("Program halted at 0x{x:04}.", .{runtime.state.pc});
     debugger.status = .get_action;
     debugger.halt_address = runtime.state.pc;
-    return .@"continue";
 }
 
 fn canProceed(debugger: *const Debugger, runtime: *const Runtime) bool {
@@ -295,9 +299,8 @@ fn runCommand(
 
         .reset => {
             const state = debugger.initial_state orelse {
-                try debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.NoInitialState,
-                    .span = command.tag,
+                try debugger.reporter.report(.debugger_requires_state, .{
+                    .command = command.tag,
                 }).abort();
             };
             runtime.state.copyFrom(state);
@@ -380,9 +383,9 @@ fn runCommand(
             const line = try debugger.getAssemblyLine(&assembly, address, arguments.location.span);
 
             var reporter = debugger.copyReporter(assembly.source);
-            reporter.report(.debugger_any_info, .{
-                .code = error.ShowAssembly,
-                .span = line.span,
+            reporter.report(.debugger_show_assembly, .{
+                .line = line.span,
+                .address = address,
             }).proceed();
         },
 
@@ -435,10 +438,7 @@ fn runCommand(
             );
             try debugger.ensureUserAddress(address, arguments.location.span);
             const inserted = debugger.breakpoints.insert(address, false) catch {
-                try debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.OutOfMemory,
-                    .span = command.tag,
-                }).abort();
+                try debugger.reporter.report(.debugger_no_space, .{}).abort();
             };
             if (inserted)
                 try debugger.printLine("Added breakpoint at 0x{x:04}", .{address})
@@ -569,10 +569,12 @@ fn evalCommand(
         error.TermiosFailed,
         => |err2| return err2,
 
-        // TODO: Add details depending on error code
-        else => try debugger.reporter.report(.debugger_any_err, .{
-            .code = err,
-            .span = span,
+        error.Halt => {
+            try debugger.registerHalt(runtime);
+        },
+
+        else => |err2| try debugger.reporter.report(.emulate_program_error, .{
+            .code = err2,
         }).abort(),
     };
 }
@@ -603,6 +605,8 @@ fn copyReporter(debugger: *const Debugger, source: []const u8) Reporter {
     };
 
     reporter.options.strictness = .normal;
+    // FIXME: Reference to stack memory !!!
+    // TODO: Perhaps convert pointer field to value field
     reporter.options.policies = &policies;
 
     return reporter;
@@ -618,9 +622,10 @@ fn getAssemblyLine(
     // Overflow is not possible since address is in user memory
     const index = address - assembly.air.origin;
     if (index >= assembly.air.lines.items.len) {
-        try debugger.reporter.report(.debugger_any_err, .{
-            .code = error.AddressNotInAssembly,
-            .span = span,
+        try debugger.reporter.report(.debugger_address_not_in_assembly, .{
+            .address = span,
+            .value = address,
+            .max = @intCast(assembly.air.origin + assembly.air.lines.items.len - 1),
         }).abort();
     }
     return &assembly.air.lines.items[index];
@@ -666,9 +671,9 @@ fn resolveMemoryLocation(
             const combined = @as(isize, runtime.state.pc) + pc_offset;
 
             return std.math.cast(u16, combined) orelse {
-                try debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.AddressTooLarge,
-                    .span = span,
+                try debugger.reporter.report(.integer_too_large, .{
+                    .integer = span,
+                    .type_info = @typeInfo(u16).int,
                 }).abort();
             };
         },
@@ -680,9 +685,9 @@ fn resolveMemoryLocation(
             const combined = @as(isize, @intCast(address + assembly.air.origin)) + label.offset;
 
             return std.math.cast(u16, combined) orelse {
-                try debugger.reporter.report(.debugger_any_err, .{
-                    .code = error.AddressTooLarge,
-                    .span = span,
+                try debugger.reporter.report(.integer_too_large, .{
+                    .integer = span,
+                    .type_info = @typeInfo(u16).int,
                 }).abort();
             };
         },
@@ -701,24 +706,25 @@ fn resolveLabelIndex(
         return result[0];
 
     if (assembly.air.findLabelDefinition(string, .insensitive, assembly.source)) |result| {
-        debugger.reporter.report(.debugger_any_warn, .{
-            .code = error.IncorrectLabelCase,
-            .span = label,
+        debugger.reporter.report(.debugger_label_partial_match, .{
+            .reference = label,
+            .nearest = result[1].span,
+            .declaration_source = assembly.source,
         }).proceed();
         return result[0];
     }
 
-    try debugger.reporter.report(.debugger_any_err, .{
-        .code = error.UndeclaredLabel,
-        .span = label,
+    try debugger.reporter.report(.undeclared_label, .{
+        .reference = label,
+        .nearest = null,
+        .declaration_source = assembly.source,
     }).abort();
 }
 
 fn getAssembly(debugger: *const Debugger, span: Span) error{Reported}!Assembly {
     return debugger.assembly orelse {
-        try debugger.reporter.report(.debugger_any_err, .{
-            .code = error.RequiresAssembly,
-            .span = span,
+        try debugger.reporter.report(.debugger_requires_assembly, .{
+            .command = span,
         }).abort();
     };
 }
@@ -727,9 +733,10 @@ fn ensureUserAddress(debugger: *Debugger, address: u16, span: Span) error{Report
     switch (address) {
         Runtime.USER_MEMORY_START...Runtime.USER_MEMORY_END => {},
         else => {
-            try debugger.reporter.report(.debugger_any_err, .{
-                .code = error.AddressNotInUserMemory,
-                .span = span,
+            try debugger.reporter.report(.debugger_address_not_user_memory, .{
+                .address = span,
+                .value = address,
+                .max = Runtime.USER_MEMORY_END,
             }).abort();
         },
     }
