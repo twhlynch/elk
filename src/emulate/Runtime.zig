@@ -60,10 +60,10 @@ pub const State = struct {
     }
 };
 
-pub const Error = ProgramError || IoError;
+pub const Error = Exception || IoError;
 
 /// The user's program or configuration (traps, policies) is erroneous.
-pub const ProgramError = error{
+pub const Exception = error{
     PcOutOfBounds,
     IncorrectPadding,
     InvalidOperand,
@@ -169,7 +169,9 @@ pub fn run(runtime: *Runtime) Error!void {
             try pre_execute.call(.{ runtime, instr });
 
         runtime.runInstruction(instr) catch |err| switch (err) {
+            // TODO: Debugger shall catch this !
             else => |err2| return err2,
+
             error.Halt => {
                 const debugger = runtime.debugger orelse
                     break;

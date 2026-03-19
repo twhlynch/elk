@@ -122,7 +122,7 @@ pub const Diagnostic = union(enum) {
     undeclared_trap_vect: struct { vect: Span, value: u8 },
 
     // Emulator
-    emulate_program_error: struct { code: Runtime.ProgramError },
+    emulate_exception: struct { code: Runtime.Exception },
 
     // TODO: Reorder
     // Emulator debugger
@@ -197,7 +197,7 @@ pub const Diagnostic = union(enum) {
             },
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
 
-            .emulate_program_error => .fatal,
+            .emulate_exception => .fatal,
 
             .debugger_show_assembly => .info,
             .debugger_requires_assembly => .fatal,
@@ -465,7 +465,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printNote("Traps vector 0x{x:02} is not recognized", .{info.value});
             },
 
-            .emulate_program_error => |info| {
+            .emulate_exception => |info| {
                 ctx.printTitle("Runtime exception: {t}", .{info.code});
                 // TODO: Add additional information
             },

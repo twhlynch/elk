@@ -573,7 +573,7 @@ fn evalCommand(
             try debugger.registerHalt(runtime);
         },
 
-        else => |err2| try debugger.reporter.report(.emulate_program_error, .{
+        else => |err2| try debugger.reporter.report(.emulate_exception, .{
             .code = err2,
         }).abort(),
     };
