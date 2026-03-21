@@ -21,6 +21,10 @@ fn readFileAlloc(io: Io, gpa: Allocator, file: Io.File, list: *std.ArrayList(u8)
     list.items.len = size;
 }
 
+pub fn clear(history: *History) void {
+    history.store.clearAndFree(history.gpa);
+}
+
 pub fn length(history: *const History) usize {
     return std.mem.countScalar(u8, history.store.items, '\n');
 }

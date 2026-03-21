@@ -49,6 +49,9 @@ pub const single: SingleMap = .init(.{
         .aliases = &.{ "e", "eval", "evil", "evaluate" },
         .suggestions = &.{ "run", "exec", "execute", "sim", "simulate", "instruction", "instr" },
     },
+    .clear = .{
+        .aliases = &.{"clear"},
+    },
     .reset = .{
         .aliases = &.{ "z", "reset" },
         .suggestions = &.{ "restart", "refresh", "reboot" },

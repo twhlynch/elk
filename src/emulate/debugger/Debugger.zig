@@ -309,6 +309,12 @@ fn runCommand(
         .quit => return .disable_debugger,
         .exit => return .stop_runtime,
 
+        .clear => {
+            debugger.input.clearHistory() catch |err| {
+                std.log.err("failed to clear history file: {t}", .{err});
+            };
+        },
+
         .reset => {
             const state = debugger.initial_state orelse {
                 try debugger.reporter.report(.debugger_requires_state, .{

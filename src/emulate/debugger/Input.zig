@@ -116,6 +116,13 @@ fn writeHistory(input: *Input, line: []const u8) !void {
     try file.writePositionalAll(input.io, line, size + 1);
 }
 
+pub fn clearHistory(input: *Input) !void {
+    input.editor.history.clear();
+    const file = &(input.history_file orelse
+        return);
+    try file.setLength(input.io, 0);
+}
+
 fn readKey(input: *Input) error{ EndOfStream, ReadFailed }!?Key {
     return switch (try input.readByte()) {
         0x20...0x7e => |char| .{ .char = char },
