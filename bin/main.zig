@@ -223,7 +223,10 @@ fn openHistoryFile(io: Io) !Io.File {
     // FIXME: Get path programatically
     const path = "/home/darcy/.cache/lcz-history";
 
-    const flags: Io.File.CreateFlags = .{};
+    const flags: Io.File.CreateFlags = .{
+        .read = true,
+        .truncate = false,
+    };
     const file = try Io.Dir.createFileAbsolute(io, path, flags);
 
     return file;
