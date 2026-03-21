@@ -12,7 +12,7 @@ pub const Editor = @import("editor/Editor.zig");
 editor: Editor,
 reader: *Io.Reader,
 writer: *Io.Writer,
-history_writer: ?Io.File.Writer,
+history_file: ?Io.File,
 
 pub const Key = union(enum) {
     char: u8,
@@ -32,14 +32,14 @@ pub const Key = union(enum) {
 pub fn init(
     reader: *Io.Reader,
     writer: *Io.Writer,
-    history_writer: ?Io.File.Writer,
+    history_file: ?Io.File,
     editor: Editor,
 ) Input {
     return .{
         .editor = editor,
         .reader = reader,
         .writer = writer,
-        .history_writer = history_writer,
+        .history_file = history_file,
     };
 }
 

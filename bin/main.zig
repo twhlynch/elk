@@ -161,17 +161,13 @@ fn emulate(
             std.log.err("failed to open/create history file: {t}", .{err});
             break :file null;
         };
-        const history_writer = if (history_file) |*file|
-            file.writer(io, &.{})
-        else
-            null;
 
         break :debugger try .init(
             gpa,
             .init(
                 &reader.interface,
                 &writer.interface,
-                history_writer,
+                history_file,
                 .init(gpa, &debugger_buffer),
             ),
             switch (runtime_source) {
