@@ -444,7 +444,7 @@ fn runCommand(
                 return null;
             }
             try debugger.printLine("Breakpoints:", .{});
-            try debugger.printBreakpointTable();
+            try debugger.printBreakpoints();
         },
 
         .break_add => |arguments| {
@@ -482,83 +482,38 @@ fn runCommand(
     return null;
 }
 
-const max_label_len = 16;
-const max_source_len = 34;
-const empty_marker = "";
-
-fn printBreakpointTable(debugger: *Debugger) !void {
-    try debugger.input.writer.print("\x1b[{}m", .{color});
-
-    const delimiter = "+---------+------------+-" ++
-        ("-" ** max_label_len) ++ "-+-" ++
-        ("-" ** max_source_len) ++ "-+\n";
-
-    try debugger.input.writer.print(delimiter, .{});
-    try debugger.input.writer.print("| Address | Predefined | {s:^[2]} | {s:^[3]} |\n", .{
-        "Label",       "Source",
-        max_label_len, max_source_len,
-    });
-    try debugger.input.writer.print(delimiter, .{});
-
+fn printBreakpoints(debugger: *Debugger) !void {
     for (debugger.breakpoints.entries.items) |entry| {
-        try debugger.input.writer.print("|  ", .{});
-        try debugger.input.writer.print("0x{x:04}", .{entry.address});
+        try debugger.input.writer.print("\x1b[{}m", .{color});
+        try debugger.input.writer.print("    | Breakpoint at 0x{x:04}", .{entry.address});
 
-        try debugger.input.writer.print(" | ", .{});
-        try debugger.input.writer.print("{s:^10}", .{
-            if (entry.is_label) "Yes" else empty_marker,
-        });
+        blk: {
+            const assembly = debugger.assembly orelse {
+                break :blk;
+            };
 
-        if (!try printBreakpointSource(debugger, entry.address)) {
-            try debugger.input.writer.print(" | ", .{});
-            try debugger.input.writer.print("{s:<[1]}", .{ empty_marker, max_label_len });
-            try debugger.input.writer.print(" | ", .{});
-            try debugger.input.writer.print("{s:<[1]}", .{ empty_marker, max_source_len });
+            const line = getAssemblyLineOptional(assembly, entry.address) orelse {
+                break :blk;
+            };
+
+            if (line.label) |label| {
+                try debugger.input.writer.print(" (labelled '{s}')", .{
+                    label.span.view(assembly.source),
+                });
+            }
+
+            try debugger.input.writer.print(":", .{});
+            try debugger.input.writer.print("\x1b[0m", .{});
+            try debugger.input.writer.print("\n", .{});
+
+            try Reporter.writeSpanContext(debugger.input.writer, line.span, assembly.source, 0);
+            continue;
         }
 
-        try debugger.input.writer.print(" |", .{});
+        try debugger.input.writer.print(" (not in assembly)", .{});
+        try debugger.input.writer.print("\x1b[0m", .{});
         try debugger.input.writer.print("\n", .{});
     }
-
-    try debugger.input.writer.print(delimiter, .{});
-    try debugger.input.writer.print("\x1b[0m", .{});
-}
-
-fn printBreakpointSource(debugger: *Debugger, address: u16) !bool {
-    const assembly = debugger.assembly orelse
-        return false;
-    const line = getAssemblyLineOptional(assembly, address) orelse
-        return false;
-
-    try debugger.input.writer.print(" | ", .{});
-
-    try debugger.input.writer.print("{s:<[1]}", .{
-        if (line.label) |label|
-            maxLength(label.span.view(assembly.source), max_label_len)
-        else
-            empty_marker,
-        max_label_len,
-    });
-
-    try debugger.input.writer.print(" | ", .{});
-
-    try debugger.input.writer.print("{s:<[1]}", .{
-        maxLength(getFirstLine(line.span, assembly.source), max_source_len),
-        max_source_len,
-    });
-
-    return true;
-}
-
-fn maxLength(string: []const u8, max_length: usize) []const u8 {
-    return string[0..@min(string.len, max_length)];
-}
-
-fn getFirstLine(span: Span, source: []const u8) []const u8 {
-    const lines = span.getContainingLines(source).view(source);
-    var line_iter = std.mem.splitScalar(u8, lines, '\n');
-    const first = line_iter.next() orelse unreachable;
-    return std.mem.trim(u8, first, &std.ascii.whitespace);
 }
 
 fn evalCommand(
