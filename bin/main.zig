@@ -171,7 +171,8 @@ fn emulate(
             .init(
                 &reader.interface,
                 &writer.interface,
-                .init(gpa, history_writer, &debugger_buffer),
+                history_writer,
+                .init(gpa, &debugger_buffer),
             ),
             switch (runtime_source) {
                 .object => null,
