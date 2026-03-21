@@ -22,6 +22,7 @@ Available as a both Zig library and a command-line program.
 - [x] Set breakpoints
 - [x] Evaluate arbitrary instructions
 - [x] Recover from `HALT` and runtime exceptions
+- [x] Persistent history across program runs
 
 ## Optional Extension Features
 
