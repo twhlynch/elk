@@ -92,23 +92,23 @@ pub const Hooks = struct {
     pre_execute: ?Callback(&.{ *Runtime, Instruction }, IoError!void) = null,
 };
 
-pub fn init(
+pub fn init(params: struct {
     gpa: Allocator,
     reader: *Io.Reader,
     writer: *Io.Writer,
     traps: *const Traps,
     hooks: Hooks,
     policies: Policies,
-    debugger: ?*Debugger,
-) !Runtime {
+    debugger: ?*Debugger = null,
+}) !Runtime {
     return .{
-        .state = try .init(gpa),
-        .traps = traps,
-        .hooks = hooks,
-        .policies = policies,
-        .debugger = debugger,
-        .reader = reader,
-        .writer = writer,
+        .state = try .init(params.gpa),
+        .traps = params.traps,
+        .hooks = params.hooks,
+        .policies = params.policies,
+        .debugger = params.debugger,
+        .reader = params.reader,
+        .writer = params.writer,
         .writer_is_newline = true,
         .tty = .uninit,
     };

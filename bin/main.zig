@@ -181,15 +181,15 @@ fn emulate(
     } else null;
     defer if (debugger_opt) |*debugger| debugger.deinit(gpa);
 
-    var runtime = try lcz.Runtime.init(
-        gpa,
-        &reader.interface,
-        &writer.interface,
-        traps,
-        hooks,
-        policies,
-        if (debugger_opt) |*debugger| debugger else null,
-    );
+    var runtime = try lcz.Runtime.init(.{
+        .gpa = gpa,
+        .reader = &reader.interface,
+        .writer = &writer.interface,
+        .traps = traps,
+        .hooks = hooks,
+        .policies = policies,
+        .debugger = if (debugger_opt) |*debugger| debugger else null,
+    });
     defer runtime.deinit(gpa);
 
     switch (runtime_source) {
