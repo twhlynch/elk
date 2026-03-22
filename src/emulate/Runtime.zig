@@ -161,7 +161,7 @@ pub fn run(runtime: *Runtime) Error!void {
 
             else => |exception| {
                 if (runtime.debugger) |debugger| {
-                    if (debugger.status != .inactive) {
+                    if (debugger.state.status != .inactive) {
                         try debugger.catchEvent(exception, runtime);
                         continue;
                     }

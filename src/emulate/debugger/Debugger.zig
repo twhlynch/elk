@@ -18,11 +18,13 @@ const parse = @import("parse.zig");
 
 pub const Command = @import("Command.zig");
 
-status: Status,
-instruction_count: usize,
-should_echo_pc: bool,
-halt_address: ?u16,
-current_breakpoint: ?u16,
+state: struct {
+    status: Status,
+    instruction_count: usize,
+    should_echo_pc: bool,
+    halt_address: ?u16,
+    current_breakpoint: ?u16,
+},
 
 breakpoints: Breakpoints,
 initial_state: ?Runtime.State,
@@ -117,11 +119,13 @@ pub fn init(
     );
 
     return .{
-        .status = .get_action,
-        .instruction_count = 0,
-        .should_echo_pc = true,
-        .halt_address = null,
-        .current_breakpoint = null,
+        .state = .{
+            .status = .get_action,
+            .instruction_count = 0,
+            .should_echo_pc = true,
+            .halt_address = null,
+            .current_breakpoint = null,
+        },
         .breakpoints = breakpoints,
         .initial_state = null,
         .assembly = params.assembly,
@@ -154,20 +158,20 @@ pub fn start(debugger: *Debugger) !void {
 }
 
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
-    if (debugger.status == .inactive)
+    if (debugger.state.status == .inactive)
         return null;
 
     try runtime.ensureWriterNewline();
 
     if (!debugger.canProceed(runtime))
-        debugger.should_echo_pc = false;
+        debugger.state.should_echo_pc = false;
     if (!debugger.isHalted(runtime))
-        debugger.halt_address = null;
+        debugger.state.halt_address = null;
 
     switch (try debugger.nextAction(runtime)) {
         .proceed => {},
         .disable_debugger => {
-            debugger.status = .inactive;
+            debugger.state.status = .inactive;
             return if (debugger.isHalted(runtime)) .@"break" else .@"continue";
         },
         .stop_runtime => {
@@ -177,20 +181,20 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 
     if (debugger.isHalted(runtime)) {
         try debugger.writer.printLine("Currently halted at 0x{x:04}.", .{runtime.state.pc});
-        debugger.status = .get_action;
+        debugger.state.status = .get_action;
         return .@"continue";
     }
 
     if (debugger.isAtBreakpoint(runtime)) {
         try debugger.writer.printLine("Currently on breakpoint at 0x{x:04}.", .{runtime.state.pc});
-        debugger.current_breakpoint = runtime.state.pc;
-        debugger.status = .get_action;
+        debugger.state.current_breakpoint = runtime.state.pc;
+        debugger.state.status = .get_action;
         return .@"continue";
     } else {
-        debugger.current_breakpoint = null;
+        debugger.state.current_breakpoint = null;
     }
 
-    debugger.instruction_count += 1;
+    debugger.state.instruction_count += 1;
 
     return null;
 }
@@ -200,7 +204,7 @@ pub fn catchEvent(
     event: (Runtime.Exception || error{Halt}),
     runtime: *Runtime,
 ) error{WriteFailed}!void {
-    assert(debugger.status != .inactive);
+    assert(debugger.state.status != .inactive);
 
     // PC was incremented after decoding instruction; reverse that
     runtime.state.pc -= 1;
@@ -220,8 +224,8 @@ pub fn catchEvent(
 
 fn triggerHalt(debugger: *Debugger, runtime: *const Runtime) error{WriteFailed}!void {
     try debugger.writer.printLine("Program halted at 0x{x:04}.", .{runtime.state.pc});
-    debugger.status = .get_action;
-    debugger.halt_address = runtime.state.pc;
+    debugger.state.status = .get_action;
+    debugger.state.halt_address = runtime.state.pc;
 }
 
 fn canProceed(debugger: *const Debugger, runtime: *const Runtime) bool {
@@ -229,13 +233,13 @@ fn canProceed(debugger: *const Debugger, runtime: *const Runtime) bool {
 }
 
 fn isHalted(debugger: *const Debugger, runtime: *const Runtime) bool {
-    return debugger.halt_address == runtime.state.pc;
+    return debugger.state.halt_address == runtime.state.pc;
 }
 
 fn isAtBreakpoint(debugger: *const Debugger, runtime: *const Runtime) bool {
     for (debugger.breakpoints.entries.items) |entry| {
         if (entry.address == runtime.state.pc and
-            entry.address != debugger.current_breakpoint)
+            entry.address != debugger.state.current_breakpoint)
             return true;
     }
     return false;
@@ -243,7 +247,7 @@ fn isAtBreakpoint(debugger: *const Debugger, runtime: *const Runtime) bool {
 
 fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
     while (true) {
-        switch (debugger.status) {
+        switch (debugger.state.status) {
             .inactive => unreachable,
             .get_action => {
                 return try debugger.tryNextAction(runtime) orelse
@@ -252,16 +256,16 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
             .step_over => |*info| {
                 if (runtime.state.pc != info.return_address)
                     return .proceed;
-                if (debugger.instruction_count > 1)
+                if (debugger.state.instruction_count > 1)
                     try debugger.writer.printLine("Reached end of subroutine.", .{});
-                debugger.status = .get_action;
+                debugger.state.status = .get_action;
                 continue;
             },
             .step_into => |*info| {
                 if (info.count > 0) {
                     info.count -= 1;
                 } else {
-                    debugger.status = .get_action;
+                    debugger.state.status = .get_action;
                 }
                 return .proceed;
             },
@@ -269,7 +273,7 @@ fn nextAction(debugger: *Debugger, runtime: *Runtime) !Action {
                 const instruction = getNextInstruction(runtime);
                 if (instruction == .ret_rets) {
                     try debugger.writer.printLine("Reached end of subroutine.", .{});
-                    debugger.status = .get_action;
+                    debugger.state.status = .get_action;
                 }
                 return .proceed;
             },
@@ -296,20 +300,20 @@ fn getNextInstruction(runtime: *const Runtime) ?enum { ret_rets } {
 }
 
 fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
-    assert(debugger.status == .get_action);
+    assert(debugger.state.status == .get_action);
 
-    if (debugger.instruction_count > 0)
+    if (debugger.state.instruction_count > 0)
         try debugger.writer.printLine("Executed {} instruction{s}.", .{
-            debugger.instruction_count,
-            if (debugger.instruction_count == 1) "" else "s",
+            debugger.state.instruction_count,
+            if (debugger.state.instruction_count == 1) "" else "s",
         });
-    if (debugger.should_echo_pc)
+    if (debugger.state.should_echo_pc)
         try debugger.writer.printLine("Program counter is at 0x{x:04}.", .{
             runtime.state.pc,
         });
 
-    debugger.instruction_count = 0;
-    debugger.should_echo_pc = false;
+    debugger.state.instruction_count = 0;
+    debugger.state.should_echo_pc = false;
 
     const command_string = debugger.readCommand(runtime) catch |err| switch (err) {
         else => |err2| return err2,
@@ -363,7 +367,7 @@ fn runCommand(
             };
             runtime.state.copyFrom(state);
             try debugger.writer.printLine("Reset registers and memory to initial state.", .{});
-            debugger.should_echo_pc = true;
+            debugger.state.should_echo_pc = true;
         },
 
         .registers => {
@@ -373,8 +377,8 @@ fn runCommand(
         },
 
         .@"continue" => {
-            debugger.status = .@"continue";
-            debugger.should_echo_pc = true;
+            debugger.state.status = .@"continue";
+            debugger.state.should_echo_pc = true;
             if (debugger.canProceed(runtime))
                 try debugger.writer.printLine("Continuing program execution...", .{});
         },
@@ -454,23 +458,23 @@ fn runCommand(
         },
 
         .step_over => {
-            debugger.status = .{ .step_over = .{
+            debugger.state.status = .{ .step_over = .{
                 .return_address = runtime.state.pc + 1,
             } };
-            debugger.should_echo_pc = true;
+            debugger.state.should_echo_pc = true;
             // Don't print message here, we can't know if next instruction will change PC.
         },
 
         .step_into => |arguments| {
-            debugger.status = .{ .step_into = .{
+            debugger.state.status = .{ .step_into = .{
                 .count = arguments.count.value - 1,
             } };
-            debugger.should_echo_pc = true;
+            debugger.state.should_echo_pc = true;
         },
 
         .step_out => {
-            debugger.status = .step_out;
-            debugger.should_echo_pc = true;
+            debugger.state.status = .step_out;
+            debugger.state.should_echo_pc = true;
             if (debugger.canProceed(runtime))
                 try debugger.writer.printLine("Finishing subroutine execution...", .{});
         },
