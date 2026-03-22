@@ -92,8 +92,8 @@ pub fn init(params: struct {
     traps: *const Traps,
     reporter: *Reporter,
     command_buffer: []u8,
-    assembly: ?Assembly,
-    history_file: ?Io.File,
+    assembly: ?Assembly = null,
+    history_file: ?Io.File = null,
 }) error{OutOfMemory}!Debugger {
     const breakpoints: Breakpoints =
         if (params.assembly) |assembly|
