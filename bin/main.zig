@@ -167,7 +167,6 @@ fn emulate(
             .init(
                 io,
                 &reader.interface,
-                &writer.interface,
                 history_file,
                 .init(gpa, &debugger_buffer),
             ),
@@ -177,6 +176,7 @@ fn emulate(
             },
             traps,
             reporter,
+            &writer.interface,
         );
     } else null;
     defer if (debugger_opt) |*debugger| debugger.deinit(gpa);
