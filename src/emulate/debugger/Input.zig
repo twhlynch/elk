@@ -17,6 +17,8 @@ history_file: ?Io.File,
 io: Io,
 
 const Writer = struct {
+    pub const color = 34;
+
     inner: *Io.Writer,
 
     pub fn print(writer: *Writer, comptime fmt: []const u8, args: anytype) error{WriteFailed}!void {
@@ -25,6 +27,20 @@ const Writer = struct {
 
     pub fn flush(writer: *Writer) error{WriteFailed}!void {
         try writer.inner.flush();
+    }
+
+    pub fn printLine(writer: *Writer, comptime fmt: []const u8, args: anytype) !void {
+        try writer.enableColor();
+        try writer.print("| " ++ fmt ++ "\n", args);
+        try writer.disableColor();
+    }
+
+    pub fn enableColor(writer: *Writer) !void {
+        try writer.print("\x1b[{}m", .{color});
+    }
+
+    pub fn disableColor(writer: *Writer) !void {
+        try writer.print("\x1b[0m", .{});
     }
 };
 
@@ -182,9 +198,9 @@ fn readByte(input: *Input) error{ EndOfStream, ReadFailed }!u8 {
 fn writePrompt(input: *Input) !void {
     const prompt = "> ";
     try input.writer.print("\r\x1b[K", .{});
-    try input.writer.print("\x1b[{}m", .{Debugger.color});
+    try input.writer.enableColor();
     try input.writer.print(prompt, .{});
-    try input.writer.print("\x1b[0m", .{});
+    try input.writer.disableColor();
     try input.writer.print("{s}", .{input.editor.getString()});
     try input.writer.print("\x1b[{}G", .{input.editor.cursor + prompt.len + 1});
 }
