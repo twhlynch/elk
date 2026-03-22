@@ -153,8 +153,15 @@ pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
 }
 
 fn printLine(debugger: *Debugger, comptime fmt: []const u8, args: anytype) !void {
-    try debugger.input.writer.print("\x1b[{}m", .{color});
+    try debugger.enableColor();
     try debugger.input.writer.print("| " ++ fmt ++ "\n", args);
+    try debugger.disableColor();
+}
+
+fn enableColor(debugger: *Debugger) !void {
+    try debugger.input.writer.print("\x1b[{}m", .{color});
+}
+fn disableColor(debugger: *Debugger) !void {
     try debugger.input.writer.print("\x1b[0m", .{});
 }
 
@@ -304,9 +311,9 @@ fn runCommand(
 ) !?Action {
     switch (command.value) {
         .help => {
-            try debugger.input.writer.print("\x1b[{}m", .{color});
+            try debugger.enableColor();
             try runtime.writer.writeAll(@embedFile("help.txt"));
-            try debugger.input.writer.print("\x1b[0m", .{});
+            try debugger.disableColor();
         },
 
         .quit => return .disable_debugger,
@@ -330,9 +337,9 @@ fn runCommand(
         },
 
         .registers => {
-            try debugger.input.writer.print("\x1b[{}m", .{color});
+            try debugger.enableColor();
             try runtime.printRegisters();
-            try debugger.input.writer.print("\x1b[0m", .{});
+            try debugger.disableColor();
         },
 
         .@"continue" => {
@@ -346,15 +353,15 @@ fn runCommand(
             switch (try debugger.resolveLocation(runtime, arguments.location, source)) {
                 .register => |register| {
                     try debugger.printLine("Register R{}:", .{register});
-                    try debugger.input.writer.print("\x1b[{}m", .{color});
+                    try debugger.enableColor();
                     try runtime.printInteger(runtime.state.registers[register]);
-                    try debugger.input.writer.print("\x1b[0m", .{});
+                    try debugger.disableColor();
                 },
                 .address => |address| {
                     try debugger.printLine("Memory at address 0x{x:04}:", .{address});
-                    try debugger.input.writer.print("\x1b[{}m", .{color});
+                    try debugger.enableColor();
                     try runtime.printInteger(runtime.state.memory[address]);
-                    try debugger.input.writer.print("\x1b[0m", .{});
+                    try debugger.disableColor();
                 },
             }
         },
@@ -484,7 +491,7 @@ fn runCommand(
 
 fn printBreakpoints(debugger: *Debugger) !void {
     for (debugger.breakpoints.entries.items) |entry| {
-        try debugger.input.writer.print("\x1b[{}m", .{color});
+        try debugger.enableColor();
         try debugger.input.writer.print("    | Breakpoint at 0x{x:04}", .{entry.address});
 
         blk: {
@@ -503,7 +510,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
             }
 
             try debugger.input.writer.print(":", .{});
-            try debugger.input.writer.print("\x1b[0m", .{});
+            try debugger.disableColor();
             try debugger.input.writer.print("\n", .{});
 
             try Reporter.writeSpanContext(debugger.input.writer, line.span, assembly.source, 0);
@@ -511,7 +518,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
         }
 
         try debugger.input.writer.print(" (not in assembly)", .{});
-        try debugger.input.writer.print("\x1b[0m", .{});
+        try debugger.disableColor();
         try debugger.input.writer.print("\n", .{});
     }
 }
