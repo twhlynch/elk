@@ -100,38 +100,9 @@ pub fn init(
         reporter: *Reporter,
     },
 ) error{OutOfMemory}!Debugger {
-    const editor: Input.Editor = .init(
-        params.gpa,
-        params.command_buffer,
-    );
-    const input: Input = .new(
-        params.io,
-        params.reader,
-        params.history_file,
-        editor,
-    );
-
-    return .initInner(
-        params.gpa,
-        input,
-        params.assembly,
-        params.traps,
-        params.reporter,
-        params.writer,
-    );
-}
-
-// TODO: Inline in `init`
-fn initInner(
-    gpa: std.mem.Allocator,
-    input: Input,
-    assembly_opt: ?Assembly,
-    traps: *const Traps,
-    reporter: *Reporter,
-    writer: *Io.Writer,
-) error{OutOfMemory}!Debugger {
-    var breakpoints: Breakpoints = .init(gpa);
-    if (assembly_opt) |assembly| {
+    // TODO: Move to `Breakpoints` method
+    var breakpoints: Breakpoints = .init(params.gpa);
+    if (params.assembly) |assembly| {
         for (assembly.air.lines.items, assembly.air.origin..) |line, address| {
             const label = line.label orelse
                 continue;
@@ -140,6 +111,13 @@ fn initInner(
             assert(try breakpoints.insert(@intCast(address), true));
         }
     }
+
+    const input: Input = .new(
+        params.io,
+        params.reader,
+        params.history_file,
+        .init(params.gpa, params.command_buffer),
+    );
 
     return .{
         .status = .get_action,
@@ -151,11 +129,10 @@ fn initInner(
         .current_line = "",
         .input = input,
         .initial_state = null,
-        .assembly = assembly_opt,
-        .traps = traps,
-        .reporter = reporter,
-
-        .writer = .{ .inner = writer },
+        .assembly = params.assembly,
+        .traps = params.traps,
+        .reporter = params.reporter,
+        .writer = .{ .inner = params.writer },
     };
 }
 
