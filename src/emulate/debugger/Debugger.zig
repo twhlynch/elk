@@ -19,11 +19,11 @@ const parse = @import("parse.zig");
 pub const Command = @import("Command.zig");
 
 state: struct {
-    status: Status,
-    instruction_count: usize,
-    should_echo_pc: bool,
-    halt_address: ?u16,
-    current_breakpoint: ?u16,
+    status: Status = .get_action,
+    instruction_count: usize = 0,
+    should_echo_pc: bool = true,
+    halt_address: ?u16 = null,
+    current_breakpoint: ?u16 = null,
 },
 
 breakpoints: Breakpoints,
@@ -119,13 +119,7 @@ pub fn init(
     );
 
     return .{
-        .state = .{
-            .status = .get_action,
-            .instruction_count = 0,
-            .should_echo_pc = true,
-            .halt_address = null,
-            .current_breakpoint = null,
-        },
+        .state = .{},
         .breakpoints = breakpoints,
         .initial_state = null,
         .assembly = params.assembly,
