@@ -584,8 +584,7 @@ fn parseInstructionLine(
     index: usize,
 ) error{Reported}!Parser.Instruction {
     var reporter = debugger.copyReporter(line);
-    var parser = Parser.new(debugger.traps, line, &reporter) orelse
-        return error.Reported;
+    var parser = try Parser.new(debugger.traps, line, &reporter);
 
     var instruction = try parser.parseInstructionLine();
     try parser.resolveInstructionLabel(assembly.air, assembly.source, &instruction, index);

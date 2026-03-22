@@ -19,18 +19,16 @@ tokens: TokenIter,
 current_label: ?Span,
 origin: ?Span,
 
-// TODO: Return `error.Reported` instead of `null`
 pub fn new(
     traps: *const Traps,
     source_: []const u8,
     reporter_: *Reporter,
-) ?Parser {
+) error{Reported}!Parser {
     for (source_, 0..) |char, i| {
         if (!Token.isValidChar(char)) {
-            reporter_.report(.invalid_source_byte, .{
+            try reporter_.report(.invalid_source_byte, .{
                 .byte = i,
-            }).abort() catch
-                return null;
+            }).abort();
         }
     }
 
