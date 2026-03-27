@@ -70,12 +70,17 @@ pub fn deinit(air: *Air, gpa: Allocator) void {
 }
 
 pub fn getFirstSpan(air: *const Air) ?Span {
-    if (air.lines.items.len == 0)
+    const line_opt = if (air.lines.items.len == 0) air.lines.items[0].span else null;
+    const label_opt = if (air.labels.items.len == 0) air.labels.items[0].span else null;
+    if (line_opt) |line| {
+        if (label_opt) |label|
+            if (line.offset < label.offset) return line else return label;
+        return line;
+    } else {
+        if (label_opt) |label|
+            return label;
         return null;
-    // FIXME: Use first label if before first line
-    // if (air.lines.items[0].label) |label|
-    //     return label.span;
-    return air.lines.items[0].span;
+    }
 }
 
 pub fn emitWriter(air: *const Air, writer: *Io.Writer) !void {
