@@ -91,8 +91,8 @@ pub const Diagnostic = union(enum) {
     existing_label_above: struct { existing: Span, new: Span },
     invalid_label_target: struct { label: Span, target: ?Span },
     label_colon: struct { colon: Span },
-    redeclared_label: struct { existing: Span, new: Span },
-    undeclared_label: struct { reference: Span, nearest: ?Span, declaration_source: []const u8 },
+    redefined_label: struct { existing: Span, new: Span },
+    undefined_label: struct { reference: Span, nearest: ?Span, definition_source: []const u8 },
     unused_label: struct { label: Span },
 
     // Integer syntax
@@ -106,8 +106,7 @@ pub const Diagnostic = union(enum) {
 
     // Integer bounds
     integer_too_large: struct { integer: Span, type_info: std.builtin.Type.Int },
-    // TODO: Rename "declaration" or "definition" to make consistent, and elsewhere
-    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, declaration_source: []const u8 },
+    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, definition_source: []const u8 },
     unexpected_negative_integer: struct { integer: Span },
 
     // Strings
@@ -131,7 +130,7 @@ pub const Diagnostic = union(enum) {
     debugger_requires_state: struct { command: Span },
     debugger_address_not_in_assembly: struct { value: u16, max: u16 },
     debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
-    debugger_label_partial_match: struct { reference: Span, nearest: Span, declaration_source: []const u8 },
+    debugger_label_partial_match: struct { reference: Span, nearest: Span, definition_source: []const u8 },
     debugger_no_space: struct {},
     // TODO: Add `expected` field (different type than `TokenKinds`), AND ELSEWHERE
     debugger_invalid_argument_kind: struct { found: Span },
@@ -153,8 +152,8 @@ pub const Diagnostic = union(enum) {
             .unsupported_directive,
             .multiple_origins,
             .late_origin,
-            .redeclared_label,
-            .undeclared_label,
+            .redefined_label,
+            .undefined_label,
             .malformed_integer,
             .expected_digit,
             .invalid_digit,
@@ -174,7 +173,7 @@ pub const Diagnostic = union(enum) {
             .missing_origin => policyResponse(options, .extension, .implicit_origin),
             .missing_end => policyResponse(options, .extension, .implicit_end),
             .existing_label_above => policyResponse(options, .extension, .multiple_labels),
-            .label_colon => policyResponse(options, .extension, .label_declaration_colons),
+            .label_colon => policyResponse(options, .extension, .label_definition_colons),
             .nonstandard_integer_radix => policyResponse(options, .extension, .more_integer_radixes),
             .nonstandard_integer_form => policyResponse(options, .extension, .more_integer_forms),
             .multiline_string => policyResponse(options, .extension, .multiline_strings),
@@ -183,7 +182,7 @@ pub const Diagnostic = union(enum) {
             .literal_pc_offset => policyResponse(options, .smell, .pc_offset_literals),
             .explicit_trap_vect => policyResponse(options, .smell, .explicit_trap_instructions),
             .undeclared_trap_vect => policyResponse(options, .smell, .unknown_trap_vectors),
-            .unused_label => policyResponse(options, .smell, .unused_label_declarations),
+            .unused_label => policyResponse(options, .smell, .unused_label_definitions),
 
             .missing_operand_comma => policyResponse(options, .style, .missing_operand_commas),
             .whitespace_comma => policyResponse(options, .style, .whitespace_commas),
@@ -346,16 +345,16 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printNote("A post-label colon is non-standard syntax", .{});
             },
 
-            .redeclared_label => |info| {
+            .redefined_label => |info| {
                 ctx.printTitle("Label already declared", .{});
                 ctx.deepen().printSourceNote("Label is first declared here", .{}, info.existing);
                 ctx.deepen().printSourceNote("Tried to redeclare here", .{}, info.new);
             },
-            .undeclared_label => |info| {
+            .undefined_label => |info| {
                 ctx.printTitle("Label is not declared", .{});
                 ctx.deepen().printSourceNote("Label used here", .{}, info.reference);
                 if (info.nearest) |close_match| {
-                    ctx.deepen().withSource(info.declaration_source)
+                    ctx.deepen().withSource(info.definition_source)
                         .printSourceNote("This label declaration is similar", .{}, close_match);
                     ctx.deepen().printNote("Label names are case-sensitive", .{});
                 }
@@ -418,7 +417,7 @@ pub const Diagnostic = union(enum) {
             .offset_too_large => |info| {
                 ctx.printTitle("Calculated label offset is too large", .{});
                 ctx.deepen().printSourceNote("Label declared here", .{}, info.definition);
-                ctx.deepen().withSource(info.declaration_source)
+                ctx.deepen().withSource(info.definition_source)
                     .printSourceNote("Label used here", .{}, info.reference);
                 ctx.deepen().printNote("Address offset of {} words cannot be represented in {} bits", .{ info.offset, info.bits });
             },
@@ -489,7 +488,7 @@ pub const Diagnostic = union(enum) {
             .debugger_label_partial_match => |info| {
                 ctx.printTitle("Label reference does not use correct case", .{});
                 ctx.deepen().printSourceNote("Label", .{}, info.reference);
-                ctx.deepen().withSource(info.declaration_source)
+                ctx.deepen().withSource(info.definition_source)
                     .printSourceNote("This label declaration is similar", .{}, info.nearest);
                 ctx.deepen().printNote("Label names are case-sensitive", .{});
             },

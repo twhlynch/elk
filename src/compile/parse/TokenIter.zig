@@ -383,7 +383,7 @@ fn ensureSupported(
         },
 
         // Conventional case check should handled by `Parser`
-        // Since we only want to report label declarations, not references
+        // Since we only want to report label definitions, not references
         .label => {},
 
         .string => |string| {

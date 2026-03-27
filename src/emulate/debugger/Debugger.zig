@@ -711,15 +711,15 @@ fn resolveLabelIndex(
         debugger.reporter.report(.debugger_label_partial_match, .{
             .reference = label,
             .nearest = result.span,
-            .declaration_source = assembly.source,
+            .definition_source = assembly.source,
         }).proceed();
         return result.index;
     }
 
-    try debugger.reporter.report(.undeclared_label, .{
+    try debugger.reporter.report(.undefined_label, .{
         .reference = label,
         .nearest = null,
-        .declaration_source = assembly.source,
+        .definition_source = assembly.source,
     }).abort();
 }
 

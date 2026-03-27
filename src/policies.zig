@@ -16,7 +16,7 @@ pub const Policies = packed struct {
         policies.extension.stack_instructions = .permit;
         policies.extension.implicit_origin = .permit;
         policies.extension.implicit_end = .permit;
-        policies.extension.label_declaration_colons = .permit;
+        policies.extension.label_definition_colons = .permit;
         policies.style.missing_operand_commas = .permit;
         policies.style.whitespace_commas = .permit;
         break :blk policies;
@@ -29,7 +29,7 @@ pub const Policies = packed struct {
         multiline_strings: Policy,
         more_integer_radixes: Policy,
         more_integer_forms: Policy,
-        label_declaration_colons: Policy,
+        label_definition_colons: Policy,
         multiple_labels: Policy,
 
         pub const forbid_all = fillFields(@This(), .forbid);
@@ -40,7 +40,7 @@ pub const Policies = packed struct {
         pc_offset_literals: Policy,
         explicit_trap_instructions: Policy,
         unknown_trap_vectors: Policy,
-        unused_label_declarations: Policy,
+        unused_label_definitions: Policy,
 
         pub const forbid_all = fillFields(@This(), .forbid);
         pub const permit_all = fillFields(@This(), .permit);

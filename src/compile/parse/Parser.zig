@@ -164,7 +164,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
 }
 
 /// Asserts that at least one non-`newline` token exists before EOF.
-/// Label declaration for this line must be handled by caller.
+/// Label definition for this line must be handled by caller.
 pub fn parseInstruction(parser: *Parser) error{Reported}!Instruction {
     const token = parser.tokens.nextExcluding(&.{.newline}) catch |err| switch (err) {
         error.Reported => return error.Reported,
@@ -234,7 +234,7 @@ fn ensureCanAppendLines(parser: *Parser, air: *Air, n: usize, span: Span) error{
 
 fn addLabel(parser: *Parser, gpa: Allocator, air: *Air, label: Span) InnerError!void {
     if (parser.getLabelWithName(air, label.view(parser.source()))) |existing_label| {
-        try parser.reporter().report(.redeclared_label, .{
+        try parser.reporter().report(.redefined_label, .{
             .existing = existing_label,
             .new = label,
         }).abort();
@@ -556,12 +556,12 @@ fn resolveFieldLabel(
     const string = operand.span.view(parser.source());
 
     const definition =
-            try parser.reporter().report(.undeclared_label, .{
         air.findLabel(string, .sensitive, air_source) orelse {
             const near_match = air.findLabel(string, .insensitive, air_source);
+            try parser.reporter().report(.undefined_label, .{
                 .reference = operand.span,
                 .nearest = if (near_match) |label| label.span else null,
-                .declaration_source = air_source,
+                .definition_source = air_source,
             }).abort();
         };
 
@@ -572,7 +572,7 @@ fn resolveFieldLabel(
             .offset = calculateOffset(i17, definition.index, index) orelse
                 unreachable,
             .bits = @typeInfo(Int).int.bits,
-            .declaration_source = air_source,
+            .definition_source = air_source,
         }).abort();
     };
 
