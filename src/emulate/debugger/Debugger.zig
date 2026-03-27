@@ -694,15 +694,15 @@ fn resolveLabelIndex(
     const string = label.view(source);
 
     if (assembly.air.findLabelDefinition(string, .sensitive, assembly.source)) |result|
-        return result[0];
+        return result.index;
 
     if (assembly.air.findLabelDefinition(string, .insensitive, assembly.source)) |result| {
         debugger.reporter.report(.debugger_label_partial_match, .{
             .reference = label,
-            .nearest = result[1].span,
+            .nearest = result.span,
             .declaration_source = assembly.source,
         }).proceed();
-        return result[0];
+        return result.index;
     }
 
     try debugger.reporter.report(.undeclared_label, .{

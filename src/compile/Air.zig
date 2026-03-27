@@ -12,36 +12,36 @@ pub const Instruction = @import("instruction.zig").Instruction;
 
 origin: u16,
 lines: ArrayList(Line),
-labels: ArrayList(LabelEntry),
+labels: ArrayList(Label),
 
-// TODO: Merge with `Label` if possible
-pub const LabelEntry = struct {
+pub const Label = struct {
     /// Index in `lines`. `address - offset`.
     index: u16,
-    label: Line.Label,
+    span: Span,
+    references: usize,
+    kind: Kind,
+
+    pub fn new(index: u16, span: Span, string: []const u8) Label {
+        return .{
+            .index = index,
+            .span = span,
+            .references = 0,
+            .kind = .from(string),
+        };
+    }
+
+    pub const Kind = enum {
+        normal,
+        breakpoint,
+        pub fn from(string: []const u8) Kind {
+            return if (std.mem.startsWith(u8, string, "__")) .breakpoint else .normal;
+        }
+    };
 };
 
 pub const Line = struct {
     statement: Statement,
     span: Span,
-
-    pub const Label = struct {
-        span: Span,
-        references: usize,
-        kind: Kind,
-
-        pub fn new(span: Span, string: []const u8) Label {
-            return .{ .span = span, .references = 0, .kind = .from(string) };
-        }
-
-        pub const Kind = enum {
-            normal,
-            breakpoint,
-            pub fn from(string: []const u8) Kind {
-                return if (std.mem.startsWith(u8, string, "__")) .breakpoint else .normal;
-            }
-        };
-    };
 };
 
 pub const Statement = union(enum) {
@@ -103,15 +103,15 @@ pub fn findLabelDefinition(
     reference: []const u8,
     case_mode: enum { sensitive, insensitive },
     source: []const u8,
-) ?struct { usize, *Line.Label } {
-    for (air.labels.items) |*entry| {
-        const string = entry.label.span.view(source);
+) ?*Label {
+    for (air.labels.items) |*label| {
+        const string = label.span.view(source);
         const matches = switch (case_mode) {
             .sensitive => std.mem.eql(u8, string, reference),
             .insensitive => std.ascii.eqlIgnoreCase(string, reference),
         };
         if (matches)
-            return .{ entry.index, &entry.label };
+            return label;
     }
     return null;
 }

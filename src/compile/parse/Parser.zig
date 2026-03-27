@@ -241,10 +241,10 @@ fn addCurrentLabel(parser: *Parser, gpa: Allocator, air: *Air) !void {
         return;
     parser.current_label = null;
 
-    try air.labels.append(gpa, .{
-        .index = @intCast(air.lines.items.len),
-        .label = .new(label, label.view(parser.source())),
-    });
+    try air.labels.append(
+        gpa,
+        .new(@intCast(air.lines.items.len), label, label.view(parser.source())),
+    );
 }
 
 fn discardCurrentLabel(parser: *Parser, target: ?Span) error{Reported}!void {
@@ -252,7 +252,7 @@ fn discardCurrentLabel(parser: *Parser, target: ?Span) error{Reported}!void {
         return;
     parser.current_label = null;
 
-    if (Air.Line.Label.Kind.from(label.view(parser.source())) != .normal)
+    if (Air.Label.Kind.from(label.view(parser.source())) != .normal)
         return;
     try parser.reporter().report(.invalid_label_target, .{
         .label = label,
@@ -471,9 +471,9 @@ fn parseInstruction(
 }
 
 fn getExistingLabel(parser: *const Parser, air: *Air, new_label: []const u8) ?Span {
-    for (air.labels.items) |*entry| {
-        if (std.mem.eql(u8, entry.label.span.view(parser.source()), new_label))
-            return entry.label.span;
+    for (air.labels.items) |*label| {
+        if (std.mem.eql(u8, label.span.view(parser.source()), new_label))
+            return label.span;
     }
     return null;
 }
@@ -494,10 +494,10 @@ pub fn resolveLabels(parser: *Parser, air: *Air) void {
         };
     }
 
-    for (air.labels.items) |*entry| {
-        if (entry.label.references == 0 and entry.label.kind == .normal) {
+    for (air.labels.items) |*label| {
+        if (label.references == 0 and label.kind == .normal) {
             parser.reporter().report(.unused_label, .{
-                .label = entry.label.span,
+                .label = label.span,
             }).proceed();
         }
     }
@@ -543,11 +543,9 @@ fn resolveFieldLabel(
 
     const string = operand.span.view(parser.source());
 
-    const definition, const definition_label =
+    const definition =
         air.findLabelDefinition(string, .sensitive, air_source) orelse {
-            _, const near_match =
-                air.findLabelDefinition(string, .insensitive, air_source) orelse
-                .{ {}, null };
+            const near_match = air.findLabelDefinition(string, .insensitive, air_source);
             try parser.reporter().report(.undeclared_label, .{
                 .reference = operand.span,
                 .nearest = if (near_match) |label| label.span else null,
@@ -555,18 +553,18 @@ fn resolveFieldLabel(
             }).abort();
         };
 
-    const offset = calculateOffset(Int, definition, index) orelse {
+    const offset = calculateOffset(Int, definition.index, index) orelse {
         try parser.reporter().report(.offset_too_large, .{
             .reference = operand.span,
-            .definition = definition_label.span,
-            .offset = calculateOffset(i17, definition, index) orelse
+            .definition = definition.span,
+            .offset = calculateOffset(i17, definition.index, index) orelse
                 unreachable,
             .bits = @typeInfo(Int).int.bits,
             .declaration_source = air_source,
         }).abort();
     };
 
-    definition_label.references += 1;
+    definition.references += 1;
     operand.value = .{ .resolved = .{ .integer = offset, .form = null } };
 }
 
