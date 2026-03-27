@@ -130,7 +130,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
             // This should also be checked when the second label is parsed, but
             // this reports a more appropriate message
             if (try parser.tokens.nextMatching(.label)) |label| {
-                try parser.reporter().report(.multiple_labels, .{
+                try parser.reporter().report(.existing_label_left, .{
                     .existing = token.span,
                     .new = label.span,
                 }).handle();
@@ -146,7 +146,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
             const index: u16 = @intCast(air.lines.items.len);
 
             if (getCurrentLabel(air, index)) |existing| {
-                try parser.reporter().report(.shadowed_label, .{
+                try parser.reporter().report(.existing_label_above, .{
                     .existing = existing.span,
                     .new = token.span,
                 }).handle();
