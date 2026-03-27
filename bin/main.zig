@@ -32,7 +32,7 @@ pub fn main(init: std.process.Init) !u8 {
     const policies: lcz.Policies = .config_lace;
     reporter.options.policies = policies;
 
-    const traps: lcz.Traps = comptime .initBuiltins(&.{
+    const traps: lcz.Traps = comptime .registerSets(&.{
         lcz.Traps.Standard,
         lcz.Traps.Debug,
     });
@@ -121,13 +121,13 @@ fn assemble(
     var parser = lcz.Parser.new(traps, source, reporter) catch
         return error.ProgramError;
 
-    try parser.parse(gpa, &air);
+    try parser.parseAir(gpa, &air);
     if (reporter.getLevel() == .err) {
         reporter.showSummary();
         return error.ProgramError;
     }
 
-    parser.resolveLabels(&air);
+    parser.resolveLabelReferences(&air);
     if (reporter.getLevel() == .err) {
         reporter.showSummary();
         return error.ProgramError;
@@ -143,7 +143,7 @@ fn emulate(
     gpa: Allocator,
     runtime_source: union(enum) {
         object: Io.File,
-        assembly: lcz.Runtime.Debugger.Assembly,
+        assembly: lcz.Debugger.Assembly,
     },
     debug: bool,
     traps: *const lcz.Traps,
@@ -156,7 +156,7 @@ fn emulate(
     var writer = Io.File.stdout().writer(io, &write_buffer);
     var reader = Io.File.stdin().reader(io, &.{});
 
-    var debugger_opt: ?lcz.Runtime.Debugger = if (debug) debugger: {
+    var debugger_opt: ?lcz.Debugger = if (debug) debugger: {
         const history_file = openHistoryFile(io) catch |err| file: {
             std.log.err("failed to open/create history file: {t}", .{err});
             break :file null;
