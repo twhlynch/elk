@@ -40,6 +40,7 @@ Available as a both Zig library and a command-line program.
 
 - [x] Descriptive warnings and error messages
 - [x] Assembly code style hints
+- [x] Multiple labels can annotate a single address
 
 ## Other Toolchain Components
 
