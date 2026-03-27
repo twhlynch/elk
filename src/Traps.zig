@@ -3,9 +3,10 @@ const Traps = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-pub const Callback = @import("callback.zig").Callback;
 const Runtime = @import("emulate/Runtime.zig");
 const builtin_traps = @import("emulate/builtin_traps.zig");
+
+pub const Callback = @import("callback.zig").Callback;
 
 entries: [1 << 8]Entry,
 
@@ -15,7 +16,7 @@ pub const Error =
 
 pub const Result = Error!void;
 
-pub const Entry = struct {
+const Entry = struct {
     alias: ?[]const u8,
     callback: ?Callback(&.{*Runtime}, Result),
 

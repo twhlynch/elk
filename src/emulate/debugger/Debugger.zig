@@ -12,11 +12,10 @@ const Span = @import("../../compile/Span.zig");
 const Parser = @import("../../compile/parse/Parser.zig");
 const Runtime = @import("../Runtime.zig");
 const Instruction = @import("../decode.zig").Instruction;
+const Command = @import("Command.zig");
 const Breakpoints = @import("Breakpoints.zig");
 const Input = @import("Input.zig");
 const parse = @import("parse.zig");
-
-pub const Command = @import("Command.zig");
 
 state: struct {
     status: Status = .get_action,
@@ -141,7 +140,7 @@ pub fn start(debugger: *Debugger) !void {
     try debugger.writer.printLine("* Welcome to LCZ Debugger *", .{});
 }
 
-pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?Runtime.Control {
+pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?enum { @"continue", @"break" } {
     if (debugger.state.status == .inactive)
         return null;
 

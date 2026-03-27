@@ -132,8 +132,8 @@ pub const Instruction = union(enum) {
         pc_offset: i9,
     };
 
-    pub const Register = u3;
-    pub const RegImm5 = union(enum) {
+    const Register = u3;
+    const RegImm5 = union(enum) {
         register: Register,
         immediate: i5,
     };

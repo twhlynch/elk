@@ -1,13 +1,13 @@
 const std = @import("std");
 
+const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Radix = @import("../compile/parse/integers.zig").Form.Radix;
 const Runtime = @import("../emulate/Runtime.zig");
-const Command = @import("../emulate/debugger/Debugger.zig").Command;
+const DebuggerCommand = @import("../emulate/debugger/Command.zig");
 const Reporter = @import("Reporter.zig");
 const Ctx = @import("Ctx.zig");
-const Policies = Reporter.Policies;
 
 pub const TokenKinds = struct {
     kinds: []const Kind,

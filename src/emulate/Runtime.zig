@@ -4,12 +4,12 @@ const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 
+const Debugger = @import("debugger/Debugger.zig");
 const Policies = @import("../policies.zig").Policies;
 const Traps = @import("../Traps.zig");
 const Tty = @import("Tty.zig");
 
 pub const Callback = @import("../callback.zig").Callback;
-pub const Debugger = @import("debugger/Debugger.zig");
 pub const Instruction = @import("decode.zig").Instruction;
 
 pub const MEMORY_SIZE = 0x1_0000;
@@ -60,7 +60,7 @@ pub const State = struct {
     }
 };
 
-pub const Error = Exception || IoError;
+const Error = Exception || HostError;
 
 /// The user's program or configuration (traps, policies) is erroneous.
 pub const Exception = error{
@@ -137,8 +137,6 @@ pub fn readFromFile(runtime: *Runtime, io: Io, file: Io.File, buffer: []u8) !voi
         runtime.state.memory[origin + i] = raw;
     }
 }
-
-pub const Control = enum { @"continue", @"break" };
 
 pub fn run(runtime: *Runtime) Error!void {
     if (runtime.debugger) |debugger|

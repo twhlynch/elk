@@ -1,9 +1,10 @@
-pub const Policies = @import("policies.zig").Policies;
-pub const Traps = @import("Traps.zig");
-pub const Reporter = @import("report/Reporter.zig");
 pub const Air = @import("compile/Air.zig");
 pub const Parser = @import("compile/parse/Parser.zig");
 pub const Runtime = @import("emulate/Runtime.zig");
+pub const Debugger = @import("emulate/debugger/Debugger.zig");
+pub const Traps = @import("Traps.zig");
+pub const Policies = @import("policies.zig").Policies;
+pub const Reporter = @import("report/Reporter.zig");
 
 test {
     const refAllDecls = @import("std").testing.refAllDecls;

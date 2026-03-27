@@ -4,12 +4,12 @@ const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
+const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 const Ctx = @import("Ctx.zig");
 
-pub const Policies = @import("../policies.zig").Policies;
 pub const Stderr = @import("Stderr.zig");
 pub const Discarding = @import("Discarding.zig");
 
