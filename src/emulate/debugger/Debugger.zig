@@ -521,11 +521,12 @@ fn printBreakpoints(debugger: *Debugger) !void {
                 break :blk;
             };
 
-            if (line.label) |label| {
-                try debugger.writer.print(" (labelled '{s}')", .{
-                    label.span.view(assembly.source),
-                });
-            }
+            // TODO: Lookup label !!
+            // if (line.label) |label| {
+            //     try debugger.writer.print(" (labelled '{s}')", .{
+            //         label.span.view(assembly.source),
+            //     });
+            // }
 
             try debugger.writer.print(":", .{});
             try debugger.writer.disableColor();

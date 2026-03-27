@@ -12,9 +12,16 @@ pub const Instruction = @import("instruction.zig").Instruction;
 
 origin: u16,
 lines: ArrayList(Line),
+labels: ArrayList(LabelEntry),
+
+// TODO: Merge with `Label` if possible
+pub const LabelEntry = struct {
+    /// Index in `lines`. `address - offset`.
+    index: u16,
+    label: Line.Label,
+};
 
 pub const Line = struct {
-    label: ?Label,
     statement: Statement,
     span: Span,
 
@@ -53,18 +60,21 @@ pub fn init() Air {
     return .{
         .origin = 0x3000,
         .lines = .empty,
+        .labels = .empty,
     };
 }
 
 pub fn deinit(air: *Air, gpa: Allocator) void {
     air.lines.deinit(gpa);
+    air.labels.deinit(gpa);
 }
 
 pub fn getFirstSpan(air: *const Air) ?Span {
     if (air.lines.items.len == 0)
         return null;
-    if (air.lines.items[0].label) |label|
-        return label.span;
+    // FIXME: Use first label if before first line
+    // if (air.lines.items[0].label) |label|
+    //     return label.span;
     return air.lines.items[0].span;
 }
 
@@ -94,16 +104,14 @@ pub fn findLabelDefinition(
     case_mode: enum { sensitive, insensitive },
     source: []const u8,
 ) ?struct { usize, *Line.Label } {
-    for (air.lines.items, 0..) |*line, index| {
-        const label = &(line.label orelse
-            continue);
-        const string = label.span.view(source);
+    for (air.labels.items) |*entry| {
+        const string = entry.label.span.view(source);
         const matches = switch (case_mode) {
             .sensitive => std.mem.eql(u8, string, reference),
             .insensitive => std.ascii.eqlIgnoreCase(string, reference),
         };
         if (matches)
-            return .{ index, label };
+            return .{ entry.index, &entry.label };
     }
     return null;
 }

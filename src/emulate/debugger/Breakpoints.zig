@@ -26,12 +26,10 @@ pub fn deinit(breakpoints: *Breakpoints) void {
 pub fn initFrom(gpa: Allocator, assembly: Assembly) error{OutOfMemory}!Breakpoints {
     var breakpoints: Breakpoints = .init(gpa);
     assert(assembly.air.lines.items.len + assembly.air.origin <= std.math.maxInt(u16));
-    for (assembly.air.lines.items, assembly.air.origin..) |line, address| {
-        const label = line.label orelse
+    for (assembly.air.labels.items) |*entry| {
+        if (entry.label.kind != .breakpoint)
             continue;
-        if (label.kind != .breakpoint)
-            continue;
-        assert(try breakpoints.insert(@intCast(address), true));
+        assert(try breakpoints.insert(entry.index + assembly.air.origin, true));
     }
     return breakpoints;
 }
