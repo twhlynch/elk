@@ -104,7 +104,12 @@ pub fn parse(parser: *Parser, gpa: Allocator, air: *Air) error{OutOfMemory}!void
 
 fn getFirstSpan(parser: *const Parser) ?Span {
     var lexer: Lexer = .new(parser.source(), true);
-    return lexer.next();
+    while (true) {
+        const span = lexer.next() orelse
+            return null;
+        if (!std.mem.eql(u8, span.view(parser.source()), "\n"))
+            return span;
+    }
 }
 
 fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
