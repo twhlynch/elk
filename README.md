@@ -1,8 +1,8 @@
 # LC-Z
 
-Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain
-(currently incomplete).
-Available as a both Zig library and a command-line program.
+Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
+Available as both a [Zig](https://ziglang.org) library and a command-line
+program.
 
 # Features
 
