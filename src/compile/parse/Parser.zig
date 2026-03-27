@@ -111,6 +111,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
     const token = try parser.tokens.nextExcluding(&.{.newline});
 
     switch (token.value) {
+        // TODO: Move this branch to a new method
         .label => {
             if (parser.getExistingLabel(air, token.span.view(parser.source()))) |existing_label| {
                 try parser.reporter().report(.redeclared_label, .{
@@ -142,8 +143,17 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
                 }).handle();
             }
 
+            const index: u16 = @intCast(air.lines.items.len);
+
+            if (getCurrentLabel(air, index)) |existing| {
+                try parser.reporter().report(.shadowed_label, .{
+                    .existing = existing.span,
+                    .new = token.span,
+                }).handle();
+            }
+
             try air.labels.append(gpa, .new(
-                @intCast(air.lines.items.len),
+                index,
                 token.span,
                 token.span.view(parser.source()),
             ));
@@ -462,10 +472,20 @@ fn parseInstruction(
     }
 }
 
+// TODO: Rename
 fn getExistingLabel(parser: *const Parser, air: *Air, new_label: []const u8) ?Span {
     for (air.labels.items) |*label| {
         if (std.mem.eql(u8, label.span.view(parser.source()), new_label))
             return label.span;
+    }
+    return null;
+}
+
+// TODO: Rename
+fn getCurrentLabel(air: *Air, index: u16) ?*const Air.Label {
+    for (air.labels.items) |*existing| {
+        if (existing.index == index)
+            return existing;
     }
     return null;
 }
