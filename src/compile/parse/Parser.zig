@@ -10,12 +10,12 @@ const Air = @import("../Air.zig");
 const Instruction = @import("../instruction.zig").Instruction;
 const Span = @import("../Span.zig");
 const Operand = @import("../Operand.zig");
-const TokenIter = @import("TokenIter.zig");
+const Tokenizer = @import("Tokenizer.zig");
 const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const case = @import("case.zig");
 
-tokens: TokenIter,
+tokenizer: Tokenizer,
 origin: ?Span,
 
 pub fn new(
@@ -32,16 +32,16 @@ pub fn new(
     }
 
     return .{
-        .tokens = .new(traps, source_, reporter_),
+        .tokenizer = .new(traps, source_, reporter_),
         .origin = null,
     };
 }
 
 fn source(parser: *const Parser) []const u8 {
-    return parser.tokens.source;
+    return parser.tokenizer.source;
 }
 fn reporter(parser: *Parser) *Reporter {
-    return parser.tokens.reporter;
+    return parser.tokenizer.reporter;
 }
 
 const Control = enum { @"continue", @"break" };
@@ -59,7 +59,7 @@ pub fn parseAir(parser: *Parser, gpa: Allocator, air: *Air) error{OutOfMemory}!v
     while (true) {
         const control = parser.parseLine(gpa, air) catch |err| switch (err) {
             error.Reported => {
-                parser.tokens.discardRemainingLine();
+                parser.tokenizer.discardRemainingLine();
                 continue;
             },
             error.Eof => {
@@ -89,7 +89,7 @@ pub fn parseAir(parser: *Parser, gpa: Allocator, air: *Air) error{OutOfMemory}!v
 
     if (missing_end) {
         parser.reporter().report(.missing_end, .{
-            .last_token = parser.tokens.latest,
+            .last_token = parser.tokenizer.latest,
         }).proceed(); // Can't return `error.Reported`
     }
 
@@ -107,7 +107,7 @@ fn getFirstTokenSpan(parser: *const Parser) ?Span {
 }
 
 fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
-    const token = try parser.tokens.nextExcluding(&.{.newline});
+    const token = try parser.tokenizer.nextExcluding(&.{.newline});
 
     switch (token.value) {
         .label => {
@@ -116,7 +116,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
 
         .directive => |directive| {
             const control = try parser.parseDirective(gpa, air, directive, token.span);
-            try parser.tokens.expectEol();
+            try parser.tokenizer.expectEol();
             return control;
         },
 
@@ -124,9 +124,9 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
             const instruction = try parser.parseInstructionOperands(mnemonic, token.span);
             const span: Span = .fromBounds(
                 token.span.offset,
-                parser.tokens.getIndex(),
+                parser.tokenizer.getIndex(),
             );
-            try parser.tokens.expectEol();
+            try parser.tokenizer.expectEol();
 
             try parser.ensureCanAppendLines(air, 1, span);
             try air.lines.append(gpa, .{
@@ -144,7 +144,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
                     },
                 } },
             };
-            try parser.tokens.expectEol();
+            try parser.tokenizer.expectEol();
 
             try parser.ensureCanAppendLines(air, 1, token.span);
             try air.lines.append(gpa, .{
@@ -166,7 +166,7 @@ fn parseLine(parser: *Parser, gpa: Allocator, air: *Air) InnerError!Control {
 /// Asserts that at least one non-`newline` token exists before EOF.
 /// Label definition for this line must be handled by caller.
 pub fn parseInstruction(parser: *Parser) error{Reported}!Instruction {
-    const token = parser.tokens.nextExcluding(&.{.newline}) catch |err| switch (err) {
+    const token = parser.tokenizer.nextExcluding(&.{.newline}) catch |err| switch (err) {
         error.Reported => return error.Reported,
         error.Eof => unreachable,
     };
@@ -174,7 +174,7 @@ pub fn parseInstruction(parser: *Parser) error{Reported}!Instruction {
     switch (token.value) {
         .mnemonic => |mnemonic| {
             const instruction = try parser.parseInstructionOperands(mnemonic, token.span);
-            try parser.tokens.expectEol();
+            try parser.tokenizer.expectEol();
             return instruction;
         },
 
@@ -240,7 +240,7 @@ fn addLabel(parser: *Parser, gpa: Allocator, air: *Air, label: Span) InnerError!
         }).abort();
     }
 
-    if (try parser.tokens.nextMatching(.colon)) |colon| {
+    if (try parser.tokenizer.nextMatching(.colon)) |colon| {
         try parser.reporter().report(.label_colon, .{
             .colon = colon.span,
         }).handle();
@@ -249,7 +249,7 @@ fn addLabel(parser: *Parser, gpa: Allocator, air: *Air, label: Span) InnerError!
     // Disallow two labels on same line
     // This should also be checked when the second label is parsed, but
     // this reports a more appropriate message
-    if (try parser.tokens.nextMatching(.label)) |right| {
+    if (try parser.tokenizer.nextMatching(.label)) |right| {
         try parser.reporter().report(.existing_label_left, .{
             .existing = label,
             .new = right.span,
@@ -295,7 +295,7 @@ fn parseDirective(
         .orig => {
             try parser.discardCurrentLabel(air, span);
 
-            const origin = try parser.tokens.expectArgument(.word);
+            const origin = try parser.tokenizer.expectArgument(.word);
             if (parser.origin) |existing| {
                 try parser.reporter().report(.multiple_origins, .{
                     .existing = existing,
@@ -318,7 +318,7 @@ fn parseDirective(
         },
 
         .fill => {
-            const word = try parser.tokens.expectArgument(.word);
+            const word = try parser.tokenizer.expectArgument(.word);
 
             try parser.ensureCanAppendLines(air, 1, span);
             try air.lines.append(gpa, .{
@@ -328,7 +328,7 @@ fn parseDirective(
         },
 
         .blkw => {
-            const size = try parser.tokens.expectArgument(.word);
+            const size = try parser.tokenizer.expectArgument(.word);
             const size_value = size.value.underlying;
             if (size_value == 0)
                 return .@"continue";
@@ -340,7 +340,7 @@ fn parseDirective(
         },
 
         .stringz => {
-            const string = try parser.tokens.expectArgument(.string);
+            const string = try parser.tokenizer.expectArgument(.string);
             const contents = string.value.in(string.span);
 
             var is_escaped = false;
@@ -435,13 +435,13 @@ fn parseInstructionOperands(
 
             const fields = @typeInfo(Operands).@"struct".fields;
             inline for (fields, 0..) |field, i| {
-                const operand = try parser.tokens.expectArgument(
+                const operand = try parser.tokenizer.expectArgument(
                     .{ .operand = @FieldType(field.type, "value") },
                 );
                 @field(operands, field.name) = operand;
 
                 if (i + 1 < fields.len)
-                    if (try parser.tokens.nextMatching(.comma) == null) {
+                    if (try parser.tokenizer.nextMatching(.comma) == null) {
                         try parser.reporter().report(.missing_operand_comma, .{
                             .operand = operand.span,
                         }).handle();
@@ -463,7 +463,7 @@ fn parseInstructionOperands(
                 .br, .brnzp => .nzp,
                 else => comptime unreachable,
             };
-            const dest = try parser.tokens.expectArgument(.{
+            const dest = try parser.tokenizer.expectArgument(.{
                 .operand = Operand.value.PcOffset(9),
             });
             return .{ .br = .{

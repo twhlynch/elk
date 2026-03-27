@@ -15,7 +15,7 @@ test {
     refAllDecls(@import("compile/Air.zig"));
     refAllDecls(@import("compile/parse/parsing.zig"));
     refAllDecls(@import("compile/parse/case.zig"));
-    refAllDecls(@import("compile/parse/TokenIter.zig"));
+    refAllDecls(@import("compile/parse/Tokenizer.zig"));
     refAllDecls(@import("compile/parse/Lexer.zig"));
     refAllDecls(@import("compile/parse/Parser.zig"));
     refAllDecls(@import("compile/parse/integers.zig"));
