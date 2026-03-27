@@ -29,7 +29,8 @@ pub fn initFrom(gpa: Allocator, assembly: Assembly) error{OutOfMemory}!Breakpoin
     for (assembly.air.labels.items) |*label| {
         if (label.kind != .breakpoint)
             continue;
-        assert(try breakpoints.insert(label.index + assembly.air.origin, true));
+        // May not have been inserted, if multiple breakpoint labels exist for a line
+        _ = try breakpoints.insert(label.index + assembly.air.origin, true);
     }
     return breakpoints;
 }
