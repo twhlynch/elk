@@ -59,7 +59,7 @@ pub fn parse(args: *std.process.Args.Iterator) anyerror!Cli {
 
     return .{
         .filepath = partial.filepath orelse
-            return error.ExpectedPositionalArgument,
+            return error.UnexpectedPositionalArgument,
         .command = partial.command orelse .default,
         .debug = partial.debug,
     };
