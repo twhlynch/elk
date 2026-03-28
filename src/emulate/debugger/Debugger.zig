@@ -397,7 +397,7 @@ fn runCommand(
                 .register => |register| {
                     runtime.state.registers[register] = arguments.value.value;
                     try debugger.writer.printLine(
-                        "| Updated register R{} to 0x{x:04}.n",
+                        "Updated register R{} to 0x{x:04}.",
                         .{ register, arguments.value.value },
                     );
                 },
@@ -405,7 +405,7 @@ fn runCommand(
                     try debugger.ensureUserAddress(address, arguments.location.span);
                     runtime.state.memory[address] = arguments.value.value;
                     try debugger.writer.printLine(
-                        "| Updated memory at address 0x{x:04} to 0x{x:04}.\n",
+                        "Updated memory at address 0x{x:04} to 0x{x:04}.",
                         .{ address, arguments.value.value },
                     );
                 },
@@ -446,7 +446,7 @@ fn runCommand(
         },
 
         .echo => |arguments| {
-            try debugger.writer.printLine("[{s}]\n", .{arguments.string.view(source)});
+            try debugger.writer.printLine("[{s}]", .{arguments.string.view(source)});
         },
 
         .step_over => {
