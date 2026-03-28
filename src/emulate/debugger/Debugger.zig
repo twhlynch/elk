@@ -136,7 +136,7 @@ pub fn initState(
     debugger.initial_state.?.copyFrom(runtime.state);
 }
 
-pub fn start(debugger: *Debugger) !void {
+pub fn startMessage(debugger: *Debugger) !void {
     try debugger.writer.printLine("* Welcome to LCZ Debugger *", .{});
 }
 
@@ -392,6 +392,22 @@ fn runCommand(
             }
         },
 
+        .list => |arguments| {
+            const start = try debugger.resolveMemoryLocation(
+                runtime,
+                arguments.start.value,
+                arguments.start.span,
+                source,
+            );
+            const end = try debugger.resolveMemoryLocation(
+                runtime,
+                arguments.start.value.add(arguments.length.value - 1),
+                arguments.length.span,
+                source,
+            );
+            try debugger.printListing(runtime, start, end);
+        },
+
         .move => |arguments| {
             switch (try debugger.resolveLocation(runtime, arguments.location, source)) {
                 .register => |register| {
@@ -515,6 +531,61 @@ fn runCommand(
     }
 
     return null;
+}
+
+fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !void {
+    try debugger.writer.enableColor();
+
+    const line = "+-------------------------------------------------+\n";
+    try debugger.writer.print(line, .{});
+    try debugger.writer.print("|           hex      decoded         label        |\n", .{});
+    try debugger.writer.print(line, .{});
+
+    for (start..end + 1) |i| {
+        const address: u16 = @intCast(i);
+        const word = runtime.state.memory[address];
+
+        try debugger.writer.print("| ", .{});
+
+        try debugger.writer.print("0x{x:04}", .{address});
+
+        try debugger.writer.print(" {s}", .{
+            if (debugger.breakpoints.contains(address)) "B" else " ",
+        });
+
+        try debugger.writer.print(" 0x{x:04}", .{word});
+
+        if (Instruction.decode(word)) |instruction| {
+            const width = 16;
+            var buffer: [width]u8 = undefined;
+            const string = std.fmt.bufPrint(&buffer, "{f}", .{instruction}) catch unreachable;
+            try debugger.writer.print("  {s:<[1]}", .{ string, width });
+        } else |_| {}
+
+        {
+            const width = 12;
+            var buffer: [width]u8 = undefined;
+            var string: []const u8 = buffer[0..0];
+            if (debugger.assembly) |assembly| {
+                if (getAssemblyLineIndexOptional(assembly, address)) |index| {
+                    if (getLineLabel(assembly, index)) |label| {
+                        const name = label.span.view(assembly.source);
+                        const length = @min(name.len, width);
+                        @memcpy(buffer[0..length], name[0..length]);
+                        if (name.len > width)
+                            buffer[width - 1] = '-';
+                        string = buffer[0..length];
+                    }
+                }
+            }
+            try debugger.writer.print("  {s:<[1]}", .{ string, width });
+        }
+
+        try debugger.writer.print(" |\n", .{});
+    }
+
+    try debugger.writer.print(line, .{});
+    try debugger.writer.disableColor();
 }
 
 fn printBreakpoints(debugger: *Debugger) !void {
