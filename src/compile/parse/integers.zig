@@ -198,14 +198,14 @@ const CharIter = struct {
 };
 
 fn tryCharInteger(string: []const u8) Error!?Word {
-    if (string.len < 2 or string[0] != '\'')
+    if (string.len == 0 or string[0] != '\'')
         return null;
 
-    if (string[string.len - 1] != '\'')
+    if (string.len < 2 or string[string.len - 1] != '\'')
         return error.MalformedCharacter;
 
     const contents = string[1 .. string.len - 1];
-    if (contents[contents.len - 1] == '\\')
+    if (contents.len > 0 and contents[contents.len - 1] == '\\')
         return error.MalformedCharacter;
 
     var escaped: Escaped = .new(.single, contents);
