@@ -405,26 +405,7 @@ fn runCommand(
                 arguments.end.span,
                 source,
             );
-
-            try debugger.writer.enableColor();
-
-            try debugger.writer.print("address\thex\tinstruction\n", .{});
-
-            for (start..end + 1) |i| {
-                const address: u16 = @intCast(i);
-                const word = runtime.state.memory[address];
-
-                try debugger.writer.print("0x{x:04}", .{address});
-                try debugger.writer.print("\t0x{x:04}", .{word});
-
-                if (Instruction.decode(word)) |instruction| {
-                    try debugger.writer.print("\t{f}", .{instruction});
-                } else |_| {}
-
-                try debugger.writer.print("\n", .{});
-            }
-
-            try debugger.writer.disableColor();
+            try debugger.printListing(runtime, start, end);
         },
 
         .move => |arguments| {
@@ -550,6 +531,28 @@ fn runCommand(
     }
 
     return null;
+}
+
+fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !void {
+    try debugger.writer.enableColor();
+
+    try debugger.writer.print("address\thex\tinstruction\n", .{});
+
+    for (start..end + 1) |i| {
+        const address: u16 = @intCast(i);
+        const word = runtime.state.memory[address];
+
+        try debugger.writer.print("0x{x:04}", .{address});
+        try debugger.writer.print("\t0x{x:04}", .{word});
+
+        if (Instruction.decode(word)) |instruction| {
+            try debugger.writer.print("\t{f}", .{instruction});
+        } else |_| {}
+
+        try debugger.writer.print("\n", .{});
+    }
+
+    try debugger.writer.disableColor();
 }
 
 fn printBreakpoints(debugger: *Debugger) !void {
