@@ -392,7 +392,7 @@ fn runCommand(
             }
         },
 
-        .printm => |arguments| {
+        .list => |arguments| {
             const start = try debugger.resolveMemoryLocation(
                 runtime,
                 arguments.start.value,
