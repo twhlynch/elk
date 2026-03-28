@@ -342,8 +342,14 @@ fn parseDirective(
         .stringz => {
             const string = try parser.tokenizer.expectArgument(.string);
             const contents = string.value.in(string.span);
+            const contents_string = contents.view(parser.source());
 
-            var escaped: Escaped = .new(contents.view(parser.source()));
+            // Check length and allocate lines before proper string iteration
+            const length = Escaped.validLength(contents_string) + 1; // Include NUL
+            try parser.ensureCanAppendLines(air, length, span);
+            try air.lines.ensureUnusedCapacity(gpa, length);
+
+            var escaped: Escaped = .new(contents_string);
             while (escaped.next()) |result| {
                 const char = result catch {
                     try parser.reporter().report(.invalid_string_escape, .{
@@ -356,18 +362,14 @@ fn parseDirective(
                     continue;
                 };
 
-                // PERF: Calculate length of string (in words) before this loop
-                // Perform this check, and the `lines` allocation, only once
-                try parser.ensureCanAppendLines(air, 1, span);
-                try air.lines.append(gpa, .{
+                air.lines.appendAssumeCapacity(.{
                     .statement = .{ .raw_word = char },
                     .span = string.span,
                 });
             }
 
             // Null terminator
-            try parser.ensureCanAppendLines(air, 1, span);
-            try air.lines.append(gpa, .{
+            air.lines.appendAssumeCapacity(.{
                 .statement = .{ .raw_word = 0x0000 },
                 .span = string.span,
             });
