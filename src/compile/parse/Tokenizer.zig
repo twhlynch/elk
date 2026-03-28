@@ -126,7 +126,7 @@ fn nextAny(tokenizer: *Tokenizer) error{ Reported, Eof }!Token {
                 }).abort();
             },
             error.MalformedCharacter => {
-                try tokenizer.reporter.report(.malformed_integer, .{
+                try tokenizer.reporter.report(.malformed_character, .{
                     .integer = span,
                 }).abort();
             },

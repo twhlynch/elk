@@ -272,7 +272,7 @@ const Parser = struct {
                 }).abort();
             },
             error.MalformedCharacter => {
-                try parser.reporter.report(.malformed_integer, .{
+                try parser.reporter.report(.malformed_character, .{
                     .integer = argument,
                 }).abort();
             },

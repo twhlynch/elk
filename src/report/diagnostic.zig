@@ -97,6 +97,7 @@ pub const Diagnostic = union(enum) {
 
     // Integer syntax
     malformed_integer: struct { integer: Span },
+    malformed_character: struct { integer: Span },
     expected_digit: struct { integer: Span },
     invalid_digit: struct { integer: Span },
     unexpected_delimiter: struct { integer: Span },
@@ -155,6 +156,7 @@ pub const Diagnostic = union(enum) {
             .redefined_label,
             .undefined_label,
             .malformed_integer,
+            .malformed_character,
             .expected_digit,
             .invalid_digit,
             .unexpected_delimiter,
@@ -368,6 +370,11 @@ pub const Diagnostic = union(enum) {
                 ctx.printTitle("Malformed integer operand", .{});
                 ctx.deepen().printSourceNote("Operand", .{}, info.integer);
                 ctx.deepen().printNote("Integer token is not in an valid form", .{});
+            },
+            .malformed_character => |info| {
+                ctx.printTitle("Malformed character literal operand", .{});
+                ctx.deepen().printSourceNote("Operand", .{}, info.integer);
+                ctx.deepen().printNote("Character literal token is invalid", .{});
             },
             .expected_digit => |info| {
                 ctx.printTitle("Expected digit in integer operand", .{});
