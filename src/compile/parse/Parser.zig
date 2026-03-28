@@ -351,23 +351,17 @@ fn parseDirective(
                 }
 
                 const char_escaped: u8 =
-                    if (!is_escaped) char else switch (char) {
-                        '\\' => '\\',
-                        '"' => '"',
-                        'n' => '\n',
-                        't' => '\t',
-                        'r' => '\r',
-                        else => {
-                            try parser.reporter().report(.invalid_string_escape, .{
-                                .string = string.span,
-                                .sequence = .{
-                                    .offset = contents.offset + i - 1,
-                                    .len = 2,
-                                },
-                            }).handle();
-                            is_escaped = false;
-                            continue;
-                        },
+                    if (!is_escaped) char //fmt
+                    else escapeChar(char) orelse {
+                        try parser.reporter().report(.invalid_string_escape, .{
+                            .string = string.span,
+                            .sequence = .{
+                                .offset = contents.offset + i - 1,
+                                .len = 2,
+                            },
+                        }).handle();
+                        is_escaped = false;
+                        continue;
                     };
                 is_escaped = false;
 
@@ -390,6 +384,17 @@ fn parseDirective(
     }
 
     return .@"continue";
+}
+
+fn escapeChar(char: u8) ?u8 {
+    return switch (char) {
+        '\\' => '\\',
+        '"' => '"',
+        'n' => '\n',
+        't' => '\t',
+        'r' => '\r',
+        else => null,
+    };
 }
 
 fn parseInstructionOperands(
