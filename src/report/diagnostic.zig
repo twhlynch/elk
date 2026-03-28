@@ -104,6 +104,7 @@ pub const Diagnostic = union(enum) {
     nonstandard_integer_radix: struct { integer: Span, radix: Radix },
     nonstandard_integer_form: struct { integer: Span, reason: enum { delimiter } },
     undesirable_integer_form: struct { integer: Span, reason: enum { missing_zero, pre_radix_sign, post_radix_sign, implicit_radix } },
+    character_integer: struct { integer: Span },
 
     // Integer bounds
     integer_too_large: struct { integer: Span, type_info: std.builtin.Type.Int },
@@ -180,6 +181,7 @@ pub const Diagnostic = union(enum) {
             .nonstandard_integer_form => policyResponse(options, .extension, .more_integer_forms),
             .multiline_string => policyResponse(options, .extension, .multiline_strings),
             .stack_instruction => policyResponse(options, .extension, .stack_instructions),
+            .character_integer => policyResponse(options, .extension, .character_literals),
 
             .literal_pc_offset => policyResponse(options, .smell, .pc_offset_literals),
             .explicit_trap_vect => policyResponse(options, .smell, .explicit_trap_instructions),
@@ -366,6 +368,7 @@ pub const Diagnostic = union(enum) {
                 ctx.deepen().printSourceNote("Label declared here", .{}, info.label);
             },
 
+            // TODO: Change "operand" to "argument", and elsewhere
             .malformed_integer => |info| {
                 ctx.printTitle("Malformed integer operand", .{});
                 ctx.deepen().printSourceNote("Operand", .{}, info.integer);
@@ -411,6 +414,10 @@ pub const Diagnostic = union(enum) {
                     .post_radix_sign => "Sign character should appear before non-decimal base specifier",
                     .implicit_radix => "Decimal integer literal should begin with `#`",
                 }});
+            },
+            .character_integer => |info| {
+                ctx.printTitle("Use of non-standard character literal token", .{});
+                ctx.deepen().printSourceNote("Character", .{}, info.integer);
             },
 
             .integer_too_large => |info| {

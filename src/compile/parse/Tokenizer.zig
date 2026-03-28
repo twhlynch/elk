@@ -416,7 +416,9 @@ fn ensureSupported(
         },
 
         .integer => |integer| if (integer.form.char) {
-            // TODO:
+            tokenizer.reporter.report(.character_integer, .{
+                .integer = token.span,
+            }).collect(&result);
         } else {
             if (case.hasUppercaseAlpha(token.span.view(tokenizer.source))) {
                 tokenizer.reporter.report(.unconventional_case, .{
