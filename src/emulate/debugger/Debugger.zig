@@ -536,22 +536,30 @@ fn runCommand(
 fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !void {
     try debugger.writer.enableColor();
 
-    try debugger.writer.print("address\thex\tinstruction\n", .{});
+    try debugger.writer.print("+----------------------------------+\n", .{});
+    try debugger.writer.print("|         hex      instr           |\n", .{});
+    try debugger.writer.print("+----------------------------------+\n", .{});
 
     for (start..end + 1) |i| {
         const address: u16 = @intCast(i);
         const word = runtime.state.memory[address];
 
+        try debugger.writer.print("| ", .{});
+
         try debugger.writer.print("0x{x:04}", .{address});
-        try debugger.writer.print("\t0x{x:04}", .{word});
+        try debugger.writer.print("  0x{x:04}", .{word});
 
         if (Instruction.decode(word)) |instruction| {
-            try debugger.writer.print("\t{f}", .{instruction});
+            const width = 16;
+            var buffer: [width]u8 = undefined;
+            const string = std.fmt.bufPrint(&buffer, "{f}", .{instruction}) catch unreachable;
+            try debugger.writer.print("  {s:<[1]}", .{ string, width });
         } else |_| {}
 
-        try debugger.writer.print("\n", .{});
+        try debugger.writer.print(" |\n", .{});
     }
 
+    try debugger.writer.print("+----------------------------------+\n", .{});
     try debugger.writer.disableColor();
 }
 
