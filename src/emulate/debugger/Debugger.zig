@@ -694,6 +694,7 @@ fn copyReporter(debugger: *const Debugger, source: []const u8) Reporter {
         .extension = reporter.options.policies.extension,
         .smell = reporter.options.policies.smell,
         .style = .permit_all,
+        .case_convention = .permit_all,
     };
     return reporter;
 }

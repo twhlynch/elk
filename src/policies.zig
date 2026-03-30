@@ -5,6 +5,7 @@ pub const Policies = packed struct {
         .extension = .forbid_all,
         .smell = .forbid_all,
         .style = .forbid_all,
+        .case_convention = .forbid_all,
     };
     pub const config_laser: Policies = blk: {
         var policies: Policies = .default;
@@ -51,11 +52,17 @@ pub const Policies = packed struct {
         undesirable_integer_forms: Policy,
         missing_operand_commas: Policy,
         whitespace_commas: Policy,
-        unconventional_case_mnemonic: Policy,
-        unconventional_case_directives: Policy,
-        unconventional_case_labels: Policy,
-        unconventional_case_registers: Policy,
-        unconventional_case_integers: Policy,
+
+        pub const forbid_all = fillFields(@This(), .forbid);
+        pub const permit_all = fillFields(@This(), .permit);
+    },
+
+    case_convention: packed struct {
+        mnemonic: Policy,
+        directives: Policy,
+        labels: Policy,
+        registers: Policy,
+        integers: Policy,
 
         pub const forbid_all = fillFields(@This(), .forbid);
         pub const permit_all = fillFields(@This(), .permit);

@@ -191,11 +191,11 @@ pub const Diagnostic = union(enum) {
             .missing_operand_comma => policyResponse(options, .style, .missing_operand_commas),
             .whitespace_comma => policyResponse(options, .style, .whitespace_commas),
             .unconventional_case => |info| switch (info.kind) {
-                .directive => policyResponse(options, .style, .unconventional_case_directives),
-                .mnemonic => policyResponse(options, .style, .unconventional_case_mnemonic),
-                .label => policyResponse(options, .style, .unconventional_case_labels),
-                .register => policyResponse(options, .style, .unconventional_case_registers),
-                .integer => policyResponse(options, .style, .unconventional_case_integers),
+                .directive => policyResponse(options, .case_convention, .directives),
+                .mnemonic => policyResponse(options, .case_convention, .mnemonic),
+                .label => policyResponse(options, .case_convention, .labels),
+                .register => policyResponse(options, .case_convention, .registers),
+                .integer => policyResponse(options, .case_convention, .integers),
             },
             .undesirable_integer_form => policyResponse(options, .style, .undesirable_integer_forms),
 
