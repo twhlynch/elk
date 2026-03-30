@@ -138,6 +138,7 @@ pub fn initState(
 
 pub fn startMessage(debugger: *Debugger) !void {
     try debugger.writer.printLine("* Welcome to LCZ Debugger *", .{});
+    try debugger.writer.printLine("Type `help` for available commands", .{});
 }
 
 pub fn invoke(debugger: *Debugger, runtime: *Runtime) !?enum { @"continue", @"break" } {
