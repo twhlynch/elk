@@ -9,7 +9,7 @@ program.
 - [x] Assembler (includes linting)
 - [x] Emulator
 - [x] Debugger (see below)
-- [ ] Formatter
+- [ ] Formatter ([see issue](https://codeberg.org/dxrcy/lcz/issues/14))
 
 ## Debugger Features
 
@@ -20,7 +20,7 @@ program.
 - [x] Evaluate arbitrary instructions
 - [x] Recover from `HALT` and runtime exceptions
 - [x] Persistent history across program runs
-- [ ] Import label declarations from symbol table
+- [ ] Import label declarations from symbol table ([see issue](https://codeberg.org/dxrcy/lcz/issues/12))
 
 ## Optional Extension Features
 
@@ -31,7 +31,7 @@ program.
 - [x] Full support for arbitrary user-defined traps
 - [x] Support for arbitrary runtime hooks
 - [x] Patch label values after assembling
-- [ ] Output symbol table and assembly listing
+- [ ] Output symbol table and assembly listing ([see issue](https://codeberg.org/dxrcy/lcz/issues/9))
 - [ ] Multiple file support (compatible with [Laser](https://github.com/PaperFanz/laser))
 - [ ] Preprocessor macros (compatible with [Leap](https://github.com/twhlynch/leap))
 
