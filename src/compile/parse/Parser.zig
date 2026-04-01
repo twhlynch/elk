@@ -487,7 +487,7 @@ pub fn resolveLabelReferences(parser: *Parser, air: *Air) void {
             air,
             parser.source(),
             instruction,
-            index,
+            index + 1, // PC is at N+1 when instruction N is interpreted
         ) catch |err| switch (err) {
             error.Reported => continue,
         };
@@ -574,8 +574,7 @@ fn calculateOffset(comptime T: type, definition: usize, reference: usize) ?T {
         std.math.sub(
             isize,
             @intCast(definition),
-            @intCast(reference +
-                1), // PC is at N+1 when instruction N is interpreted
+            @intCast(reference),
         ) catch
             return null,
     );
