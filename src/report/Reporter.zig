@@ -150,10 +150,11 @@ pub fn getLevel(reporter: *const Reporter) ?Level {
 pub fn writeSpanContext(
     writer: *std.Io.Writer,
     span: Span,
-    source: []const u8,
+    max_context: usize,
     indent: usize,
+    source: []const u8,
 ) error{WriteFailed}!void {
-    const lines = span.getSurroundingLines(source);
+    const lines = span.getSurroundingLines(max_context, source);
     var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
     while (iter.next()) |line_string| {
         const line = Span.fromSlice(line_string, source);
