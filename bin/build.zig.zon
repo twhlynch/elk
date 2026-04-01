@@ -1,11 +1,11 @@
 .{
-    .name = .lcz_bin,
+    .name = .elk_bin,
     .version = "0.1.0",
     .minimum_zig_version = "0.16.0-dev.2670+56253d9e3",
-    .fingerprint = 0x2a70e07e16e04a9e,
+    .fingerprint = 0x133ea94a24920946,
 
     .dependencies = .{
-        .lcz = .{
+        .elk = .{
             .path = "../",
         },
     },

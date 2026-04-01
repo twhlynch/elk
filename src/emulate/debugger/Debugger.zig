@@ -137,7 +137,7 @@ pub fn initState(
 }
 
 pub fn startMessage(debugger: *Debugger) !void {
-    try debugger.writer.printLine("* Welcome to LCZ Debugger *", .{});
+    try debugger.writer.printLine("* Welcome to ELK Debugger *", .{});
     try debugger.writer.printLine("Type `help` for available commands", .{});
 }
 
