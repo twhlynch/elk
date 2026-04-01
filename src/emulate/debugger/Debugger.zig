@@ -454,7 +454,7 @@ fn runCommand(
             const line = try debugger.getAssemblyLine(&assembly, address, arguments.location.span);
 
             try debugger.writer.printLine("Next instruction, at 0x{x:04}:", .{address});
-            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 1, 0, assembly.source);
+            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 5, 0, assembly.source);
         },
 
         .eval => |arguments| {
