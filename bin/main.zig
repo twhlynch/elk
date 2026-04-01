@@ -2,7 +2,7 @@ const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 
-const lcz = @import("lcz");
+const elk = @import("elk");
 
 const Cli = @import("Cli.zig");
 
@@ -11,7 +11,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     var reporter_buffer: [1024]u8 = undefined;
     var reporter_writer = Io.File.stderr().writer(io, &reporter_buffer);
-    var reporter_impl = lcz.Reporter.Stderr.new(&reporter_writer.interface);
+    var reporter_impl = elk.Reporter.Stderr.new(&reporter_writer.interface);
     var reporter = reporter_impl.interface();
 
     var args = try init.minimal.args.iterateAllocator(gpa);
@@ -29,14 +29,14 @@ pub fn main(init: std.process.Init) !u8 {
         else => return err,
     };
 
-    const policies: lcz.Policies = .default;
+    const policies: elk.Policies = .default;
     reporter.options.policies = policies;
 
-    const traps: lcz.Traps = comptime .registerSets(&.{
-        lcz.Traps.Standard,
-        lcz.Traps.Debug,
+    const traps: elk.Traps = comptime .registerSets(&.{
+        elk.Traps.Standard,
+        elk.Traps.Debug,
     });
-    const hooks: lcz.Runtime.Hooks = .{};
+    const hooks: elk.Runtime.Hooks = .{};
 
     switch (cli.command) {
         .assemble => {
@@ -112,13 +112,13 @@ fn replacePathExtension(buffer: []u8, path: []const u8, extension: []const u8) [
 fn assemble(
     gpa: Allocator,
     source: []const u8,
-    traps: *const lcz.Traps,
-    reporter: *lcz.Reporter,
-) !lcz.Air {
-    var air: lcz.Air = .init();
+    traps: *const elk.Traps,
+    reporter: *elk.Reporter,
+) !elk.Air {
+    var air: elk.Air = .init();
     errdefer air.deinit(gpa);
 
-    var parser = lcz.Parser.new(traps, source, reporter) catch
+    var parser = elk.Parser.new(traps, source, reporter) catch
         return error.ProgramError;
 
     try parser.parseAir(gpa, &air);
@@ -143,20 +143,20 @@ fn emulate(
     gpa: Allocator,
     runtime_source: union(enum) {
         object: Io.File,
-        assembly: lcz.Debugger.Assembly,
+        assembly: elk.Debugger.Assembly,
     },
     debug: bool,
-    traps: *const lcz.Traps,
-    hooks: lcz.Runtime.Hooks,
-    policies: lcz.Policies,
-    reporter: *lcz.Reporter,
+    traps: *const elk.Traps,
+    hooks: elk.Runtime.Hooks,
+    policies: elk.Policies,
+    reporter: *elk.Reporter,
 ) !void {
     var write_buffer: [64]u8 = undefined;
     var debugger_buffer: [256]u8 = undefined;
     var writer = Io.File.stdout().writer(io, &write_buffer);
     var reader = Io.File.stdin().reader(io, &.{});
 
-    var debugger_opt: ?lcz.Debugger = if (debug) debugger: {
+    var debugger_opt: ?elk.Debugger = if (debug) debugger: {
         const history_file = openHistoryFile(io) catch |err| file: {
             std.log.err("failed to open/create history file: {t}", .{err});
             break :file null;
@@ -181,7 +181,7 @@ fn emulate(
     } else null;
     defer if (debugger_opt) |*debugger| debugger.deinit(gpa);
 
-    var runtime = try lcz.Runtime.init(.{
+    var runtime = try elk.Runtime.init(.{
         .gpa = gpa,
         .reader = &reader.interface,
         .writer = &writer.interface,
@@ -221,7 +221,7 @@ fn emulate(
 
 fn openHistoryFile(io: Io) !Io.File {
     // FIXME: Get path programatically
-    const path = "/home/darcy/.cache/lcz-history";
+    const path = "/home/darcy/.cache/elk-history";
 
     const flags: Io.File.CreateFlags = .{
         .read = true,

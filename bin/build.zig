@@ -10,15 +10,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const lcz_dep = b.dependency("lcz", .{
+    const elk_dep = b.dependency("elk", .{
         .target = target,
         .optimize = optimize,
     });
 
-    exe_mod.addImport("lcz", lcz_dep.module("lcz"));
+    exe_mod.addImport("elk", elk_dep.module("elk"));
 
     const exe = b.addExecutable(.{
-        .name = "lcz",
+        .name = "elk",
         .root_module = exe_mod,
     });
     b.installArtifact(exe);
