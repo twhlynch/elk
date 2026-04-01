@@ -151,8 +151,8 @@ pub fn writeSpanContext(
     writer: *std.Io.Writer,
     span: Span,
     max_context: usize,
-    source: []const u8,
     indent: usize,
+    source: []const u8,
 ) error{WriteFailed}!void {
     const lines = span.getSurroundingLines(max_context, source);
     var iter = std.mem.splitScalar(u8, lines.view(source), '\n');

@@ -454,7 +454,7 @@ fn runCommand(
             const line = try debugger.getAssemblyLine(&assembly, address, arguments.location.span);
 
             try debugger.writer.printLine("Next instruction, at 0x{x:04}:", .{address});
-            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 1, assembly.source, 0);
+            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 1, 0, assembly.source);
         },
 
         .eval => |arguments| {
@@ -613,7 +613,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
             try debugger.writer.disableColor();
             try debugger.writer.print("\n", .{});
 
-            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 1, assembly.source, 0);
+            try Reporter.writeSpanContext(debugger.writer.inner, line.span, 1, 0, assembly.source);
             continue;
         }
 
