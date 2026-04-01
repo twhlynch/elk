@@ -81,16 +81,21 @@ pub fn getLineNumber(span: Span, source: []const u8) usize {
 pub fn getSurroundingLines(span: Span, max_context: usize, source: []const u8) Span {
     const containing = span.getContainingLines(source);
 
-    var widened = containing;
+    var start = containing.offset;
+    var end_ = containing.end();
+
+    // Widen span on each side, by searching for next newline in respective direction
     for (0..max_context) |_| {
-        widened = .fromBounds(
-            widened.offset -| 1,
-            @min(widened.end() + "\n".len + 1, source.len),
-        );
-        widened = widened.getContainingLines(source);
+        const before = source[0..start -| 1];
+        start = if (std.mem.findLastLinear(u8, before, "\n")) |index| index + 1 else 0;
+        end_ = std.mem.findPosLinear(u8, source, end_ + 1, "\n") orelse source.len;
     }
 
-    return widened;
+    // Don't treat trailing newline in file as an extra empty line
+    if (end_ == source.len and source.len > 0 and source[source.len - 1] == '\n')
+        end_ -= 1;
+
+    return .fromBounds(start, end_);
 }
 
 pub fn getContainingLines(span: Span, source: []const u8) Span {
