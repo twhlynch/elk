@@ -152,6 +152,6 @@ fn printSource(ctx: Ctx, span: Span) void {
         },
     }
 
-    Reporter.writeSpanContext(ctx.reporter.writer, span, source, ctx.depth * indent_width) catch
+    Reporter.writeSpanContext(ctx.reporter.writer, span, 1, source, ctx.depth * indent_width) catch
         std.debug.panic("failed to write to reporter file", .{});
 }
