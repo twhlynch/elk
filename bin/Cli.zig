@@ -53,23 +53,23 @@ const my_template = .{
         .assemble = templates.NamedListing{
             .short = 'a',
             .long = "assemble",
-            .conflicts = &.{"emulate"},
+            .conflicts = &.{.emulate},
         },
         .emulate = templates.NamedListing{
             .short = 'e',
             .long = "emulate",
-            .conflicts = &.{"assemble"},
+            .conflicts = &.{.assemble},
         },
         .output = templates.NamedListing{
             .short = 'o',
             .long = "output",
             .value = []const u8,
-            .requires = &.{"assemble"},
+            .requires = &.{.assemble},
         },
         .debug = templates.NamedListing{
             .short = 'd',
             .long = "debug",
-            .conflicts = &.{"assemble"},
+            .conflicts = &.{.assemble},
         },
     },
 };
@@ -101,12 +101,12 @@ const templates = struct {
 
     pub const NamedListing = struct {
         short: ?u8 = null,
-        long: Name,
-        requires: []const Name = &.{},
-        conflicts: []const Name = &.{},
+        long: []const u8,
+        requires: []const Id = &.{},
+        conflicts: []const Id = &.{},
         value: type = void,
 
-        const Name = []const u8;
+        const Id = @EnumLiteral();
     };
 
     pub fn Args(comptime template: anytype) type {
@@ -206,10 +206,10 @@ const templates = struct {
     fn hasExpectedDependencies(
         comptime expected: bool,
         comptime template: anytype,
-        comptime dependencies: []const NamedListing.Name,
+        comptime dependencies: []const NamedListing.Id,
         args: *const ArgStruct(template),
     ) bool {
-        for (dependencies) |dependency| {
+        inline for (dependencies) |dependency| {
             if (hasDependency(template, dependency, args) != expected)
                 return false;
         }
@@ -218,11 +218,11 @@ const templates = struct {
 
     fn hasDependency(
         comptime template: anytype,
-        dependency: NamedListing.Name,
+        dependency: NamedListing.Id,
         args: *const ArgStruct(template),
     ) bool {
         inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
-            if (std.mem.eql(u8, field.name, dependency))
+            if (std.mem.eql(u8, field.name, @tagName(dependency)))
                 return @field(args, field.name) != null;
         }
         unreachable; // conflict entry is not a valid field name
