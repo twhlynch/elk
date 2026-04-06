@@ -59,6 +59,7 @@ pub const Policies = packed struct {
 
     case_convention: packed struct {
         mnemonics: Policy,
+        trap_aliases: Policy,
         directives: Policy,
         labels: Policy,
         registers: Policy,

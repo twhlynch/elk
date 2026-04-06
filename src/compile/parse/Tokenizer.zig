@@ -387,6 +387,15 @@ fn ensureSupported(
             }
         },
 
+        .trap_alias => {
+            if (!case.isLowercaseAlpha(token.span.view(tokenizer.source))) {
+                tokenizer.reporter.report(.unconventional_case, .{
+                    .token = token.span,
+                    .kind = .trap_alias,
+                }).collect(&result);
+            }
+        },
+
         // Conventional case check should handled by `Parser`
         // Since we only want to report label definitions, not references
         .label => {},

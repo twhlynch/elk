@@ -77,7 +77,7 @@ pub const Diagnostic = union(enum) {
     expected_eol: struct { found: Token },
     missing_operand_comma: struct { operand: Span },
     whitespace_comma: struct { comma: Span },
-    unconventional_case: struct { token: Span, kind: enum { directive, mnemonic, label, register, integer } },
+    unconventional_case: struct { token: Span, kind: enum { directive, mnemonic, trap_alias, label, register, integer } },
 
     // Directives
     unsupported_directive: struct { directive: Span },
@@ -193,6 +193,7 @@ pub const Diagnostic = union(enum) {
             .unconventional_case => |info| switch (info.kind) {
                 .directive => policyResponse(options, .case_convention, .directives),
                 .mnemonic => policyResponse(options, .case_convention, .mnemonics),
+                .trap_alias => policyResponse(options, .case_convention, .trap_aliases),
                 .label => policyResponse(options, .case_convention, .labels),
                 .register => policyResponse(options, .case_convention, .registers),
                 .integer => policyResponse(options, .case_convention, .integers),
@@ -271,6 +272,10 @@ pub const Diagnostic = union(enum) {
                 .mnemonic => {
                     ctx.printTitle("Instruction mnemonic is not lowercase", .{});
                     ctx.deepen().printSourceNote("Mnemonic", .{}, info.token);
+                },
+                .trap_alias => {
+                    ctx.printTitle("Trap instruction alias is not lowercase", .{});
+                    ctx.deepen().printSourceNote("Trap alias", .{}, info.token);
                 },
                 .directive => {
                     ctx.printTitle("Directive name is not uppercase", .{});
