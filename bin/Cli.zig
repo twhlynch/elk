@@ -43,7 +43,7 @@ const Operation = union(enum) {
 const my_template = .{
     .positional = .{
         .input = templates.PositionalListing{
-            .value = []const u8,
+            .value = templates.Path,
         },
     },
 
@@ -70,7 +70,7 @@ const my_template = .{
         .output = templates.NamedListing{
             .short = 'o',
             .long = "output",
-            .value = []const u8,
+            .value = templates.Path,
             .requires = &.{ .assemble, .format },
         },
 
@@ -97,12 +97,12 @@ const my_template = .{
         },
         .history_file = templates.NamedListing{
             .long = "history-file",
-            .value = []const u8,
+            .value = templates.Path,
             .requires = &.{.debug},
         },
         .import_symbols = templates.NamedListing{
             .long = "import-symbols",
-            .value = []const u8,
+            .value = templates.Path,
             .requires = &.{.debug},
         },
 
@@ -147,6 +147,10 @@ pub fn parse(args: *ArgIterator) anyerror!Cli {
 }
 
 const templates = struct {
+    const Path = union(enum) {
+        regular: []const u8,
+    };
+
     pub const PositionalListing = struct {
         value: type,
     };
@@ -295,7 +299,12 @@ const templates = struct {
             []const u8 => {
                 return string;
             },
+
+            Path => {
+                return .{ .regular = string };
+            },
         }
+
         return error.InvalidArgumentValue;
     }
 
