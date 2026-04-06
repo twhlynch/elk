@@ -1,7 +1,7 @@
 const Cli = @This();
 
 const std = @import("std");
-const Args = std.process.Args;
+const ArgIterator = std.process.Args.Iterator;
 
 const elk = @import("elk");
 
@@ -42,31 +42,31 @@ const Operation = union(enum) {
 
 const my_template = .{
     .positional = .{
-        .input = PositionalArg{
+        .input = templates.PositionalListing{
             .value = []const u8,
         },
-        .foo = PositionalArg{
+        .foo = templates.PositionalListing{
             .value = []const u8,
         },
     },
     .named = .{
-        .assemble = NamedArg{
+        .assemble = templates.NamedListing{
             .short = 'a',
             .long = "assemble",
             .conflicts = &.{"emulate"},
         },
-        .emulate = NamedArg{
+        .emulate = templates.NamedListing{
             .short = 'e',
             .long = "emulate",
             .conflicts = &.{"assemble"},
         },
-        .output = NamedArg{
+        .output = templates.NamedListing{
             .short = 'o',
             .long = "output",
             .value = []const u8,
             .requires = &.{"assemble"},
         },
-        .debug = NamedArg{
+        .debug = templates.NamedListing{
             .short = 'd',
             .long = "debug",
             .conflicts = &.{"assemble"},
@@ -74,8 +74,8 @@ const my_template = .{
     },
 };
 
-pub fn parse(args: *Args.Iterator) anyerror!Cli {
-    const values = try parseTemplate(my_template, args);
+pub fn parse(args: *ArgIterator) anyerror!Cli {
+    const values = try templates.parse(my_template, args);
 
     inline for (std.meta.fields(@TypeOf(my_template.named))) |field| {
         std.debug.print("{s}: {any}\n", .{
@@ -83,7 +83,6 @@ pub fn parse(args: *Args.Iterator) anyerror!Cli {
             @field(values.named, field.name),
         });
     }
-
     inline for (std.meta.fields(@TypeOf(values.positional))) |field| {
         std.debug.print("{s}: {any}\n", .{
             field.name,
@@ -95,232 +94,180 @@ pub fn parse(args: *Args.Iterator) anyerror!Cli {
     std.process.exit(0);
 }
 
-const PositionalArg = struct {
-    value: type = void,
-};
-
-const NamedArg = struct {
-    short: ?u8 = null,
-    long: Name,
-    requires: []const Name = &.{},
-    conflicts: []const Name = &.{},
-    value: type = void,
-
-    const Name = []const u8;
-};
-
-fn TemplateArgs(comptime template: anytype) type {
-    return struct {
-        positional: PositionalArgStruct(template.positional),
-        named: NamedArgStruct(template.named),
+const templates = struct {
+    pub const PositionalListing = struct {
+        value: type,
     };
-}
 
-fn parseTemplate(comptime template: anytype, args: *Args.Iterator) !TemplateArgs(template) {
-    // TODO: Validate cli template types
+    pub const NamedListing = struct {
+        short: ?u8 = null,
+        long: Name,
+        requires: []const Name = &.{},
+        conflicts: []const Name = &.{},
+        value: type = void,
 
-    _ = args.next();
-
-    var positional_args: PositionalArgStruct(template.positional) = .{};
-    var named_values: NamedArgStruct(template.named) = .{};
-
-    while (args.next()) |arg_string| {
-        std.debug.print("[{s}]\n", .{arg_string});
-
-        const arg_name = try FlagName.parse(arg_string) orelse {
-            try addPositionalArg(&positional_args, arg_string);
-            continue;
-        };
-
-        std.debug.print("{}\n", .{arg_name});
-
-        try parseFlag(template.named, args, &named_values, arg_name);
-    }
-
-    try checkDependencies(template.named, &named_values);
-
-    return .{
-        .positional = positional_args,
-        .named = named_values,
+        const Name = []const u8;
     };
-}
 
-fn addPositionalArg(args: anytype, string: []const u8) !void {
-    const fields = @typeInfo(@TypeOf(args.*)).@"struct".fields;
-
-    inline for (fields) |field| {
-        if (@field(args, field.name) == null) {
-            const value_type = @typeInfo(field.type).optional.child;
-            const value = try parseValue(value_type, string);
-            @field(args, field.name) = value;
-            return;
-        }
-    }
-
-    return error.UnexpectedPositionalArg;
-}
-
-fn PositionalArgStruct(comptime positional: anytype) type {
-    const fields = @typeInfo(@TypeOf(positional)).@"struct".fields;
-
-    var field_names: [fields.len][]const u8 = undefined;
-    var field_types: [fields.len]type = undefined;
-    var field_attrs: [fields.len]std.builtin.Type.StructField.Attributes = undefined;
-
-    for (fields, 0..) |field, i| {
-        const value_type = @field(positional, field.name).value;
-
-        field_names[i] = field.name;
-        field_types[i] = ?value_type;
-        field_attrs[i] = .{
-            .default_value_ptr = &@as(?value_type, null),
+    pub fn Args(comptime template: anytype) type {
+        return struct {
+            positional: ArgStruct(template.positional) = .{},
+            named: ArgStruct(template.named) = .{},
         };
     }
 
-    return @Struct(
-        .auto,
-        null,
-        &field_names,
-        &field_types,
-        &field_attrs,
-    );
-}
+    pub fn ArgStruct(comptime template: anytype) type {
+        const fields = @typeInfo(@TypeOf(template)).@"struct".fields;
 
-fn NamedArgStruct(comptime named: anytype) type {
-    const fields = @typeInfo(@TypeOf(named)).@"struct".fields;
+        var info: struct {
+            names: [fields.len][]const u8,
+            types: [fields.len]type,
+            attrs: [fields.len]std.builtin.Type.StructField.Attributes,
+        } = undefined;
 
-    var field_names: [fields.len][]const u8 = undefined;
-    var field_types: [fields.len]type = undefined;
-    var field_attrs: [fields.len]std.builtin.Type.StructField.Attributes = undefined;
+        for (fields, 0..) |field, i| {
+            const value_type = @field(template, field.name).value;
 
-    for (fields, 0..) |field, i| {
-        const value_type = @field(named, field.name).value;
+            info.names[i] = field.name;
+            info.types[i] = ?value_type;
+            info.attrs[i] = .{
+                .default_value_ptr = &@as(?value_type, null),
+            };
+        }
 
-        field_names[i] = field.name;
-        field_types[i] = ?value_type;
-        field_attrs[i] = .{
-            .default_value_ptr = &@as(?value_type, null),
-        };
+        return @Struct(.auto, null, &info.names, &info.types, &info.attrs);
     }
 
-    return @Struct(
-        .auto,
-        null,
-        &field_names,
-        &field_types,
-        &field_attrs,
-    );
-}
+    fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
+        // TODO: Validate cli template types
 
-fn parseFlag(
-    comptime named: anytype,
-    args: *Args.Iterator,
-    named_values: *NamedArgStruct(named),
-    flag_name: FlagName,
-) !void {
-    const fields = @typeInfo(@TypeOf(named)).@"struct".fields;
+        var args: Args(template) = .{};
 
-    inline for (fields) |field| {
-        const arg_info: NamedArg = @field(named, field.name);
+        _ = iter.next();
+        while (iter.next()) |string| {
+            if (try Flag.parse(string)) |flag| {
+                try addNamedArg(template.named, &args.named, flag, iter);
+            } else {
+                try addPositionalArg(&args.positional, string);
+            }
+        }
 
-        if (flag_name.eql(arg_info)) {
-            if (@field(named_values, field.name) != null)
-                return error.DuplicateFlag;
+        try checkDependencies(template.named, &args.named);
 
-            const value = try parseFlagValue(arg_info.value, args);
-            @field(named_values, field.name) = value;
+        return args;
+    }
+
+    fn addPositionalArg(args: anytype, string: []const u8) !void {
+        inline for (@typeInfo(@TypeOf(args.*)).@"struct".fields) |field| {
+            if (@field(args, field.name) == null) {
+                const Value = @typeInfo(field.type).optional.child;
+                const value = try parseValue(Value, string);
+                @field(args, field.name) = value;
+                return;
+            }
+        }
+        return error.UnexpectedPositionalArg;
+    }
+
+    fn addNamedArg(
+        comptime template: anytype,
+        args: *ArgStruct(template),
+        flag: Flag,
+        iter: *ArgIterator,
+    ) !void {
+        inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
+            const listing: NamedListing = @field(template, field.name);
+
+            if (flag.matchesListing(listing)) {
+                if (@field(args, field.name) != null)
+                    return error.DuplicateFlag;
+
+                const value = try parseFlagValue(listing.value, iter);
+                @field(args, field.name) = value;
+                return;
+            }
+        }
+        return error.InvalidFlag;
+    }
+
+    fn checkDependencies(comptime template: anytype, args: *const ArgStruct(template)) !void {
+        inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
+            const listing: NamedListing = @field(template, field.name);
+
+            if (@field(args, field.name) != null) {
+                if (!hasExpectedDependencies(true, template, listing.requires, args))
+                    return error.MissingRequirement;
+                if (!hasExpectedDependencies(false, template, listing.conflicts, args))
+                    return error.ConflictingFlag;
+            }
+        }
+    }
+
+    fn hasExpectedDependencies(
+        comptime expected: bool,
+        comptime template: anytype,
+        comptime dependencies: []const NamedListing.Name,
+        args: *const ArgStruct(template),
+    ) bool {
+        for (dependencies) |dependency| {
+            if (hasDependency(template, dependency, args) != expected)
+                return false;
+        }
+        return true;
+    }
+
+    fn hasDependency(
+        comptime template: anytype,
+        dependency: NamedListing.Name,
+        args: *const ArgStruct(template),
+    ) bool {
+        inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
+            if (std.mem.eql(u8, field.name, dependency))
+                return @field(args, field.name) != null;
+        }
+        unreachable; // conflict entry is not a valid field name
+    }
+
+    fn parseFlagValue(comptime T: type, iter: *ArgIterator) !T {
+        if (T == void)
             return;
+        const string = iter.next() orelse
+            return error.ExpectedFlagValue;
+        return try parseValue(T, string);
+    }
+
+    fn parseValue(comptime T: type, string: []const u8) !T {
+        switch (T) {
+            else => @compileError("unsupported flag value"),
+            void => comptime unreachable,
+
+            []const u8 => {
+                return string;
+            },
         }
+        return error.InvalidArgumentValue;
     }
 
-    return error.InvalidFlag;
-}
+    const Flag = union(enum) {
+        short: u8,
+        long: []const u8,
 
-fn checkDependencies(comptime named: anytype, named_values: *const NamedArgStruct(named)) !void {
-    const fields = @typeInfo(@TypeOf(named)).@"struct".fields;
-
-    inline for (fields) |field| {
-        const arg_info: NamedArg = @field(named, field.name);
-
-        if (@field(named_values, field.name) != null) {
-            if (!hasExpectedDependencies(named, arg_info.requires, named_values, true))
-                return error.MissingRequirement;
-            if (!hasExpectedDependencies(named, arg_info.conflicts, named_values, false))
-                return error.ConflictingFlag;
+        pub fn parse(string: []const u8) !?Flag {
+            if (std.mem.cutPrefix(u8, string, "--")) |long|
+                return .{ .long = long };
+            if (std.mem.cutPrefix(u8, string, "-")) |short| {
+                if (short.len > 1)
+                    return error.ExpectedShortFlag;
+                return .{ .short = short[0] };
+            }
+            return null;
         }
-    }
-}
 
-fn hasExpectedDependencies(
-    comptime named: anytype,
-    comptime dependencies: []const NamedArg.Name,
-    named_values: *const NamedArgStruct(named),
-    comptime expected: bool,
-) bool {
-    for (dependencies) |dependency| {
-        if (hasDependency(named, dependency, named_values) != expected)
-            return false;
-    }
-    return true;
-}
-
-fn hasDependency(
-    comptime named: anytype,
-    dependency: NamedArg.Name,
-    named_values: *const NamedArgStruct(named),
-) bool {
-    const fields = @typeInfo(@TypeOf(named)).@"struct".fields;
-
-    inline for (fields) |field| {
-        if (std.mem.eql(u8, field.name, dependency)) {
-            return @field(named_values, field.name) != null;
+        fn matchesListing(flag: Flag, template: NamedListing) bool {
+            return switch (flag) {
+                .short => |short| template.short == short,
+                .long => |long| std.mem.eql(u8, template.long, long),
+            };
         }
-    }
-    unreachable; // conflict entry is not a valid field name
-}
-
-fn parseFlagValue(comptime T: type, args: *Args.Iterator) !T {
-    if (T == void)
-        return;
-
-    const string = args.next() orelse
-        return error.ExpectedFlagValue;
-
-    return try parseValue(T, string);
-}
-
-fn parseValue(comptime T: type, string: []const u8) !T {
-    switch (T) {
-        else => @compileError("unsupported flag value"),
-        void => comptime unreachable,
-
-        []const u8 => {
-            return string;
-        },
-    }
-
-    return error.InvalidArgumentValue;
-}
-
-const FlagName = union(enum) {
-    short: u8,
-    long: []const u8,
-
-    pub fn parse(string: []const u8) !?FlagName {
-        if (std.mem.cutPrefix(u8, string, "--")) |long|
-            return .{ .long = long };
-        if (std.mem.cutPrefix(u8, string, "-")) |short| {
-            if (short.len > 1)
-                return error.ExpectedShortFlag;
-            return .{ .short = short[0] };
-        }
-        return null;
-    }
-
-    fn eql(flag_name: FlagName, arg_info: NamedArg) bool {
-        switch (flag_name) {
-            .short => |short| return arg_info.short == short,
-            .long => |long| return std.mem.eql(u8, arg_info.long, long),
-        }
-    }
+    };
 };
