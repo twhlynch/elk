@@ -134,34 +134,34 @@ pub fn parse(iter: *ArgIterator) anyerror!Cli {
         .operation = parseOperation(&args),
         // TODO: Parse policies
         .policies = .default,
-        .strictness = if (args.named.strict != null)
+        .strictness = if (args.named.strict)
             .strict
-        else if (args.named.relaxed != null)
+        else if (args.named.relaxed)
             .relaxed
         else
             .normal,
-        .verbosity = if (args.named.quiet != null) .quiet else .normal,
+        .verbosity = if (args.named.quiet) .quiet else .normal,
     };
 }
 
 fn parseOperation(args: *const templates.Args(my_template)) Operation {
-    if (args.named.assemble != null) {
+    if (args.named.assemble) {
         return .{ .assemble = .{
             .input = args.positional.input,
             .output = args.named.output,
-            .output_mode = if (args.named.export_symbols != null)
+            .output_mode = if (args.named.export_symbols)
                 .symbols
-            else if (args.named.export_listing != null)
+            else if (args.named.export_listing)
                 .listing
             else
                 .assembly,
         } };
     }
 
-    if (args.named.emulate != null) {
+    if (args.named.emulate) {
         return .{ .emulate = .{
             .input = args.positional.input,
-            .debug = if (args.named.debug != null) .{
+            .debug = if (args.named.debug) .{
                 .commands = args.named.commands,
                 .history_file = args.named.history_file,
                 .import_symbols = args.named.import_symbols,
@@ -169,14 +169,14 @@ fn parseOperation(args: *const templates.Args(my_template)) Operation {
         } };
     }
 
-    if (args.named.format != null) {
+    if (args.named.format) {
         return .{ .format = .{
             .input = args.positional.input,
             .output = args.named.output,
         } };
     }
 
-    if (args.named.clean != null) {
+    if (args.named.clean) {
         return .{ .clean = .{
             .input = args.positional.input,
         } };
@@ -184,7 +184,7 @@ fn parseOperation(args: *const templates.Args(my_template)) Operation {
 
     return .{ .assemble_emulate = .{
         .input = args.positional.input,
-        .debug = if (args.named.debug != null) .{
+        .debug = if (args.named.debug) .{
             .commands = args.named.commands,
             .history_file = args.named.history_file,
             .import_symbols = args.named.import_symbols,
@@ -237,8 +237,14 @@ const templates = struct {
 
         for (fields, 0..) |field, i| {
             const ValueRaw = @field(template, field.name).value;
-            const Value = if (optional_fields) ?ValueRaw else ValueRaw;
-            const default: Value = if (optional_fields) null else undefined;
+            const Value = if (optional_fields)
+                if (ValueRaw == void) bool else ?ValueRaw
+            else
+                ValueRaw;
+            const default: Value = if (optional_fields)
+                if (ValueRaw == void) false else null
+            else
+                undefined;
 
             info.names[i] = field.name;
             info.types[i] = Value;
@@ -293,7 +299,7 @@ const templates = struct {
             const listing: NamedListing = @field(template, field.name);
 
             if (flag.matchesListing(listing)) {
-                if (@field(args, field.name) != null)
+                if (isValueSet(@field(args, field.name)))
                     return error.DuplicateFlag;
 
                 const value = try parseFlagValue(listing.value, iter);
@@ -304,11 +310,19 @@ const templates = struct {
         return error.InvalidFlag;
     }
 
+    fn isValueSet(value: anytype) bool {
+        return switch (@typeInfo(@TypeOf(value))) {
+            .bool => value,
+            .optional => value != null,
+            else => unreachable,
+        };
+    }
+
     fn checkDependencies(comptime template: anytype, args: *const NamedArgs(template)) !void {
         inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
             const listing: NamedListing = @field(template, field.name);
 
-            if (@field(args, field.name) != null) {
+            if (isValueSet(@field(args, field.name))) {
                 if (!hasAnyDependency(template, listing.requires, args) and listing.requires.len > 0)
                     return error.MissingRequirement;
                 if (hasAnyDependency(template, listing.conflicts, args))
@@ -336,14 +350,14 @@ const templates = struct {
     ) bool {
         inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
             if (std.mem.eql(u8, field.name, @tagName(dependency)))
-                return @field(args, field.name) != null;
+                return isValueSet(@field(args, field.name));
         }
         unreachable; // conflict entry is not a valid field name
     }
 
-    fn parseFlagValue(comptime T: type, iter: *ArgIterator) !T {
+    fn parseFlagValue(comptime T: type, iter: *ArgIterator) !(if (T == void) bool else T) {
         if (T == void)
-            return;
+            return true;
         const string = iter.next() orelse
             return error.ExpectedFlagValue;
         return try parseValue(T, string);
