@@ -12,31 +12,30 @@ verbosity: elk.Reporter.Stderr.Verbosity,
 
 const Operation = union(enum) {
     assemble_emulate: struct {
-        input: []const u8,
+        input: templates.Path,
         debug: ?Debug,
     },
     assemble: struct {
-        input: []const u8,
-        output: ?[]const u8,
-        export_symbols: bool,
-        export_listing: bool,
+        input: templates.Path,
+        output: ?templates.Path,
+        output_mode: enum { assembly, symbols, listing },
     },
     emulate: struct {
-        input: []const u8,
+        input: templates.Path,
         debug: ?Debug,
     },
     format: struct {
-        input: []const u8,
-        output: ?[]const u8,
+        input: templates.Path,
+        output: ?templates.Path,
     },
     clean: struct {
-        input: []const u8,
+        input: templates.Path,
     },
 
     const Debug = struct {
         commands: ?[]const u8,
-        history_file: ?[]const u8,
-        import_symbols: ?[]const u8,
+        history_file: ?templates.Path,
+        import_symbols: ?templates.Path,
     };
 };
 
@@ -128,24 +127,69 @@ const my_template = .{
     },
 };
 
-pub fn parse(args: *ArgIterator) anyerror!Cli {
-    const values = try templates.parse(my_template, args);
+pub fn parse(iter: *ArgIterator) anyerror!Cli {
+    const args = try templates.parse(my_template, iter);
 
-    inline for (std.meta.fields(@TypeOf(my_template.named))) |field| {
-        std.debug.print("{s}: {any}\n", .{
-            field.name,
-            @field(values.named, field.name),
-        });
-    }
-    inline for (std.meta.fields(@TypeOf(values.positional))) |field| {
-        std.debug.print("{s}: {any}\n", .{
-            field.name,
-            @field(values.positional, field.name),
-        });
+    return .{
+        .operation = parseOperation(&args),
+        // TODO: Parse policies
+        .policies = .default,
+        .strictness = if (args.named.strict != null)
+            .strict
+        else if (args.named.relaxed != null)
+            .relaxed
+        else
+            .normal,
+        .verbosity = if (args.named.quiet != null) .quiet else .normal,
+    };
+}
+
+fn parseOperation(args: *const templates.Args(my_template)) Operation {
+    if (args.named.assemble != null) {
+        return .{ .assemble = .{
+            .input = args.positional.input,
+            .output = args.named.output,
+            .output_mode = if (args.named.export_symbols != null)
+                .symbols
+            else if (args.named.export_listing != null)
+                .listing
+            else
+                .assembly,
+        } };
     }
 
-    std.debug.print("-- END OF CLI PARSING -- \n", .{});
-    std.process.exit(0);
+    if (args.named.emulate != null) {
+        return .{ .emulate = .{
+            .input = args.positional.input,
+            .debug = if (args.named.debug != null) .{
+                .commands = args.named.commands,
+                .history_file = args.named.history_file,
+                .import_symbols = args.named.import_symbols,
+            } else null,
+        } };
+    }
+
+    if (args.named.format != null) {
+        return .{ .format = .{
+            .input = args.positional.input,
+            .output = args.named.output,
+        } };
+    }
+
+    if (args.named.clean != null) {
+        return .{ .clean = .{
+            .input = args.positional.input,
+        } };
+    }
+
+    return .{ .assemble_emulate = .{
+        .input = args.positional.input,
+        .debug = if (args.named.debug != null) .{
+            .commands = args.named.commands,
+            .history_file = args.named.history_file,
+            .import_symbols = args.named.import_symbols,
+        } else null,
+    } };
 }
 
 const templates = struct {

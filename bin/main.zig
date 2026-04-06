@@ -40,7 +40,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cli.operation) {
         .assemble => |operation| {
-            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input, gpa, .unlimited);
+            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input.regular, gpa, .unlimited);
             defer gpa.free(source);
 
             reporter.source = source;
@@ -49,7 +49,7 @@ pub fn main(init: std.process.Init) !u8 {
             defer air.deinit(gpa);
 
             var obj_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-            const obj_path = replacePathExtension(&obj_path_buffer, operation.input, "obj");
+            const obj_path = replacePathExtension(&obj_path_buffer, operation.input.regular, "obj");
 
             var file = try Io.Dir.cwd().createFile(io, obj_path, .{});
             defer file.close(io);
@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .emulate => |operation| {
-            const file = try Io.Dir.cwd().openFile(io, operation.input, .{});
+            const file = try Io.Dir.cwd().openFile(io, operation.input.regular, .{});
             try emulate(
                 io,
                 gpa,
@@ -76,7 +76,7 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .assemble_emulate => |operation| {
-            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input, gpa, .unlimited);
+            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input.regular, gpa, .unlimited);
             defer gpa.free(source);
 
             reporter.source = source;
