@@ -68,7 +68,7 @@ pub fn main(init: std.process.Init) !u8 {
                 io,
                 gpa,
                 .{ .object = file },
-                operation.debug != null,
+                operation.debug,
                 &traps,
                 hooks,
                 cli.policies,
@@ -89,7 +89,7 @@ pub fn main(init: std.process.Init) !u8 {
                 io,
                 gpa,
                 .{ .assembly = .{ .air = &air, .source = source } },
-                operation.debug != null,
+                operation.debug,
                 &traps,
                 hooks,
                 cli.policies,
@@ -148,7 +148,7 @@ fn emulate(
         object: Io.File,
         assembly: elk.Debugger.Assembly,
     },
-    debug: bool,
+    debug_opt: ?Cli.Debug,
     traps: *const elk.Traps,
     hooks: elk.Runtime.Hooks,
     policies: elk.Policies,
@@ -159,8 +159,9 @@ fn emulate(
     var writer = Io.File.stdout().writer(io, &write_buffer);
     var reader = Io.File.stdin().reader(io, &.{});
 
-    var debugger_opt: ?elk.Debugger = if (debug) debugger: {
-        const history_file = openHistoryFile(io) catch |err| file: {
+    var debugger_opt: ?elk.Debugger = if (debug_opt) |debug| debugger: {
+        const history_path = if (debug.history_file) |path| path else getHistoryPath();
+        const history_file = openHistoryFile(io, history_path) catch |err| file: {
             std.log.err("failed to open/create history file: {t}", .{err});
             break :file null;
         };
@@ -222,10 +223,12 @@ fn emulate(
     try runtime.writer.flush();
 }
 
-fn openHistoryFile(io: Io) !Io.File {
+fn getHistoryPath() []const u8 {
     // FIXME: Get path programatically
-    const path = "/home/darcy/.cache/elk-history";
+    return "/home/darcy/.cache/elk-history";
+}
 
+fn openHistoryFile(io: Io, path: []const u8) !Io.File {
     const flags: Io.File.CreateFlags = .{
         .read = true,
         .truncate = false,

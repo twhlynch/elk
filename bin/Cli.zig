@@ -34,12 +34,12 @@ const Operation = union(enum) {
     clean: struct {
         input: cli_template.Path,
     },
+};
 
-    const Debug = struct {
-        commands: ?[]const u8,
-        history_file: ?cli_template.Path,
-        import_symbols: ?[]const u8,
-    };
+pub const Debug = struct {
+    commands: ?[]const u8,
+    history_file: ?[]const u8,
+    import_symbols: ?[]const u8,
 };
 
 const template = .{
@@ -101,7 +101,7 @@ const template = .{
         },
         .history_file = cli_template.NamedListing{
             .long = "history-file",
-            .value = cli_template.Path,
+            .value = []const u8,
             .requires = &.{.debug},
         },
         .import_symbols = cli_template.NamedListing{
