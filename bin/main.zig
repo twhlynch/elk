@@ -165,7 +165,6 @@ fn emulate(
             path
         else
             try getHistoryPath(environ_map, &history_path_buffer);
-        std.debug.print("{s}\n", .{history_path});
         const history_file = openHistoryFile(io, history_path) catch |err| file: {
             std.log.err("failed to open/create history file: {t}", .{err});
             break :file null;
