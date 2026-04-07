@@ -65,7 +65,7 @@ const template = .{
             .conflicts = &.{ .assemble, .emulate, .clean },
         },
         .clean = cli_template.NamedListing{
-            .long = "emulate",
+            .long = "clean",
             .conflicts = &.{ .assemble, .emulate, .format },
         },
 
