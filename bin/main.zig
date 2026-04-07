@@ -29,6 +29,8 @@ pub fn main(init: std.process.Init) !u8 {
         else => return err,
     };
 
+    reporter.options.strictness = cli.strictness;
+    reporter_impl.verbosity = cli.verbosity;
     reporter.options.policies = cli.policies;
 
     const traps: elk.Traps = comptime .registerSets(&.{
