@@ -208,8 +208,10 @@ const templates = struct {
         requires: []const Id = &.{},
         conflicts: []const Id = &.{},
         value: type = void,
+        value_parser: ?ValueParser = null,
 
         const Id = @EnumLiteral();
+        const ValueParser = fn ([]const u8, *anyopaque) error{InvalidArgumentValue}!void;
     };
 
     pub fn Args(comptime template: anytype) type {
@@ -302,7 +304,7 @@ const templates = struct {
                 if (isValueSet(@field(args, field.name)))
                     return error.DuplicateFlag;
 
-                const value = try parseFlagValue(listing.value, iter);
+                const value = try parseFlagValue(listing.value, listing.value_parser, iter);
                 @field(args, field.name) = value;
                 return;
             }
@@ -355,11 +357,25 @@ const templates = struct {
         unreachable; // conflict entry is not a valid field name
     }
 
-    fn parseFlagValue(comptime T: type, iter: *ArgIterator) !(if (T == void) bool else T) {
-        if (T == void)
+    fn parseFlagValue(
+        comptime T: type,
+        comptime parser_opt: ?NamedListing.ValueParser,
+        iter: *ArgIterator,
+    ) !(if (T == void) bool else T) {
+        if (T == void) {
+            comptime assert(parser_opt == null);
             return true;
+        }
+
         const string = iter.next() orelse
             return error.ExpectedFlagValue;
+
+        if (parser_opt) |parser| {
+            var value: T = undefined;
+            try parser(string, @ptrCast(&value));
+            return value;
+        }
+
         return try parseValue(T, string);
     }
 
