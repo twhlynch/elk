@@ -1,26 +1,29 @@
 pub const Policies = packed struct {
     pub const Policy = enum(u1) { permit, forbid };
 
-    pub const default: Policies = .{
+    pub const none: Policies = .{
         .extension = .forbid_all,
         .smell = .forbid_all,
         .style = .forbid_all,
         .case_convention = .forbid_all,
     };
-    pub const config_laser: Policies = blk: {
-        var policies: Policies = .default;
-        policies.style.undesirable_integer_forms = .permit;
-        break :blk policies;
-    };
-    pub const config_lace: Policies = blk: {
-        var policies: Policies = .default;
-        policies.extension.stack_instructions = .permit;
-        policies.extension.implicit_origin = .permit;
-        policies.extension.implicit_end = .permit;
-        policies.extension.label_definition_colons = .permit;
-        policies.style.missing_operand_commas = .permit;
-        policies.style.whitespace_commas = .permit;
-        break :blk policies;
+
+    pub const predefs = struct {
+        pub const laser: Policies = blk: {
+            var policies: Policies = .none;
+            policies.style.undesirable_integer_forms = .permit;
+            break :blk policies;
+        };
+        pub const lace: Policies = blk: {
+            var policies: Policies = .none;
+            policies.extension.stack_instructions = .permit;
+            policies.extension.implicit_origin = .permit;
+            policies.extension.implicit_end = .permit;
+            policies.extension.label_definition_colons = .permit;
+            policies.style.missing_operand_commas = .permit;
+            policies.style.whitespace_commas = .permit;
+            break :blk policies;
+        };
     };
 
     extension: packed struct {
