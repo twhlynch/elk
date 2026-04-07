@@ -50,7 +50,10 @@ pub fn main(init: std.process.Init) !u8 {
             defer air.deinit(gpa);
 
             var obj_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-            const obj_path = replacePathExtension(&obj_path_buffer, operation.input.regular, "obj");
+            const obj_path = if (operation.output) |output|
+                output.regular
+            else
+                replacePathExtension(&obj_path_buffer, operation.input.regular, "obj");
 
             var file = try Io.Dir.cwd().createFile(io, obj_path, .{});
             defer file.close(io);
