@@ -27,7 +27,7 @@ Requires Zig `0.16.0-dev.3091+557caecaa`.
 
 ```sh
 git clone https://codeberg.org/dxrcy/elk
-cd elk/bin
+cd elk/cli
 
 zig build install -Doptimize=ReleaseSafe
 sudo install zig-out/bin/elk /usr/bin/
