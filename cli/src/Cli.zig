@@ -194,7 +194,9 @@ fn parsePolicies(string: []const u8, value: *anyopaque) error{InvalidArgumentVal
 
 pub fn parse(iter: *ArgIterator) !Cli {
     const args = cli_template.parse(template, iter) catch |err| switch (err) {
-        error.Help => {
+        error.ExpectedPositionalArg,
+        error.Help,
+        => {
             std.debug.print(info.help ++ "\n", .{});
             return error.DisplayMetadata;
         },
