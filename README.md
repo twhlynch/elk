@@ -23,7 +23,18 @@ elk hello.obj --emulate
 
 ## Installation
 
-Requires Zig `0.16.0-dev.3091+557caecaa`.
+1. Download the latest binary release from
+[GitHub releases](https://github.com/dxrcy/elk/releases/latest).
+2. Install the downloaded file to your PATH:
+
+```sh
+sudo install [filename] /usr/bin/elk
+```
+
+### From source
+
+Alternatively, you can build `elk` from source, only requiring Zig
+`0.16.0-dev.3091+557caecaa`:
 
 ```sh
 git clone https://codeberg.org/dxrcy/elk
@@ -32,6 +43,8 @@ cd elk/cli
 zig build install -Doptimize=ReleaseSafe
 sudo install zig-out/bin/elk /usr/bin/
 ```
+
+> Once Zig 0.16.0 is released, `elk` will target the latest stable Zig version.
 
 # Features
 
