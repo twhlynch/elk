@@ -10,11 +10,16 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const build_zon_mod = b.createModule(.{
+        .root_source_file = b.path("build.zig.zon"),
+    });
+
     const elk_dep = b.dependency("elk", .{
         .target = target,
         .optimize = optimize,
     });
 
+    exe_mod.addImport("build_zon", build_zon_mod);
     exe_mod.addImport("elk", elk_dep.module("elk"));
 
     const exe = b.addExecutable(.{

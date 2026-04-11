@@ -14,7 +14,7 @@ strictness: elk.Reporter.Options.Strictness,
 verbosity: elk.Reporter.Stderr.Verbosity,
 
 const info = struct {
-    const zon = @import("build.zig.zon");
+    const zon = @import("build_zon");
 
     const program = @tagName(zon.name);
     const version = zon.version;
