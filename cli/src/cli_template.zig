@@ -77,9 +77,11 @@ pub fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
 
     var args: Args(template) = .{};
     var positional_count: usize = 0;
+    var total_count: usize = 0;
 
     _ = iter.next();
     while (iter.next()) |string| {
+        total_count += 1;
         if (try Flag.parse(string)) |flag| {
             try checkMetaArgs(flag);
             try addNamedArg(template.named, &args.named, flag, iter);
@@ -87,6 +89,9 @@ pub fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
             try addPositionalArg(&args.positional, &positional_count, string);
         }
     }
+
+    if (total_count == 0)
+        return error.Empty;
 
     if (positional_count < @typeInfo(@TypeOf(args.positional)).@"struct".fields.len)
         return error.ExpectedPositionalArg;
