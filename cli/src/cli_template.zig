@@ -5,6 +5,13 @@ const ArgIterator = std.process.Args.Iterator;
 pub const Path = union(enum) {
     stdio,
     regular: []const u8,
+
+    pub fn asRegular(path: Path) ![]const u8 {
+        return switch (path) {
+            .stdio => error.UnsupportedStdio,
+            .regular => |regular| regular,
+        };
+    }
 };
 
 pub const PositionalListing = struct {

@@ -229,18 +229,23 @@ pub fn parse(iter: *ArgIterator) !Cli {
             if (std.mem.eql(u8, field.name, name) and
                 cli_template.isValueSet(@field(args.named, field.name)))
             {
-                std.log.err("unimplemented feature: {s}\n", .{field.name});
+                std.log.err("unimplemented feature: {s}", .{field.name});
                 return error.UnimplementedFeature;
             }
         }
     }
 
+    if (args.positional.input == .stdio and args.named.clean) {
+        std.log.err("unsupported stdin input path for operation", .{});
+        return error.MissingRegularPath;
+    }
+
     if (args.positional.input == .stdio) {
-        std.log.err("unimplemented feature: stdin input path\n", .{});
+        std.log.err("unimplemented feature: stdin input path", .{});
         return error.UnimplementedFeature;
     }
     if (args.named.output != null and args.named.output.? == .stdio) {
-        std.log.err("unimplemented feature: stdout output path\n", .{});
+        std.log.err("unimplemented feature: stdout output path", .{});
         return error.UnimplementedFeature;
     }
 
@@ -299,7 +304,7 @@ fn parseOperation(args: *const cli_template.Args(template)) Operation {
 
     if (args.named.clean) {
         return .{ .clean = .{
-            .input = args.positional.input.regular,
+            .input = args.positional.input.asRegular() catch unreachable,
         } };
     }
 
