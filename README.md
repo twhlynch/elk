@@ -76,8 +76,7 @@ sudo install zig-out/bin/elk /usr/bin/
 - [x] Full support for arbitrary user-defined traps
 - [x] Support for arbitrary runtime hooks
 - [x] Patch label values after assembling
-- [ ] Output symbol table and assembly listing
-([see issue](https://codeberg.org/dxrcy/elk/issues/9))
+- [x] Output symbol table and assembly listing
 - [ ] Multiple file support (compatible with
 [Laser](https://github.com/PaperFanz/laser))
 - [ ] Preprocessor macros (compatible with
