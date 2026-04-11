@@ -38,6 +38,9 @@ const info = struct {
         \\            Emulate an assembled .obj file. Supports --debug.
         \\
         \\OPTIONS:
+        \\    -o, --output [FILE]
+        \\            Specify filename of object, symbol table, or listing output.
+        \\
         \\    -d, --debug
         \\            Run debugger while emulating. Requires --emulate or (default) operation.
         \\        --history-file [FILE]
