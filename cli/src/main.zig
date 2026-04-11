@@ -69,7 +69,7 @@ pub fn main(init: std.process.Init) !u8 {
                     try air.writeSymbols(&writer.interface, source);
                 },
                 .listing => {
-                    unreachable;
+                    try air.writeListing(&writer.interface, source);
                 },
             }
 

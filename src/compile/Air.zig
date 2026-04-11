@@ -100,6 +100,77 @@ pub fn writeSymbols(air: *const Air, writer: *Io.Writer, source: []const u8) !vo
     }
 }
 
+pub fn writeListing(air: *const Air, writer: *Io.Writer, source: []const u8) !void {
+    const helper: ListingHelper = .{ .writer = writer };
+    try helper.writeHeader();
+
+    var index: usize = 0;
+    var line_no: usize = 1;
+
+    // Cut just 1 trailing newline
+    const source_trimmed = std.mem.cutSuffix(u8, source, "\n") orelse source;
+    var lines = std.mem.splitScalar(u8, source_trimmed, '\n');
+
+    while (lines.next()) |string| : (line_no += 1) {
+        const end = @intFromPtr(string.ptr) - @intFromPtr(source.ptr) + string.len;
+
+        if (index < air.lines.items.len and
+            air.lines.items[index].span.offset <= end)
+        {
+            try helper.writeAddress(@intCast(air.origin + index));
+            try helper.writeValue(air.lines.items[index].statement.encode());
+            index += 1;
+        } else {
+            try helper.writeAddress(null);
+            try helper.writeValue(null);
+        }
+
+        try helper.writeLine(@intCast(line_no), string);
+
+        while (index < air.lines.items.len and
+            air.lines.items[index].span.end() <= end)
+        {
+            const word = air.lines.items[index].statement.encode();
+            try helper.writeAddress(null);
+            try helper.writeValue(word);
+            try helper.writeLine(null, null);
+            index += 1;
+        }
+    }
+}
+
+const ListingHelper = struct {
+    writer: *Io.Writer,
+
+    fn writeHeader(helper: ListingHelper) !void {
+        try helper.writer.writeAll("  ADDR  |  HEX  |      BINARY      |  LN  |  ASSEMBLY\n");
+    }
+
+    fn writeAddress(helper: ListingHelper, address_opt: ?u16) !void {
+        if (address_opt) |address|
+            try helper.writer.print(" x{X:04}", .{address})
+        else
+            try helper.writer.print("  {s:4}", .{""});
+    }
+
+    fn writeValue(helper: ListingHelper, word_opt: ?u16) !void {
+        if (word_opt) |word|
+            try helper.writer.print("  | x{X:04} | {b:016}", .{ word, word })
+        else
+            try helper.writer.print("  |  {s:4} | {s:16}", .{ "", "" });
+    }
+
+    fn writeLine(helper: ListingHelper, line_no_opt: ?u16, string_opt: ?[]const u8) !void {
+        if (string_opt) |string| {
+            const line_no = line_no_opt orelse unreachable;
+            try helper.writer.print(" | {:4} | {s}\n", .{ line_no, string });
+        } else {
+            assert(line_no_opt == null);
+            try helper.writer.print(" | {s:4} |\n", .{""});
+        }
+    }
+};
+
 pub fn patchLabelValue(
     air: *Air,
     name: []const u8,
