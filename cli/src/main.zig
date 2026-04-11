@@ -34,7 +34,9 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cli.operation) {
         .assemble => |operation| {
-            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input.regular, gpa, .unlimited);
+            const input_path = operation.input.asRegular() catch unreachable;
+
+            const source = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
             defer gpa.free(source);
 
             reporter.source = source;
@@ -51,9 +53,9 @@ pub fn main(init: std.process.Init) !u8 {
 
             var out_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
             const out_path = if (operation.output) |output|
-                output.regular
+                output.asRegular() catch unreachable
             else
-                replacePathExtension(&out_path_buffer, operation.input.regular, out_extension);
+                replacePathExtension(&out_path_buffer, input_path, out_extension);
 
             var file = try Io.Dir.cwd().createFile(io, out_path, .{});
             defer file.close(io);
@@ -72,7 +74,9 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .emulate => |operation| {
-            const file = try Io.Dir.cwd().openFile(io, operation.input.regular, .{});
+            const input_path = operation.input.asRegular() catch unreachable;
+
+            const file = try Io.Dir.cwd().openFile(io, input_path, .{});
             try emulate(
                 io,
                 gpa,
@@ -86,7 +90,9 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .assemble_emulate => |operation| {
-            const source = try Io.Dir.cwd().readFileAlloc(io, operation.input.regular, gpa, .unlimited);
+            const input_path = operation.input.asRegular() catch unreachable;
+
+            const source = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
             defer gpa.free(source);
 
             reporter.source = source;
