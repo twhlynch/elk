@@ -4,6 +4,9 @@ Complete [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3) toolchain.
 Available as both a [Zig](https://ziglang.org) library and a command-line
 program.
 
+[Official Codeberg repository](https://codeberg.org/dxrcy/elk)
+| [GitHub mirror](https://github.com/dxrcy/elk)
+
 ![Example usage](./images/example1.svg)
 
 # Usage
