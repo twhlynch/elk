@@ -43,6 +43,7 @@ pub fn main(init: std.process.Init) !u8 {
             defer air.deinit(gpa);
 
             const out_extension = switch (operation.output_mode) {
+                .none => return 0,
                 .assembly => "obj",
                 .symbols => "sym",
                 .listing => "lst",
@@ -61,6 +62,7 @@ pub fn main(init: std.process.Init) !u8 {
             var writer = file.writer(io, &buffer);
 
             switch (operation.output_mode) {
+                .none => unreachable,
                 .assembly => try air.writeAssembly(&writer.interface),
                 .symbols => try air.writeSymbols(&writer.interface, source),
                 .listing => try air.writeListing(&writer.interface, source),

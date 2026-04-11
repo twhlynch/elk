@@ -36,6 +36,8 @@ const info = struct {
         \\            Assemble an .asm file and write output.
         \\    -e, --emulate
         \\            Emulate an assembled .obj file. Supports --debug.
+        \\    -c, --check
+        \\            Check an assembly file for errors without assembling.
         \\
         \\OPTIONS:
         \\    -o, --output [FILE]
@@ -78,7 +80,7 @@ const Operation = union(enum) {
     assemble: struct {
         input: cli_template.Path,
         output: ?cli_template.Path,
-        output_mode: enum { assembly, symbols, listing },
+        output_mode: enum { none, assembly, symbols, listing },
     },
     emulate: struct {
         input: cli_template.Path,
@@ -110,20 +112,25 @@ const template = .{
         .assemble = cli_template.NamedListing{
             .short = 'a',
             .long = "assemble",
-            .conflicts = &.{ .emulate, .format, .clean },
+            .conflicts = &.{ .emulate, .check, .format, .clean },
         },
         .emulate = cli_template.NamedListing{
             .short = 'e',
             .long = "emulate",
-            .conflicts = &.{ .assemble, .format, .clean },
+            .conflicts = &.{ .assemble, .check, .format, .clean },
+        },
+        .check = cli_template.NamedListing{
+            .short = 'c',
+            .long = "check",
+            .conflicts = &.{ .assemble, .emulate, .format, .clean },
         },
         .format = cli_template.NamedListing{
             .long = "format",
-            .conflicts = &.{ .assemble, .emulate, .clean },
+            .conflicts = &.{ .assemble, .emulate, .check, .clean },
         },
         .clean = cli_template.NamedListing{
             .long = "clean",
-            .conflicts = &.{ .assemble, .emulate, .format },
+            .conflicts = &.{ .assemble, .emulate, .check, .format },
         },
 
         .output = cli_template.NamedListing{
@@ -271,6 +278,14 @@ fn parseOperation(args: *const cli_template.Args(template)) Operation {
                 .history_file = args.named.history_file,
                 .import_symbols = args.named.import_symbols,
             } else null,
+        } };
+    }
+
+    if (args.named.check) {
+        return .{ .assemble = .{
+            .input = args.positional.input,
+            .output = null,
+            .output_mode = .none,
         } };
     }
 
