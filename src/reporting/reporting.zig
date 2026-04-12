@@ -90,15 +90,20 @@ pub fn Reporter(comptime Diag: type) type {
             };
         }
 
+        fn writeFailed() noreturn {
+            std.debug.panic("failed to write to reporter", .{});
+        }
+
         pub fn report(
             reporter: *Self,
             comptime tag: std.meta.Tag(Diag),
             info: @FieldType(Diag, @tagName(tag)),
         ) Response {
-            return reporter.reportInner(@unionInit(Diag, @tagName(tag), info));
+            return reporter.reportInner(@unionInit(Diag, @tagName(tag), info)) catch
+                writeFailed();
         }
 
-        fn reportInner(reporter: *Self, diag: Diag) Response {
+        fn reportInner(reporter: *Self, diag: Diag) error{WriteFailed}!Response {
             const response: Response = diag.getResponse(reporter.options);
 
             const level: Level = switch (response) {
@@ -119,8 +124,8 @@ pub fn Reporter(comptime Diag: type) type {
                     &ctx_items,
                     reporter.source,
                 );
-                diag.print(ctx);
-                ctx.flush();
+                try diag.print(ctx);
+                try ctx.writer.flush();
             }
 
             assert(response != .pass);
@@ -128,6 +133,11 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         pub fn summarize(reporter: *Self) void {
+            reporter.summarizeInner() catch
+                writeFailed();
+        }
+
+        fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
             const count_err = reporter.count.get(.err);
             const count_warn = reporter.count.get(.warn);
             // Ignore `info`
@@ -141,20 +151,20 @@ pub fn Reporter(comptime Diag: type) type {
             );
 
             if (count_err > 0) {
-                ctx.print("\x1b[31m", .{});
-                ctx.print("{} errors", .{count_err});
-                ctx.print("\x1b[0m", .{});
-                ctx.print("\n", .{});
+                try ctx.writer.print("\x1b[31m", .{});
+                try ctx.writer.print("{} errors", .{count_err});
+                try ctx.writer.print("\x1b[0m", .{});
+                try ctx.writer.print("\n", .{});
             }
 
             if (count_warn > 0) {
-                ctx.print("\x1b[33m", .{});
-                ctx.print("{} warnings", .{count_warn});
-                ctx.print("\x1b[0m", .{});
-                ctx.print("\n", .{});
+                try ctx.writer.print("\x1b[33m", .{});
+                try ctx.writer.print("{} warnings", .{count_warn});
+                try ctx.writer.print("\x1b[0m", .{});
+                try ctx.writer.print("\n", .{});
             }
 
-            ctx.flush();
+            try ctx.writer.flush();
         }
 
         pub fn getLevel(reporter: *const Self) ?Level {

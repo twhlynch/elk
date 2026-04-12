@@ -36,16 +36,6 @@ pub fn new(
     };
 }
 
-pub fn print(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
-    ctx.writer.print(fmt, args) catch
-        std.debug.panic("failed to write whilst reporting", .{});
-}
-
-pub fn flush(ctx: Ctx) void {
-    ctx.writer.flush() catch
-        std.debug.panic("failed to flush whilst reporting", .{});
-}
-
 pub fn deepen(ctx: Ctx) Ctx {
     var new_ctx = ctx;
     new_ctx.depth += 1;
@@ -63,53 +53,53 @@ fn incrementItemCount(ctx: *const Ctx) void {
         count.* += 1;
 }
 
-fn printDepth(ctx: Ctx) void {
+fn printDepth(ctx: Ctx) error{WriteFailed}!void {
     for (0..ctx.depth) |_|
-        ctx.print(" " ** indent_width, .{});
+        try ctx.writer.print(" " ** indent_width, .{});
 }
 
 pub fn printTitle(
     ctx: Ctx,
     comptime fmt: []const u8,
     args: anytype,
-) void {
+) error{WriteFailed}!void {
     defer ctx.incrementItemCount();
 
     const level = ctx.level orelse
         unreachable;
-    ctx.printDepth();
+    try ctx.printDepth();
     switch (level) {
         .err => {
-            ctx.print("\x1b[31m", .{});
-            ctx.print("\x1b[1m", .{});
-            ctx.print("Error: ", .{});
-            ctx.print("\x1b[0m", .{});
+            try ctx.writer.print("\x1b[31m", .{});
+            try ctx.writer.print("\x1b[1m", .{});
+            try ctx.writer.print("Error: ", .{});
+            try ctx.writer.print("\x1b[0m", .{});
         },
         .warn => {
-            ctx.print("\x1b[33m", .{});
-            ctx.print("\x1b[1m", .{});
-            ctx.print("Warning: ", .{});
-            ctx.print("\x1b[0m", .{});
+            try ctx.writer.print("\x1b[33m", .{});
+            try ctx.writer.print("\x1b[1m", .{});
+            try ctx.writer.print("Warning: ", .{});
+            try ctx.writer.print("\x1b[0m", .{});
         },
         .info => {
-            ctx.print("\x1b[34m", .{});
-            ctx.print("\x1b[1m", .{});
-            ctx.print("Info: ", .{});
-            ctx.print("\x1b[0m", .{});
+            try ctx.writer.print("\x1b[34m", .{});
+            try ctx.writer.print("\x1b[1m", .{});
+            try ctx.writer.print("Info: ", .{});
+            try ctx.writer.print("\x1b[0m", .{});
         },
     }
 
-    ctx.print(fmt, args);
+    try ctx.writer.print(fmt, args);
 
     switch (ctx.verbosity) {
         .normal => {
-            ctx.print("\n", .{});
+            try ctx.writer.print("\n", .{});
         },
         .quiet => {},
     }
 }
 
-pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
+pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) error{WriteFailed}!void {
     defer ctx.incrementItemCount();
 
     switch (ctx.verbosity) {
@@ -117,12 +107,12 @@ pub fn printNote(ctx: Ctx, comptime fmt: []const u8, args: anytype) void {
         .quiet => return,
     }
 
-    ctx.printDepth();
-    ctx.print("\x1b[36m", .{});
-    ctx.print("Note: ", .{});
-    ctx.print("\x1b[0m", .{});
-    ctx.print(fmt, args);
-    ctx.print("\n", .{});
+    try ctx.printDepth();
+    try ctx.writer.print("\x1b[36m", .{});
+    try ctx.writer.print("Note: ", .{});
+    try ctx.writer.print("\x1b[0m", .{});
+    try ctx.writer.print(fmt, args);
+    try ctx.writer.print("\n", .{});
 }
 
 pub fn printSourceNote(
@@ -130,12 +120,12 @@ pub fn printSourceNote(
     comptime fmt: []const u8,
     args: anytype,
     span: Span,
-) void {
-    ctx.printNote(fmt ++ ": ", args);
-    ctx.printSource(span);
+) error{WriteFailed}!void {
+    try ctx.printNote(fmt ++ ": ", args);
+    try ctx.printSource(span);
 }
 
-fn printSource(ctx: Ctx, span: Span) void {
+fn printSource(ctx: Ctx, span: Span) error{WriteFailed}!void {
     const source = ctx.source orelse
         unreachable;
 
@@ -146,12 +136,11 @@ fn printSource(ctx: Ctx, span: Span) void {
             if (if (ctx.item_count) |count| count.* > 2 else true)
                 return;
             const line_number = span.getLineNumber(source);
-            ctx.print(" (Line {})", .{line_number});
-            ctx.print("\n", .{});
+            try ctx.writer.print(" (Line {})", .{line_number});
+            try ctx.writer.print("\n", .{});
             return;
         },
     }
 
-    reporting.writeSpanContext(ctx.writer, span, 1, ctx.depth * indent_width, source) catch
-        std.debug.panic("failed to write whilst reporting", .{});
+    try reporting.writeSpanContext(ctx.writer, span, 1, ctx.depth * indent_width, source);
 }
