@@ -87,6 +87,7 @@ const Parser = struct {
             } },
             .assembly => .{ .assembly = .{
                 .location = try parser.nextOptionalMemoryLocation(),
+                .context = try parser.nextPositiveIntOrDefault(5),
             } },
             .step_into => .{ .step_into = .{
                 .count = try parser.nextPositiveIntOrDefault(1),
