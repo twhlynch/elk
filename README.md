@@ -7,7 +7,7 @@ program.
 [Official Codeberg repository](https://codeberg.org/dxrcy/elk)
 | [GitHub mirror](https://github.com/dxrcy/elk)
 
-![Example usage](./images/example1.svg)
+![Example debugger usage](./images/example2.svg)
 
 # Usage
 
@@ -46,6 +46,8 @@ cd elk/cli
 zig build install -Doptimize=ReleaseSafe
 sudo install zig-out/bin/elk /usr/bin/
 ```
+
+![Example assembler usage](./images/example1.svg)
 
 # Features
 
