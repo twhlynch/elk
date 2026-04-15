@@ -19,7 +19,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     const cli = Cli.parse(&args) catch |err| switch (err) {
         error.DisplayMetadata => return 0,
-        else => return err,
+        error.ParseFailed, error.UnimplementedFeature => return 1,
     };
 
     reporter.options.strictness = cli.strictness;

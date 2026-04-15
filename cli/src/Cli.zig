@@ -5,8 +5,9 @@ const assert = std.debug.assert;
 const ArgIterator = std.process.Args.Iterator;
 
 const elk = @import("elk");
-
 const cli_template = @import("cli_template.zig");
+
+const log = std.log.scoped(.cli);
 
 operation: Operation,
 policies: elk.Policies,
@@ -173,7 +174,7 @@ const template = .{
         .import_symbols = cli_template.NamedListing{
             .long = "import-symbols",
             .value = []const u8,
-            .requires = &.{&.{.debug, .emulate}},
+            .requires = &.{&.{ .debug, .emulate }},
         },
 
         .strict = cli_template.NamedListing{
@@ -204,7 +205,7 @@ fn parsePolicies(string: []const u8, value: *anyopaque) error{InvalidArgumentVal
         return error.InvalidArgumentValue;
 }
 
-pub fn parse(iter: *ArgIterator) !Cli {
+pub fn parse(iter: *ArgIterator) error{ ParseFailed, DisplayMetadata, UnimplementedFeature }!Cli {
     const args = cli_template.parse(template, iter) catch |err| switch (err) {
         error.Empty,
         error.Help,
@@ -229,23 +230,23 @@ pub fn parse(iter: *ArgIterator) !Cli {
             if (std.mem.eql(u8, field.name, name) and
                 cli_template.isValueSet(@field(args.named, field.name)))
             {
-                std.log.err("unimplemented feature: {s}", .{field.name});
+                log.err("unimplemented feature: {s}", .{field.name});
                 return error.UnimplementedFeature;
             }
         }
     }
 
     if (args.positional.input == .stdio and args.named.clean) {
-        std.log.err("unsupported stdin input path for operation", .{});
-        return error.MissingRegularPath;
+        log.err("unsupported stdin input path for operation", .{});
+        return error.ParseFailed;
     }
 
     if (args.positional.input == .stdio) {
-        std.log.err("unimplemented feature: stdin input path", .{});
+        log.err("unimplemented feature: stdin input path", .{});
         return error.UnimplementedFeature;
     }
     if (args.named.output != null and args.named.output.? == .stdio) {
-        std.log.err("unimplemented feature: stdout output path", .{});
+        log.err("unimplemented feature: stdout output path", .{});
         return error.UnimplementedFeature;
     }
 

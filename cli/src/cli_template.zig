@@ -2,6 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const ArgIterator = std.process.Args.Iterator;
 
+const log = std.log.scoped(.cli);
+
 pub const Path = union(enum) {
     stdio,
     regular: []const u8,
@@ -72,7 +74,12 @@ fn ArgStruct(comptime template: anytype, comptime optional_fields: bool) type {
     return @Struct(.auto, null, &info.names, &info.types, &info.attrs);
 }
 
-pub fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
+pub fn parse(comptime template: anytype, iter: *ArgIterator) error{
+    ParseFailed,
+    Empty,
+    Help,
+    Version,
+}!Args(template) {
     // TODO: Validate cli template types
 
     var args: Args(template) = .{};
@@ -82,7 +89,13 @@ pub fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
     _ = iter.next();
     while (iter.next()) |string| {
         total_count += 1;
-        if (try Flag.parse(string)) |flag| {
+
+        const flag_opt = Flag.parse(string) catch {
+            log.err("invalid flag name `{s}`", .{string});
+            return error.ParseFailed;
+        };
+
+        if (flag_opt) |flag| {
             try checkMetaArgs(flag);
             try addNamedArg(template.named, &args.named, flag, iter);
         } else {
@@ -93,8 +106,11 @@ pub fn parse(comptime template: anytype, iter: *ArgIterator) !Args(template) {
     if (total_count == 0)
         return error.Empty;
 
-    if (positional_count < @typeInfo(@TypeOf(args.positional)).@"struct".fields.len)
-        return error.ExpectedPositionalArg;
+    if (positional_count < @typeInfo(@TypeOf(args.positional)).@"struct".fields.len) {
+        const name = @typeInfo(@TypeOf(args.positional)).@"struct".fields[positional_count].name;
+        log.err("expected positional argument `{s}`", .{name});
+        return error.ParseFailed;
+    }
 
     try checkDependencies(template.named, &args.named);
 
@@ -108,16 +124,25 @@ fn checkMetaArgs(flag: Flag) error{ Help, Version }!void {
         return error.Version;
 }
 
-fn addPositionalArg(args: anytype, positional_count: *usize, string: []const u8) !void {
+fn addPositionalArg(
+    args: anytype,
+    positional_count: *usize,
+    string: []const u8,
+) error{ParseFailed}!void {
     inline for (@typeInfo(@TypeOf(args.*)).@"struct".fields, 0..) |field, i| {
         if (i == positional_count.*) {
-            const value = try parseValue(field.type, string);
+            const value = parseValue(field.type, string) catch {
+                log.err("invalid value for argument `{s}`", .{field.name});
+                return error.ParseFailed;
+            };
             @field(args, field.name) = value;
             positional_count.* += 1;
             return;
         }
     }
-    return error.UnexpectedPositionalArg;
+
+    log.err("unexpected positional argument", .{});
+    return error.ParseFailed;
 }
 
 fn addNamedArg(
@@ -125,20 +150,24 @@ fn addNamedArg(
     args: *NamedArgs(template),
     flag: Flag,
     iter: *ArgIterator,
-) !void {
+) error{ParseFailed}!void {
     inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
         const listing: NamedListing = @field(template, field.name);
 
         if (flag.matchesListing(listing)) {
-            if (isValueSet(@field(args, field.name)))
-                return error.DuplicateFlag;
+            if (isValueSet(@field(args, field.name))) {
+                log.err("duplicate instance of flag `{f}`", .{flag});
+                return error.ParseFailed;
+            }
 
-            const value = try parseFlagValue(listing.value, listing.value_parser, iter);
+            const value = try parseFlagValue(listing.value, listing.value_parser, flag, iter);
             @field(args, field.name) = value;
             return;
         }
     }
-    return error.InvalidFlag;
+
+    log.err("invalid flag name `{f}`", .{flag});
+    return error.ParseFailed;
 }
 
 pub fn isValueSet(value: anytype) bool {
@@ -149,15 +178,22 @@ pub fn isValueSet(value: anytype) bool {
     };
 }
 
-fn checkDependencies(comptime template: anytype, args: *const NamedArgs(template)) !void {
+fn checkDependencies(
+    comptime template: anytype,
+    args: *const NamedArgs(template),
+) error{ParseFailed}!void {
     inline for (@typeInfo(@TypeOf(template)).@"struct".fields) |field| {
         const listing: NamedListing = @field(template, field.name);
 
         if (isValueSet(@field(args, field.name))) {
-            if (!hasAnyDependencySet(template, listing.requires, args))
-                return error.MissingRequirement;
-            if (hasAnyDependency(template, listing.conflicts, args))
-                return error.ConflictingFlag;
+            if (!hasAnyDependencySet(template, listing.requires, args)) {
+                log.err("flag `{s}` cannot be used without required flag", .{field.name});
+                return error.ParseFailed;
+            }
+            if (hasAnyDependency(template, listing.conflicts, args)) {
+                log.err("flag `{s}` cannot be used with conflicting flag", .{field.name});
+                return error.ParseFailed;
+            }
         }
     }
 }
@@ -215,41 +251,53 @@ fn hasDependency(
 fn parseFlagValue(
     comptime T: type,
     comptime parser_opt: ?NamedListing.ValueParser,
+    flag: Flag,
     iter: *ArgIterator,
-) !(if (T == void) bool else T) {
+) error{ParseFailed}!(if (T == void) bool else T) {
     if (T == void) {
         comptime assert(parser_opt == null);
         return true;
     }
 
-    const string = iter.next() orelse
-        return error.ExpectedFlagValue;
+    const string = iter.next() orelse {
+        log.err("expected value for flag `{f}`", .{flag});
+        return error.ParseFailed;
+    };
+
+    if (Flag.isValid(string)) {
+        log.err("expected value for flag `{f}`, found flag", .{flag});
+        return error.ParseFailed;
+    }
 
     if (parser_opt) |parser| {
         var value: T = undefined;
-        try parser(string, @ptrCast(&value));
+        parser(string, @ptrCast(&value)) catch {
+            log.err("invalid value for flag `{f}`", .{flag});
+            return error.ParseFailed;
+        };
         return value;
     }
 
-    return try parseValue(T, string);
+    return parseValue(T, string) catch {
+        log.err("invalid value for flag `{f}`", .{flag});
+        return error.ParseFailed;
+    };
 }
 
-fn parseValue(comptime T: type, string: []const u8) !T {
-    const is_flag = std.mem.startsWith(u8, string, "-");
+fn parseValue(comptime T: type, string: []const u8) error{InvalidArgumentValue}!T {
+    assert(!Flag.isValid(string));
 
     switch (T) {
         else => @compileError("unsupported flag value"),
         void => comptime unreachable,
 
         []const u8 => {
-            if (is_flag) return error.UnexpectedFlag;
             return string;
         },
 
         Path => {
             if (std.mem.eql(u8, string, "-"))
                 return .stdio;
-            if (is_flag) return error.UnexpectedFlag;
             return .{ .regular = string };
         },
     }
@@ -261,7 +309,12 @@ const Flag = union(enum) {
     short: u8,
     long: []const u8,
 
-    pub fn parse(string: []const u8) !?Flag {
+    pub fn isValid(string: []const u8) bool {
+        return (Flag.parse(string) catch
+            return false) != null;
+    }
+
+    pub fn parse(string: []const u8) error{ExpectedShortFlag}!?Flag {
         if (std.mem.cutPrefix(u8, string, "--")) |long|
             return .{ .long = long };
         if (std.mem.cutPrefix(u8, string, "-")) |short| {
@@ -272,6 +325,13 @@ const Flag = union(enum) {
             return .{ .short = short[0] };
         }
         return null;
+    }
+
+    pub fn format(flag: Flag, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        return switch (flag) {
+            .short => |short| writer.print("-{c}", .{short}),
+            .long => |long| writer.print("--{s}", .{long}),
+        };
     }
 
     fn matchesListing(flag: Flag, template: NamedListing) bool {
