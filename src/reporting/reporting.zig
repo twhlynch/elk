@@ -184,9 +184,14 @@ pub fn writeSpanContext(
     indent: usize,
     source: []const u8,
 ) error{WriteFailed}!void {
+    const max_columns = 70;
+
     const lines = span.getSurroundingLines(max_context, source);
     var iter = std.mem.splitScalar(u8, lines.view(source), '\n');
-    while (iter.next()) |line_string| {
+    while (iter.next()) |line_string_full| {
+        const line_string = line_string_full[0..@min(line_string_full.len, max_columns)];
+        const is_truncated = line_string_full.len > max_columns;
+
         const line = Span.fromSlice(line_string, source);
         const line_number = line.getLineNumber(source);
 
@@ -227,6 +232,12 @@ pub fn writeSpanContext(
                 was_in_span = in_span;
                 was_non_valid = non_valid;
             }
+        }
+
+        if (is_truncated) {
+            try writer.print("\x1b[0m", .{});
+            try writer.print("\x1b[36;2m", .{});
+            try writer.print("...", .{});
         }
 
         try writer.print("\x1b[0m", .{});
