@@ -53,11 +53,7 @@ pub fn isPascalCase(string: []const u8) bool {
                 .lower, .delim => return false,
                 else => {},
             },
-            .upper => switch (current) {
-                .upper => return false,
-                else => {},
-            },
-            .lower => {},
+            .upper, .lower => {},
             .digit => switch (current) {
                 .lower => return false,
                 else => {},
@@ -82,6 +78,9 @@ test isPascalCase {
     try expect(isPascalCase("AbcDefGhi"));
     try expect(isPascalCase("Abc_Def_Ghi"));
     try expect(isPascalCase("AbcDef_Ghi"));
+    try expect(isPascalCase("AbcDGhi"));
+    try expect(isPascalCase("AbcDGHI"));
+    try expect(isPascalCase("ADefGhi"));
     try expect(isPascalCase("Abc12"));
     try expect(isPascalCase("Abc_12"));
     try expect(isPascalCase("Abc_12Def"));
