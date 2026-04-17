@@ -17,7 +17,8 @@ Loop_Start              ; while (true) {
     add r0, r1, r2      ; print(base + i)
     puts                ;
 
-    add r2, r2, 0x8     ;     i += 8
+    ld r0, Size         ; r2 += Size
+    add r2, r2, r0      ;
 
     br Loop_Start       ; }
 Loop_End
@@ -25,20 +26,22 @@ Loop_End
     halt
 
 Delim .STRINGZ ", "
-
-Words  ; Each [word + null block] takes up 8 WORDS
-    .STRINGZ "this"
+Size .FILL #10
+Words  ; Each [word + null block] takes up Size WORDS
+    .STRINGZ "Monday"
     .BLKW #3
-    .STRINGZ "is"
-    .BLKW #5
-    .STRINGZ "some"
+    .STRINGZ "Tuesday"
+    .BLKW #2
+    .STRINGZ "Wednesday"
+    .BLKW #0
+    .STRINGZ "Thursday"
+    .BLKW #1
+    .STRINGZ "Friday"
     .BLKW #3
-    .STRINGZ "words"
-    .BLKW #2
-    .STRINGZ "in"
-    .BLKW #5
-    .STRINGZ "array"
-    .BLKW #2
+    .STRINGZ "Saturday"
+    .BLKW #1
+    .STRINGZ "Sunday"
+    .BLKW #3
     .FILL 0x0000 ; Equivalent to an empty null-terminated string
 
 .END
