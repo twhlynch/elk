@@ -563,12 +563,15 @@ fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !v
 
         try debugger.writer.print(" {x:04}", .{word});
 
-        if (Instruction.decode(word)) |instruction| {
+        {
             const width = 16;
             var buffer: [width]u8 = undefined;
-            const string = std.fmt.bufPrint(&buffer, "{f}", .{instruction}) catch unreachable;
+            const string = if (Instruction.decode(word)) |instruction|
+                std.fmt.bufPrint(&buffer, "{f}", .{instruction}) catch unreachable
+            else |_|
+                "";
             try debugger.writer.print("  {s:<[1]}", .{ string, width });
-        } else |_| {}
+        }
 
         {
             const width = 12;
