@@ -94,6 +94,7 @@ pub fn init(params: struct {
     command_buffer: []u8,
     assembly: ?Assembly = null,
     history_file: ?Io.File = null,
+    initial_command_line: []const u8 = "",
 }) error{OutOfMemory}!Debugger {
     const breakpoints: Breakpoints =
         if (params.assembly) |assembly|
@@ -113,7 +114,7 @@ pub fn init(params: struct {
         .breakpoints = breakpoints,
         .initial_state = null,
         .assembly = params.assembly,
-        .current_line = "",
+        .current_line = params.initial_command_line,
         .input = input,
         .writer = .{ .inner = params.writer },
         .traps = params.traps,
