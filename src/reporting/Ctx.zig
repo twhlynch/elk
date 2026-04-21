@@ -135,8 +135,15 @@ fn printSource(ctx: Ctx, span: Span) error{WriteFailed}!void {
             // Scuffed!
             if (if (ctx.item_count) |count| count.* > 2 else true)
                 return;
-            const line_number = span.getLineNumber(source);
-            try ctx.writer.print(" (Line {})", .{line_number});
+
+            const start_line = span.getLineNumber(source);
+            const end_line = span.getEndLineNumber(source);
+            const start_column = span.getColumnNumber(source);
+            const end_column = span.getEndColumnNumber(source);
+
+            try ctx.writer.print(" (Line {}:{}-{}:{})", .{
+                start_line, start_column, end_line, end_column,
+            });
             try ctx.writer.print("\n", .{});
             return;
         },
