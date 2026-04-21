@@ -103,3 +103,10 @@ sudo install zig-out/bin/elk /usr/bin/
 [`minecraft` branch](https://codeberg.org/dxrcy/elk/src/branch/minecraft))
 - [ ] Automatic testing framework
 
+# Contributors
+
+<!-- Codeberg has no equivalent -->
+<a href="https://github.com/dxrcy/elk/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=dxrcy/elk" />
+</a>
+
