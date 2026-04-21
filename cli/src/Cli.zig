@@ -50,7 +50,7 @@ const info = struct {
         \\            Run debugger while emulating. Requires --emulate or (default) operation.
         \\        --history-file <FILE>
         \\            Specify path for debugger history file. Requires --debug.
-        \\        --commands <COMMANDS>
+        \\    -C, --commands <COMMANDS>
         \\            Specify initial commands, separated with semicolons, that debugger shall run.
         \\                Requires --debug.
         \\
@@ -164,7 +164,7 @@ const template = .{
         },
 
         .commands = cli_template.NamedListing{
-            // .short = 'c',
+            .short = 'C',
             .long = "commands",
             .value = []const u8,
             .requires = &.{&.{.debug}},
