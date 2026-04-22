@@ -10,7 +10,15 @@ const Ctx = @import("Ctx.zig");
 // TODO: Move or remove
 pub const Primary = Reporter(@import("diagnostic.zig").Diagnostic);
 
-pub const Level = enum { err, warn, info };
+pub const Level = enum(u2) {
+    info = 1,
+    warn = 2,
+    err = 3,
+
+    pub fn order(lhs: Level, rhs: Level) std.math.Order {
+        return std.math.order(@intFromEnum(lhs), @intFromEnum(rhs));
+    }
+};
 
 pub const Options = struct {
     policies: Policies = .none,
@@ -173,6 +181,12 @@ pub fn Reporter(comptime Diag: type) type {
             if (reporter.count.get(.warn) > 0)
                 return .warn;
             return null;
+        }
+
+        pub fn isLevelAtMost(reporter: *const Self, max: Level) bool {
+            const level = reporter.getLevel() orelse
+                return true;
+            return level.order(max).compare(.lte);
         }
     };
 }
