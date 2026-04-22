@@ -60,6 +60,7 @@ pub fn parseAir(parser: *Parser, gpa: Allocator, air: *Air) error{OutOfMemory}!v
         const control = parser.parseLine(gpa, air) catch |err| switch (err) {
             error.Reported => {
                 parser.tokenizer.discardRemainingLine();
+                _ = parser.removeCurrentLabel(air);
                 continue;
             },
             error.Eof => {
@@ -202,7 +203,17 @@ pub fn parseInstruction(parser: *Parser) error{Reported}!Instruction {
     }
 }
 
+// TODO: Rename, too close to `removeCurrentLabel`
 fn discardCurrentLabel(parser: *Parser, air: *Air, target: ?Span) error{Reported}!void {
+    if (parser.removeCurrentLabel(air)) |label| {
+        try parser.reporter().report(.invalid_label_target, .{
+            .label = label,
+            .target = target,
+        }).handle();
+    }
+}
+
+fn removeCurrentLabel(parser: *Parser, air: *Air) ?Span {
     air.assertLabelOrder();
 
     const index = air.lines.items.len;
@@ -217,12 +228,9 @@ fn discardCurrentLabel(parser: *Parser, air: *Air, target: ?Span) error{Reported
             continue;
 
         _ = air.labels.orderedRemove(i - 1);
-
-        try parser.reporter().report(.invalid_label_target, .{
-            .label = label.span,
-            .target = target,
-        }).handle();
+        return label.span;
     }
+    return null;
 }
 
 fn ensureCanAppendLines(parser: *Parser, air: *Air, n: usize, span: Span) error{TooLong}!void {
