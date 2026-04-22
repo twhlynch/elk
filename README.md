@@ -97,7 +97,7 @@ sudo install zig-out/bin/elk /usr/bin/
 (syntax highlighting)
 - [x] [Inline diagnostic for Neovim](https://github.com/twhlynch/nvim-plugins)
 (see `elk` component)
-<!-- - [ ] Language server -->
+- [ ] Language server ([see issue](https://codeberg.org/dxrcy/elk/issues/32))
 
 ## Supported Applications
 
