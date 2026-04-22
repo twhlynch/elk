@@ -99,6 +99,7 @@ const Operation = union(enum) {
         input: cli_template.Path,
         output: ?cli_template.Path,
     },
+    lsp: struct {},
 };
 
 pub const Debug = struct {
@@ -118,25 +119,29 @@ const template = .{
         .assemble = cli_template.NamedListing{
             .short = 'a',
             .long = "assemble",
-            .conflicts = &.{ .emulate, .check, .clean, .format },
+            .conflicts = &.{ .emulate, .check, .clean, .format, .lsp },
         },
         .emulate = cli_template.NamedListing{
             .short = 'e',
             .long = "emulate",
-            .conflicts = &.{ .assemble, .check, .clean, .format },
+            .conflicts = &.{ .assemble, .check, .clean, .format, .lsp },
         },
         .check = cli_template.NamedListing{
             .short = 'c',
             .long = "check",
-            .conflicts = &.{ .assemble, .emulate, .clean, .format },
+            .conflicts = &.{ .assemble, .emulate, .clean, .format, .lsp },
         },
         .clean = cli_template.NamedListing{
             .long = "clean",
-            .conflicts = &.{ .assemble, .emulate, .check, .format },
+            .conflicts = &.{ .assemble, .emulate, .check, .format, .lsp },
         },
         .format = cli_template.NamedListing{
             .long = "format",
-            .conflicts = &.{ .assemble, .emulate, .check, .clean },
+            .conflicts = &.{ .assemble, .emulate, .check, .clean, .lsp },
+        },
+        .lsp = cli_template.NamedListing{
+            .long = "lsp",
+            .conflicts = &.{ .assemble, .emulate, .check, .clean, .format },
         },
 
         .output = cli_template.NamedListing{
@@ -160,7 +165,7 @@ const template = .{
         .debug = cli_template.NamedListing{
             .short = 'd',
             .long = "debug",
-            .conflicts = &.{ .assemble, .check, .clean, .format },
+            .conflicts = &.{ .assemble, .check, .clean, .format, .lsp },
         },
 
         .commands = cli_template.NamedListing{
@@ -225,6 +230,7 @@ pub fn parse(iter: *ArgIterator) error{ ParseFailed, DisplayMetadata, Unimplemen
 
     const unimplemented_args = [_][]const u8{
         "format",
+        "lsp",
         "import_symbols",
     };
     for (unimplemented_args) |name| {
