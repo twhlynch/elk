@@ -240,9 +240,8 @@ pub const Diagnostic = union(enum) {
                 try ctx.deepen().printNote("Object files cannot contain more than 0xffff words", .{});
             },
             .line_too_long => |info| {
-                try ctx.printTitle("Line is too long", .{});
+                try ctx.printTitle("Line is longer than {} characters", .{Parser.max_line_width});
                 try ctx.deepen().printSourceNote("Characters past column limit", .{}, info.overflow);
-                try ctx.printNote("Lines should not be longer than {} characters", .{Parser.max_line_width});
             },
 
             .invalid_token => |info| {
