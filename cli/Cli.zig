@@ -58,6 +58,8 @@ const info = struct {
         \\            Write .sym symbol table file instead of compiling .obj. Requires --assemble.
         \\        --export-listing <FILE>
         \\            Write .lst listing file instead of compiling .obj. Requires --assemble.
+        \\        --trap-aliases <ALIASES>
+        \\            Override trap aliases to parse (and assemble). Requires --assemble or --check.
         \\
         \\        --strict
         \\            Treat all warnings as errors.
@@ -65,7 +67,7 @@ const info = struct {
         \\            Ignore all warnings.
         \\    -q, --quiet
         \\            Show less output when assembling.
-        \\    -p, --permit
+        \\    -p, --permit <POLICIES>
         \\            Specify permitted policies or predefined policy sets.
         \\            Eg. --permit +laser,extension.stack_instructions
         \\
