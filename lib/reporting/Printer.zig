@@ -31,7 +31,8 @@ pub fn printDiagnostic(
         source,
     );
     try ctx.printDiagnostic(diag);
-    try ctx.writer.flush();
+
+    try printer.writer.flush();
 }
 
 pub fn printSummary(
@@ -68,4 +69,6 @@ pub fn printSummary(
         try ctx.writer.print("\x1b[0m", .{});
         try ctx.writer.print("\n", .{});
     }
+
+    try printer.writer.flush();
 }

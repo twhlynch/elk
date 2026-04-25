@@ -5,7 +5,7 @@ const assert = std.debug.assert;
 const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
-const Printer = @import("Printer.zig");
+pub const Printer = @import("Printer.zig");
 
 // TODO: Move or remove
 pub const Primary = Reporter(@import("diagnostic.zig").Diagnostic);
@@ -84,14 +84,14 @@ pub fn Reporter(comptime Diag: type) type {
     return struct {
         const Self = @This();
 
-        writer: *Io.Writer,
+        printer: *Printer,
         count: std.EnumArray(Level, usize),
         options: Options,
         source: ?[]const u8,
 
-        pub fn new(writer: *Io.Writer) Self {
+        pub fn new(printer: *Printer) Self {
             return .{
-                .writer = writer,
+                .printer = printer,
                 .count = .initFill(0),
                 .options = .{},
                 .source = null,
@@ -123,14 +123,12 @@ pub fn Reporter(comptime Diag: type) type {
 
             reporter.count.getPtr(level).* += 1;
 
-            var printer: Printer = .new(reporter.writer);
-            try printer.printDiagnostic(
+            try reporter.printer.printDiagnostic(
                 diag,
                 level,
                 reporter.options.verbosity,
                 reporter.source orelse unreachable,
             );
-            try printer.writer.flush();
 
             assert(response != .pass);
             return response;
@@ -142,12 +140,10 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
-            var printer: Printer = .new(reporter.writer);
-            try printer.printSummary(
+            try reporter.printer.printSummary(
                 &reporter.count,
                 reporter.options.verbosity,
             );
-            try printer.writer.flush();
         }
 
         pub fn getLevel(reporter: *const Self) ?Level {
