@@ -124,7 +124,7 @@ pub fn Reporter(comptime Diag: type) type {
 
             reporter.count.getPtr(level).* += 1;
 
-            try reporter.sink.printDiagnostic(
+            try reporter.sink.sendDiagnostic(
                 diag,
                 level,
                 reporter.options.verbosity,
@@ -141,7 +141,7 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
-            try reporter.sink.printSummary(
+            try reporter.sink.sendSummary(
                 &reporter.count,
                 reporter.options.verbosity,
             );

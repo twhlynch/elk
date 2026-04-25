@@ -13,7 +13,7 @@ ptr: *anyopaque,
 vtable: *const VTable,
 
 pub const VTable = struct {
-    printDiagnostic: *const fn (
+    sendDiagnostic: *const fn (
         ptr: *anyopaque,
         diag: Diagnostic,
         level: reporting.Level,
@@ -21,27 +21,27 @@ pub const VTable = struct {
         source: []const u8,
     ) error{WriteFailed}!void,
 
-    printSummary: *const fn (
+    sendSummary: *const fn (
         ptr: *anyopaque,
         count: *const std.EnumArray(reporting.Level, usize),
         verbosity: reporting.Options.Verbosity,
     ) error{WriteFailed}!void,
 };
 
-pub fn printDiagnostic(
+pub fn sendDiagnostic(
     printer: *Printer,
     diag: Diagnostic,
     level: reporting.Level,
     verbosity: reporting.Options.Verbosity,
     source: []const u8,
 ) error{WriteFailed}!void {
-    return printer.vtable.printDiagnostic(printer.ptr, diag, level, verbosity, source);
+    return printer.vtable.sendDiagnostic(printer.ptr, diag, level, verbosity, source);
 }
 
-pub fn printSummary(
+pub fn sendSummary(
     printer: *Printer,
     count: *const std.EnumArray(reporting.Level, usize),
     verbosity: reporting.Options.Verbosity,
 ) error{WriteFailed}!void {
-    return printer.vtable.printSummary(printer.ptr, count, verbosity);
+    return printer.vtable.sendSummary(printer.ptr, count, verbosity);
 }

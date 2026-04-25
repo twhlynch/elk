@@ -20,13 +20,13 @@ pub fn interface(sink: *FancySink) Sink {
     return .{
         .ptr = sink,
         .vtable = &.{
-            .printDiagnostic = FancySink.printDiagnostic,
-            .printSummary = FancySink.printSummary,
+            .sendDiagnostic = FancySink.sendDiagnostic,
+            .sendSummary = FancySink.sendSummary,
         },
     };
 }
 
-pub fn printDiagnostic(
+pub fn sendDiagnostic(
     ptr: *anyopaque,
     diag: Diagnostic,
     level: reporting.Level,
@@ -48,7 +48,7 @@ pub fn printDiagnostic(
     try sink.writer.flush();
 }
 
-pub fn printSummary(
+pub fn sendSummary(
     ptr: *anyopaque,
     count: *const std.EnumArray(reporting.Level, usize),
     verbosity: reporting.Options.Verbosity,
