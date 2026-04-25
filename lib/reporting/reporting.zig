@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 
 const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
+const Source = @import("../compile/Source.zig");
 const Token = @import("../compile/parse/Token.zig");
 
 pub const Sink = @import("Sink.zig");
@@ -89,7 +90,7 @@ pub fn Reporter(comptime Diag: type) type {
         sink: Sink,
         count: std.EnumArray(Level, usize),
         options: Options,
-        source: ?[]const u8,
+        source: ?Source,
 
         pub fn new(sink: Sink) Self {
             return .{

@@ -34,10 +34,21 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cli.operation) {
         .assemble => |operation| {
-            const input_path = operation.input.asRegular() catch unreachable;
+            var input_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+            const length = try Io.Dir.cwd().realPathFile(
+                io,
+                operation.input.asRegular() catch unreachable,
+                &input_path_buffer,
+            );
+            const input_path = input_path_buffer[0..length];
 
-            const source = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
-            defer gpa.free(source);
+            const text = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
+            defer gpa.free(text);
+
+            const source: elk.Source = .{
+                .text = text,
+                .path = input_path,
+            };
 
             reporter.source = source;
 
@@ -95,10 +106,21 @@ pub fn main(init: std.process.Init) !u8 {
         },
 
         .assemble_emulate => |operation| {
-            const input_path = operation.input.asRegular() catch unreachable;
+            var input_path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+            const length = try Io.Dir.cwd().realPathFile(
+                io,
+                operation.input.asRegular() catch unreachable,
+                &input_path_buffer,
+            );
+            const input_path = input_path_buffer[0..length];
 
-            const source = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
-            defer gpa.free(source);
+            const text = try Io.Dir.cwd().readFileAlloc(io, input_path, gpa, .unlimited);
+            defer gpa.free(text);
+
+            const source: elk.Source = .{
+                .text = text,
+                .path = input_path,
+            };
 
             reporter.source = source;
 
@@ -163,7 +185,7 @@ fn replacePathExtension(buffer: []u8, path: []const u8, extension: []const u8) [
 
 fn assemble(
     gpa: Allocator,
-    source: []const u8,
+    source: elk.Source,
     traps: *const elk.Traps,
     reporter: *elk.reporting.Primary,
 ) !elk.Air {
