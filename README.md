@@ -67,14 +67,17 @@ sudo install <filename> /usr/local/bin/elk
 
 # Contributors
 
+> Want to contribute? Check out the
+> [open issues](https://codeberg.org/dxrcy/elk/issues), or share your own ideas!
+> 😀
+
 <!-- Codeberg has no equivalent -->
 <a href="https://github.com/dxrcy/elk/graphs/contributors">
     <img src="https://contrib.rocks/image?repo=dxrcy/elk" />
 </a>
 
-> Want to contribute? Check out the
-> [open issues](https://codeberg.org/dxrcy/elk/issues), or share your own ideas!
-> :-)
+- Thanks to [@twhlynch](https://github.com/twhlynch) for providing editor
+  integration for Neovim and VSCode!
 
 # Usage Examples
 

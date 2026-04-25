@@ -620,3 +620,9 @@ a suitable `elk` executable is not found.
 > Currently, there is no official ELK syntax highlighting support for VSCode,
 > however there are plenty of generic LC-3 extensions with syntax highlighting.
 
+---
+
+> Want to contribute? Check out the
+> [open issues](https://codeberg.org/dxrcy/elk/issues), or share your own ideas!
+> 😀
+
