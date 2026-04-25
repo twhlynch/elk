@@ -6,8 +6,7 @@ const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
 
-pub const Printer = @import("Printer.zig");
-pub const Printerface = @import("Printerface.zig");
+pub const Sink = @import("Sink.zig");
 
 // TODO: Move or remove
 pub const Primary = Reporter(@import("diagnostic.zig").Diagnostic);
@@ -86,14 +85,14 @@ pub fn Reporter(comptime Diag: type) type {
     return struct {
         const Self = @This();
 
-        printer: Printerface,
+        sink: Sink,
         count: std.EnumArray(Level, usize),
         options: Options,
         source: ?[]const u8,
 
-        pub fn new(printer: Printerface) Self {
+        pub fn new(sink: Sink) Self {
             return .{
-                .printer = printer,
+                .sink = sink,
                 .count = .initFill(0),
                 .options = .{},
                 .source = null,
@@ -125,7 +124,7 @@ pub fn Reporter(comptime Diag: type) type {
 
             reporter.count.getPtr(level).* += 1;
 
-            try reporter.printer.printDiagnostic(
+            try reporter.sink.printDiagnostic(
                 diag,
                 level,
                 reporter.options.verbosity,
@@ -142,7 +141,7 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
-            try reporter.printer.printSummary(
+            try reporter.sink.printSummary(
                 &reporter.count,
                 reporter.options.verbosity,
             );

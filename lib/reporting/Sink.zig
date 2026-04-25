@@ -7,6 +7,8 @@ const Ctx = @import("Ctx.zig");
 const reporting = @import("reporting.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 
+pub const Fancy = @import("FancySink.zig");
+
 ptr: *anyopaque,
 vtable: *const VTable,
 

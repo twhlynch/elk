@@ -1,4 +1,4 @@
-const Printer = @This();
+const FancySink = @This();
 
 const std = @import("std");
 const Io = std.Io;
@@ -6,22 +6,22 @@ const Io = std.Io;
 const Ctx = @import("Ctx.zig");
 const reporting = @import("reporting.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
-const Printerface = @import("Printerface.zig");
+const Sink = @import("Sink.zig");
 
 writer: *Io.Writer,
 
-pub fn new(writer: *Io.Writer) Printer {
+pub fn new(writer: *Io.Writer) FancySink {
     return .{
         .writer = writer,
     };
 }
 
-pub fn interface(printer: *Printer) Printerface {
+pub fn interface(sink: *FancySink) Sink {
     return .{
-        .ptr = printer,
+        .ptr = sink,
         .vtable = &.{
-            .printDiagnostic = Printer.printDiagnostic,
-            .printSummary = Printer.printSummary,
+            .printDiagnostic = FancySink.printDiagnostic,
+            .printSummary = FancySink.printSummary,
         },
     };
 }
@@ -33,11 +33,11 @@ pub fn printDiagnostic(
     verbosity: reporting.Options.Verbosity,
     source: []const u8,
 ) error{WriteFailed}!void {
-    const printer: *Printer = @ptrCast(@alignCast(ptr));
+    const sink: *FancySink = @ptrCast(@alignCast(ptr));
 
     var ctx_items: usize = 0;
     const ctx: Ctx = .new(
-        printer.writer,
+        sink.writer,
         verbosity,
         level,
         &ctx_items,
@@ -45,7 +45,7 @@ pub fn printDiagnostic(
     );
     try ctx.printDiagnostic(diag);
 
-    try printer.writer.flush();
+    try sink.writer.flush();
 }
 
 pub fn printSummary(
@@ -53,14 +53,14 @@ pub fn printSummary(
     count: *const std.EnumArray(reporting.Level, usize),
     verbosity: reporting.Options.Verbosity,
 ) error{WriteFailed}!void {
-    const printer: *Printer = @ptrCast(@alignCast(ptr));
+    const sink: *FancySink = @ptrCast(@alignCast(ptr));
 
     const count_err = count.get(.err);
     const count_warn = count.get(.warn);
     // Ignore `info`
 
     const ctx: Ctx = .new(
-        printer.writer,
+        sink.writer,
         verbosity,
         .warn,
         null,
@@ -85,5 +85,5 @@ pub fn printSummary(
         try ctx.writer.print("\n", .{});
     }
 
-    try printer.writer.flush();
+    try sink.writer.flush();
 }
