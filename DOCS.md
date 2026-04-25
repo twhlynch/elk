@@ -9,11 +9,11 @@
 > See [#49](https://codeberg.org/dxrcy/elk/issues/49).
 > The following table-of-contents shows the sections which are complete in blue.
 
+- [Why ELK?](#why-elk)
 - [About LC-3](#about-lc-3)
     - [Assembly Overview](#assembly-overview])
     - [Runtime Overview](#runtime-overview)
     - [Available Traps](#available-traps)
-- Why ELK?
 - ELK Command-Line Interface
     - Other Flags
         - [Ignoring lints and enabling extensions](#ignoring-lints-and-enabling-extensions)
@@ -35,6 +35,24 @@
         - [Diagnostics](#diagnostics-1)
         - [Syntax Highlighting](#syntax-highlighting-1)
 
+# Why ELK?
+
+ELK focuses on feature richness and frictionless usage, without sacrificing
+compatibility.
+It achieves this in two ways: by isolating the two project components (library
+and command-line interface), and giving users control over everything from
+custom traps to extension features.
+Besides this, ELK's offers the most functional LC-3 command-line debugger that
+exists, designed with usability in mind.
+
+ELK is used in real-world educational situations, by students learning low-level
+concepts.
+Thanks to the straightforward interface and informative diagnostics, users can
+easily identify and debug their assembly code, without dealing with frustrating
+implementation shortcomings.
+At the same time, ELK does not limit their exploration of any LC-3 internals.
+Because of ELK's modular separation of functionality, anyone can extend the
+library with their own traps or hooks, allowing for integration into any domain.
 
 # About LC-3
 
@@ -170,25 +188,6 @@ debugging use and may be undefined on other implementations.
 | Standard  | `halt`  | `0x25` | "Halt"              | Ends program |
 | Extension | `putn`  | `0x26` | "Put Number"        | Load from `r0`, write to stdout as an integer |
 | Extension | `reg`   | `0x27` | "Registers"         | Write all register values to stdout, in a table form |
-
-# Why ELK?
-- Explain why ELK is best!
-    - Compatiblity with other implementations
-        - laser, lace, lc3tools
-    - ISA and assembly extensions
-        - See: [extensions]
-    - Debugger
-        - See: [debugger]
-    - Diagnostics and linting
-        - See also: [policies]
-        - See also: [style guide]
-    - Library/CLI distinction
-    - Control over traps and their behaviour
-        - See: [custom traps]
-    - Runtime hooks, debug files
-        - See: [runtime hooks]
-        - See: [debug files]
-- Who uses ELK?
 
 # ELK Command-Line Interface
 - Overview

@@ -54,8 +54,8 @@ sudo install <filename> /usr/local/bin/elk
 
 # Learn More
 
-- [About LC-3](DOCS.md#about-lc3)
 - [Why ELK?](DOCS.md#why-elk)
+- [About LC-3](DOCS.md#about-lc3)
 - Setup
     - [Installation](DOCS.md#installation)
     - [Editor Integration](DOCS.md#editor-integration)
