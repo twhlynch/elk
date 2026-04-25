@@ -132,7 +132,7 @@ pub fn Reporter(comptime Diag: type) type {
                     &ctx_items,
                     reporter.source,
                 );
-                try diag.print(ctx);
+                try ctx.printDiagnostic(diag);
                 try ctx.writer.flush();
             }
 
