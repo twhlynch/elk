@@ -1,5 +1,8 @@
 # ELK Usage Guide
 
+> **IMPORTANT: This documentation is incomplete!**
+> See [#49](https://codeberg.org/dxrcy/elk/issues/4).
+
 # About LC-3
 - What is LC-3
 - This is not an LC-3 tutorial
