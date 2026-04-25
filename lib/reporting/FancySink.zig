@@ -8,6 +8,8 @@ const reporting = @import("reporting.zig");
 const Diagnostic = @import("diagnostic.zig").Diagnostic;
 const Sink = @import("Sink.zig");
 
+pub const writeSpanContext = Ctx.writeSpanContext;
+
 writer: *Io.Writer,
 
 pub fn new(writer: *Io.Writer) FancySink {
