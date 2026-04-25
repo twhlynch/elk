@@ -5,8 +5,6 @@ const assert = std.debug.assert;
 const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
 const Token = @import("../compile/parse/Token.zig");
-
-const Ctx = @import("Ctx.zig");
 const Printer = @import("Printer.zig");
 
 // TODO: Move or remove
@@ -128,8 +126,8 @@ pub fn Reporter(comptime Diag: type) type {
             var printer: Printer = .new(reporter.writer);
             try printer.printDiagnostic(
                 diag,
-                reporter.options.verbosity,
                 level,
+                reporter.options.verbosity,
                 reporter.source orelse unreachable,
             );
             try printer.writer.flush();
@@ -144,37 +142,12 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
-            const count_err = reporter.count.get(.err);
-            const count_warn = reporter.count.get(.warn);
-            // Ignore `info`
-
-            const ctx: Ctx = .new(
-                reporter.writer,
+            var printer: Printer = .new(reporter.writer);
+            try printer.printSummary(
+                &reporter.count,
                 reporter.options.verbosity,
-                .warn,
-                null,
-                null,
             );
-
-            if (count_err > 0) {
-                try ctx.writer.print("\x1b[31m", .{});
-                try ctx.writer.print("{} error{s}", .{
-                    count_err, if (count_err == 1) "" else "s",
-                });
-                try ctx.writer.print("\x1b[0m", .{});
-                try ctx.writer.print("\n", .{});
-            }
-
-            if (count_warn > 0) {
-                try ctx.writer.print("\x1b[33m", .{});
-                try ctx.writer.print("{} warnings{s}", .{
-                    count_warn, if (count_warn == 1) "" else "s",
-                });
-                try ctx.writer.print("\x1b[0m", .{});
-                try ctx.writer.print("\n", .{});
-            }
-
-            try ctx.writer.flush();
+            try printer.writer.flush();
         }
 
         pub fn getLevel(reporter: *const Self) ?Level {

@@ -18,8 +18,8 @@ pub fn new(writer: *Io.Writer) Printer {
 pub fn printDiagnostic(
     printer: *Printer,
     diag: Diagnostic,
-    verbosity: reporting.Options.Verbosity,
     level: reporting.Level,
+    verbosity: reporting.Options.Verbosity,
     source: []const u8,
 ) error{WriteFailed}!void {
     var ctx_items: usize = 0;
@@ -32,4 +32,40 @@ pub fn printDiagnostic(
     );
     try ctx.printDiagnostic(diag);
     try ctx.writer.flush();
+}
+
+pub fn printSummary(
+    printer: *Printer,
+    count: *const std.EnumArray(reporting.Level, usize),
+    verbosity: reporting.Options.Verbosity,
+) error{WriteFailed}!void {
+    const count_err = count.get(.err);
+    const count_warn = count.get(.warn);
+    // Ignore `info`
+
+    const ctx: Ctx = .new(
+        printer.writer,
+        verbosity,
+        .warn,
+        null,
+        null,
+    );
+
+    if (count_err > 0) {
+        try ctx.writer.print("\x1b[31m", .{});
+        try ctx.writer.print("{} error{s}", .{
+            count_err, if (count_err == 1) "" else "s",
+        });
+        try ctx.writer.print("\x1b[0m", .{});
+        try ctx.writer.print("\n", .{});
+    }
+
+    if (count_warn > 0) {
+        try ctx.writer.print("\x1b[33m", .{});
+        try ctx.writer.print("{} warnings{s}", .{
+            count_warn, if (count_warn == 1) "" else "s",
+        });
+        try ctx.writer.print("\x1b[0m", .{});
+        try ctx.writer.print("\n", .{});
+    }
 }
