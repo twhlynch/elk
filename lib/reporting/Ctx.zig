@@ -4,6 +4,7 @@ const std = @import("std");
 const Io = std.Io;
 
 const Span = @import("../compile/Span.zig");
+const Source = @import("../compile/Source.zig");
 const Token = @import("../compile/parse/Token.zig");
 const reporting = @import("reporting.zig");
 const Verbosity = reporting.Options.Verbosity;
@@ -14,7 +15,7 @@ verbosity: Verbosity,
 level: ?Level,
 depth: usize,
 item_count: ?*usize,
-source: ?[]const u8,
+source: ?Source,
 
 const indent_width = 4;
 
@@ -23,7 +24,7 @@ pub fn new(
     verbosity: Verbosity,
     level: ?Level,
     item_count: ?*usize,
-    source: ?[]const u8,
+    source: ?Source,
 ) Ctx {
     return .{
         .writer = writer,
@@ -41,7 +42,7 @@ pub fn deepen(ctx: Ctx) Ctx {
     return new_ctx;
 }
 
-pub fn withSource(ctx: Ctx, source: []const u8) Ctx {
+pub fn withSource(ctx: Ctx, source: Source) Ctx {
     var new_ctx = ctx;
     new_ctx.source = source;
     return new_ctx;
@@ -135,10 +136,10 @@ fn writeSource(ctx: Ctx, span: Span) error{WriteFailed}!void {
             if (if (ctx.item_count) |count| count.* > 2 else true)
                 return;
 
-            const start_line = span.getLineNumber(source);
-            const end_line = span.getEndLineNumber(source);
-            const start_column = span.getColumnNumber(source);
-            const end_column = span.getEndColumnNumber(source);
+            const start_line = span.getLineNumber(source.text);
+            const end_line = span.getEndLineNumber(source.text);
+            const start_column = span.getColumnNumber(source.text);
+            const end_column = span.getEndColumnNumber(source.text);
 
             try ctx.writer.print(" (Line {}:{}-{}:{})", .{
                 start_line, start_column, end_line, end_column,
@@ -151,7 +152,7 @@ fn writeSource(ctx: Ctx, span: Span) error{WriteFailed}!void {
     try writeSpanContext(ctx.writer, span, .{
         .indent = ctx.depth * indent_width,
         .max_line_width = 90,
-    }, source);
+    }, source.text);
 }
 
 pub fn writeSpanContext(

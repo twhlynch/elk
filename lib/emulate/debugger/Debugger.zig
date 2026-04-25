@@ -11,6 +11,7 @@ const writeSpanContext = reporting.Sink.Fancy.writeSpanContext;
 const Traps = @import("../../Traps.zig");
 const Air = @import("../../compile/Air.zig");
 const Span = @import("../../compile/Span.zig");
+const Source = @import("../../compile/Source.zig");
 const Parser = @import("../../compile/parse/Parser.zig");
 const Runtime = @import("../Runtime.zig");
 const Instruction = @import("../decode.zig").Instruction;
@@ -39,7 +40,7 @@ reporter: *Reporter,
 
 pub const Assembly = struct {
     air: *const Air,
-    source: []const u8,
+    source: Source,
 };
 
 const Status = union(enum) {
@@ -339,7 +340,7 @@ fn tryNextAction(debugger: *Debugger, runtime: *Runtime) !?Action {
         },
     };
 
-    debugger.reporter.source = command_string;
+    debugger.reporter.source = .{ .text = command_string, .path = "{unknown}" };
 
     const command = parse.parseCommand(command_string, debugger.reporter) catch |err| switch (err) {
         error.Reported => return null,
@@ -483,7 +484,7 @@ fn runCommand(
             try debugger.writer.printLine("Next instruction, at 0x{x:04}:", .{address});
             try writeSpanContext(debugger.writer.inner, line.span, .{
                 .max_context = arguments.context.value,
-            }, assembly.source);
+            }, assembly.source.text);
         },
 
         .eval => |arguments| {
@@ -602,7 +603,7 @@ fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !v
             if (debugger.assembly) |assembly| {
                 if (getAssemblyLineIndexOptional(assembly, address)) |index| {
                     if (getLineLabel(assembly, index)) |label| {
-                        const name = label.span.view(assembly.source);
+                        const name = label.span.view2(assembly.source);
                         const length = @min(name.len, width);
                         @memcpy(buffer[0..length], name[0..length]);
                         if (name.len > width)
@@ -637,7 +638,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
 
             if (getLineLabel(assembly, index)) |label| {
                 try debugger.writer.print(" (labelled '{s}')", .{
-                    label.span.view(assembly.source),
+                    label.span.view2(assembly.source),
                 });
             }
 
@@ -645,7 +646,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
             try debugger.writer.disableColor();
             try debugger.writer.print("\n", .{});
 
-            try writeSpanContext(debugger.writer.inner, line.span, .{}, assembly.source);
+            try writeSpanContext(debugger.writer.inner, line.span, .{}, assembly.source.text);
             continue;
         }
 
@@ -710,15 +711,17 @@ fn parseInstructionLine(
     line: []const u8,
     index: usize,
 ) error{Reported}!Air.Instruction {
-    var reporter = debugger.copyReporter(line);
-    var parser = try Parser.new(debugger.traps, line, &reporter);
+    const source: Source = .{ .text = line, .path = "{unknown}" };
+
+    var reporter = debugger.copyReporter(source);
+    var parser = try Parser.new(debugger.traps, source, &reporter);
 
     var instruction = try parser.parseInstruction();
     try parser.resolveLabelOperand(assembly.air, assembly.source, &instruction, index);
     return instruction;
 }
 
-fn copyReporter(debugger: *const Debugger, source: []const u8) Reporter {
+fn copyReporter(debugger: *const Debugger, source: Source) Reporter {
     var reporter = debugger.reporter.*;
     reporter.source = source;
     reporter.options.strictness = .normal;

@@ -3,6 +3,8 @@ const Span = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
+const Source = @import("Source.zig");
+
 offset: usize,
 len: usize,
 
@@ -56,6 +58,10 @@ pub fn in(inner: Span, containing: Span) Span {
 
 pub fn view(span: Span, source: []const u8) []const u8 {
     return source[span.offset..][0..span.len];
+}
+
+pub fn view2(span: Span, source: Source) []const u8 {
+    return span.view(source.text);
 }
 
 pub fn overlaps(lhs: Span, rhs: Span) bool {

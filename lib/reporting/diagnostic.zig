@@ -2,6 +2,7 @@ const std = @import("std");
 
 const Policies = @import("../policies.zig").Policies;
 const Span = @import("../compile/Span.zig");
+const Source = @import("../compile/Source.zig");
 const Token = @import("../compile/parse/Token.zig");
 const Radix = @import("../compile/parse/integers.zig").Form.Radix;
 const Exception = @import("../emulate/Runtime.zig").Exception;
@@ -95,7 +96,7 @@ pub const Diagnostic = union(enum) {
     invalid_label_target: struct { label: Span, target: ?Span },
     label_colon: struct { colon: Span },
     redefined_label: struct { existing: Span, new: Span },
-    undefined_label: struct { reference: Span, nearest: ?Span, definition_source: []const u8 },
+    undefined_label: struct { reference: Span, nearest: ?Span, definition_source: Source },
     unused_label: struct { label: Span },
 
     // Integer syntax
@@ -111,7 +112,7 @@ pub const Diagnostic = union(enum) {
 
     // Integer bounds
     integer_too_large: struct { integer: Span, type_info: std.builtin.Type.Int },
-    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, definition_source: []const u8 },
+    offset_too_large: struct { definition: Span, reference: Span, offset: i17, bits: u16, definition_source: Source },
     unexpected_negative_integer: struct { integer: Span },
 
     // Strings
@@ -135,7 +136,7 @@ pub const Diagnostic = union(enum) {
     debugger_requires_state: struct { command: Span },
     debugger_address_not_in_assembly: struct { value: u16, max: u16 },
     debugger_address_not_user_memory: struct { address: Span, value: u16, max: u16 },
-    debugger_label_partial_match: struct { reference: Span, nearest: Span, definition_source: []const u8 },
+    debugger_label_partial_match: struct { reference: Span, nearest: Span, definition_source: Source },
     debugger_no_space: struct {},
     // TODO: Add `expected` field (different type than `TokenKinds`), AND ELSEWHERE
     debugger_invalid_argument_kind: struct { found: Span },

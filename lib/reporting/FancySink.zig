@@ -3,6 +3,7 @@ const FancySink = @This();
 const std = @import("std");
 const Io = std.Io;
 
+const Source = @import("../compile/Source.zig");
 const Parser = @import("../compile/parse/Parser.zig");
 const DebuggerCommand = @import("../emulate/debugger/Command.zig");
 const Ctx = @import("Ctx.zig");
@@ -37,7 +38,7 @@ pub fn sendDiagnostic(
     diag: Diagnostic,
     level: reporting.Level,
     verbosity: reporting.Options.Verbosity,
-    source: []const u8,
+    source: Source,
 ) error{WriteFailed}!void {
     const sink: *FancySink = @ptrCast(@alignCast(ptr));
 
@@ -93,7 +94,7 @@ pub fn sendSummary(
     try sink.writer.flush();
 }
 
-fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFailed}!void {
+fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: Source) error{WriteFailed}!void {
     switch (diag) {
         .invalid_source_byte => |info| {
             try ctx.writeTitle("Assembly file contains invalid bytes", .{});
@@ -191,7 +192,7 @@ fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFa
             try ctx.deepen().writeSourceNote(
                 "Origin must be declared at start of file",
                 .{},
-                info.first_token orelse .firstCharOf(source),
+                info.first_token orelse .firstCharOf(source.text),
             );
         },
         .missing_origin => |info| {
@@ -199,7 +200,7 @@ fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFa
             try ctx.deepen().writeSourceNote(
                 "Origin should be declared before any instructions",
                 .{},
-                info.first_token orelse .firstCharOf(source),
+                info.first_token orelse .firstCharOf(source.text),
             );
         },
         .missing_end => |info| {
@@ -207,7 +208,7 @@ fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFa
             try ctx.deepen().writeSourceNote(
                 "End should be declared after included all instructions",
                 .{},
-                info.last_token orelse .lastCharOf(source),
+                info.last_token orelse .lastCharOf(source.text),
             );
         },
 
@@ -227,7 +228,7 @@ fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFa
             if (info.target) |target|
                 try ctx.deepen().writeSourceNote("Token cannot be annotated with label", .{}, target)
             else
-                try ctx.deepen().writeSourceNote("Label is not followed by any token", .{}, .lastCharOf(source));
+                try ctx.deepen().writeSourceNote("Label is not followed by any token", .{}, .lastCharOf(source.text));
         },
         .label_colon => |info| {
             try ctx.writeTitle("Label followed by colon `:`", .{});
@@ -406,7 +407,7 @@ fn writeDiagnostic(ctx: Ctx, diag: Diagnostic, source: []const u8) error{WriteFa
                 try ctx.deepen().writeNote("Did you mean `{s}`?", .{DebuggerCommand.tagString(nearest)});
         },
         .debugger_missing_subcommand => |info| {
-            try ctx.writeTitle("Missing subcommand for `{s}`", .{info.first.view(source)});
+            try ctx.writeTitle("Missing subcommand for `{s}`", .{info.first.view(source.text)});
             try ctx.deepen().writeSourceNote("Command requires subcommand", .{}, info.eol);
         },
         .debugger_unexpected_eol => |info| {

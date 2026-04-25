@@ -8,6 +8,7 @@ const assert = std.debug.assert;
 
 const Runtime = @import("../emulate/Runtime.zig");
 const Span = @import("Span.zig");
+const Source = @import("Source.zig");
 pub const Instruction = @import("instruction.zig").Instruction;
 
 origin: u16,
@@ -192,11 +193,11 @@ pub fn findLabel(
     air: *const Air,
     reference: []const u8,
     case_mode: enum { sensitive, insensitive },
-    source: []const u8,
+    source: Source,
 ) ?*Label {
     assertLabelOrder(air);
     for (air.labels.items) |*label| {
-        const string = label.span.view(source);
+        const string = label.span.view2(source);
         const matches = switch (case_mode) {
             .sensitive => std.mem.eql(u8, string, reference),
             .insensitive => std.ascii.eqlIgnoreCase(string, reference),

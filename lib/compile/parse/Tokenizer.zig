@@ -7,6 +7,7 @@ const Traps = @import("../../Traps.zig");
 const Reporter = @import("../../reporting/reporting.zig").Primary;
 const Operand = @import("../Operand.zig");
 const Span = @import("../Span.zig");
+const Source = @import("../Source.zig");
 const Lexer = @import("Lexer.zig");
 const Token = @import("Token.zig");
 const SourceInt = @import("integers.zig").SourceInt;
@@ -20,14 +21,14 @@ peeked: ?Span,
 latest: ?Span,
 
 traps: *const Traps,
-source: []const u8,
+source: Source,
 reporter: *Reporter,
 
 const TokenKind = std.meta.Tag(Token.Value);
 
 pub fn new(
     traps: *const Traps,
-    source: []const u8,
+    source: Source,
     reporter: *Reporter,
 ) Tokenizer {
     for (traps.entries) |entry| {
@@ -35,11 +36,11 @@ pub fn new(
             assert(case.isLowercaseAlpha(alias));
     }
 
-    for (source) |char|
+    for (source.text) |char|
         assert(Token.isValidChar(char));
 
     return .{
-        .lexer = Lexer.new(source, true),
+        .lexer = Lexer.new(source.text, true),
         .peeked = null,
         .latest = null,
         .traps = traps,
@@ -61,7 +62,7 @@ fn getNextSpan(tokenizer: *Tokenizer) error{Eof}!Span {
 }
 
 fn parseToken(tokenizer: *Tokenizer, span: Span) Token.Error!Token {
-    const token = try Token.from(span, tokenizer.source, tokenizer.traps);
+    const token = try Token.from(span, tokenizer.source.text, tokenizer.traps);
     if (token.value != .newline)
         tokenizer.latest = token.span;
     return token;
@@ -226,7 +227,7 @@ pub fn expectArgument(
         error.Reported => return error.Reported,
         error.Eof => .{
             .value = .newline,
-            .span = .emptyAt(tokenizer.source.len),
+            .span = .emptyAt(tokenizer.source.text.len),
         },
     };
     const value = try argument.convert(token, tokenizer.reporter);
@@ -369,7 +370,7 @@ fn ensureSupported(
     switch (token.value) {
         .directive => {
             // Don't include initial `.`
-            const string = token.span.view(tokenizer.source)[1..];
+            const string = token.span.view2(tokenizer.source)[1..];
             if (!case.isUppercaseAlpha(string)) {
                 tokenizer.reporter.report(.unconventional_case, .{
                     .token = token.span,
@@ -379,7 +380,7 @@ fn ensureSupported(
         },
 
         .mnemonic => {
-            if (!case.isLowercaseAlpha(token.span.view(tokenizer.source))) {
+            if (!case.isLowercaseAlpha(token.span.view2(tokenizer.source))) {
                 tokenizer.reporter.report(.unconventional_case, .{
                     .token = token.span,
                     .kind = .mnemonic,
@@ -388,7 +389,7 @@ fn ensureSupported(
         },
 
         .trap_alias => {
-            if (!case.isLowercaseAlpha(token.span.view(tokenizer.source))) {
+            if (!case.isLowercaseAlpha(token.span.view2(tokenizer.source))) {
                 tokenizer.reporter.report(.unconventional_case, .{
                     .token = token.span,
                     .kind = .trap_alias,
@@ -401,7 +402,7 @@ fn ensureSupported(
         .label => {},
 
         .string => |string| {
-            const value = string.in(token.span).view(tokenizer.source);
+            const value = string.in(token.span).view2(tokenizer.source);
             if (std.mem.containsAtLeast(u8, value, 1, "\n")) {
                 tokenizer.reporter.report(.multiline_string, .{
                     .string = token.span,
@@ -410,7 +411,7 @@ fn ensureSupported(
         },
 
         .register => {
-            const string = token.span.view(tokenizer.source);
+            const string = token.span.view2(tokenizer.source);
             assert(string.len == 2);
             switch (string[0]) {
                 'r' => {},
@@ -429,7 +430,7 @@ fn ensureSupported(
                 .integer = token.span,
             }).collect(&result);
         } else {
-            const string = token.span.view(tokenizer.source);
+            const string = token.span.view2(tokenizer.source);
             if (integer.form.prefix_length > 0 and
                 case.hasUppercaseAlpha(string[0..integer.form.prefix_length]))
             {
