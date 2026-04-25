@@ -257,9 +257,44 @@ debugging use and may be undefined on other implementations.
 ### Importing a symbol table
 - `--import-symbols`
 - ...
+
 ### Overriding available trap aliases
-- `--trap-aliases`
-- ...
+
+The option `--trap-aliases <ALIASES>` overrides the set of trap aliases which
+are recognised.
+This new set of aliases will *replace* the existing set.
+
+An alias set `<ALISES>` is a comma-separated list of trap alias definitions of
+the form (`ALIAS=VECTOR`), where `ALIAS` is an identifier and `VECTOR` is the
+hexadecimal trap vector prefixed with `0x`.
+See [available traps](#available-traps) for a list of built-in trap aliases and
+their vectors.
+
+`--trap-aliases` must be used with `--assemble`, `--check`, or `--format`, as
+it only affects the parsing/assembling component.
+No actual runtime implementation is required for a trap alias to be used in the
+assembly stage.
+
+**Example:** Remove all trap aliases
+```sh
+elk example.asm --assemble --trap-aliases ""
+```
+> The assembler will not support any trap aliases, regardless of whether they
+> were built-in or custom.
+
+**Example:** Check assembly code, with additional trap aliases
+```sh
+elk example.asm --check --trap-aliases "getc=0x20,out=0x21,puts=0x22,in=0x23,putsp=0x24,halt=0x25,putn=0x26,reg=0x27,explode=0x40"
+```
+> Since standard and extension trap aliases were specified, they will still
+> work.
+> Additionally, an identifier `explode` (case-insensitive) will be treated as a
+> trap alias, instead of a label as it would otherwise.
+> `explode` does not need to have an actual runtime implementation.
+>
+> This is useful for editor integration when custom trap aliases can be used
+> without changing the `elk` executable being used.
+
 ### Changing diagnostic strictness
 - `--strict`
 - `--relaxed`
@@ -290,7 +325,7 @@ Additionally, leading, trailing, and duplicate commas are ignored.
 elk example.asm -p extension.stack_instructions
 ```
 > By default, ELK will warn (or error if `--strict`) when stack instructions
->(`push`, `pop`, `call`, `rets`) are assembled or emulated.
+> (`push`, `pop`, `call`, `rets`) are assembled or emulated.
 > By specifying that we "permit" this policy, it silences the error.
 
 **Example:** Opt-out of a handful of lints:
