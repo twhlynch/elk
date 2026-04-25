@@ -2,15 +2,19 @@
 
 > **IMPORTANT: This documentation is incomplete!**
 > See [#49](https://codeberg.org/dxrcy/elk/issues/4).
-> The following table-of-contents shows the sections which are complete.
+> The following table-of-contents shows the sections which are complete in blue.
 
+- About LC-3
+- Why ELK?
 - ELK Command-Line Interface
     - Other Flags
         - [Ignoring lints and enabling extensions](#ignoring-lints-and-enabling-extensions)
-- ELK Features
+- ELK Library Features
     - [Policies](#policies)
         - [Categories](#categories)
         - [Predefined policy sets](#predefined-policy-sets)
+- ELK Extensions to LC-3
+- ELK Style Guide
 - [Installation](#installation)
     - [Install from official releases](#install-from-official-releases)
     - [Install from source](#install-from-source)
@@ -183,7 +187,7 @@ elk example.asm --permit +laser,smell.unused_label_definitions,smell.explicit_tr
 > permitting "unused" label definitions, and the use of the `trap` mnemonic
 > with an explicit trap vector.
 
-# ELK Features
+# ELK Library Features
 
 ## Policies
 
