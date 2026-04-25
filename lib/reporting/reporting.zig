@@ -136,15 +136,11 @@ pub fn Reporter(comptime Diag: type) type {
         }
 
         pub fn summarize(reporter: *Self) void {
-            reporter.summarizeInner() catch
-                writeFailed();
-        }
-
-        fn summarizeInner(reporter: *Self) error{WriteFailed}!void {
-            try reporter.sink.sendSummary(
+            reporter.sink.sendSummary(
                 &reporter.count,
                 reporter.options.verbosity,
-            );
+            ) catch
+                writeFailed();
         }
 
         pub fn getLevel(reporter: *const Self) ?Level {
