@@ -1,10 +1,13 @@
 # ELK Usage Guide
 
 > **IMPORTANT: This documentation is incomplete!**
-> See [#49](https://codeberg.org/dxrcy/elk/issues/4).
+> See [#49](https://codeberg.org/dxrcy/elk/issues/49).
 > The following table-of-contents shows the sections which are complete in blue.
 
-- About LC-3
+- [About LC-3](#about-lc-3)
+    - [Syntax Overview](#syntax-overview])
+    - [Runtime Overview](#runtime-overview)
+    - [Available Traps](#available-traps)
 - Why ELK?
 - ELK Command-Line Interface
     - Other Flags
@@ -29,32 +32,139 @@
 
 
 # About LC-3
-- What is LC-3
-- This is not an LC-3 tutorial
+
+The [LC-3](https://en.wikipedia.org/wiki/Little_Computer_3)
+(*Little Computer 3*) is a simple computer architecture and assembly language
+designed for educational use.
+It is designed on a simple Von Neumann model with 16-bit words, and no
+distinction between code and data.
+The 16 instructions available in the ISA cover arithmetic, logic, branching, and
+memory access.
+Despite its intentional limitations, an LC-3 computer or emulator is a
+Turing-complete system capable of complex behaviour.
+
+> Note: This document is not an LC-3 tutorial.
+> This section will be written primarily implementation-nonspecific, however
+> the terminology used may be specific to ELK.
 
 ## Syntax Overview
-- Instruction mnemonics
-- Labels
-- Directives / pseudo-operations
-- Trap instruction aliases
-- Registers
-- Integer and string literals
-- See also: [LC-3 style guide]
+
+The LC-3 assembly language is a one-to-one abstraction of an LC-3 program. It
+allocates and initialises memory by using *instructions* and *directives*, each
+of which can be prepended with a *label*.
+
+An instruction consists of two parts: the *mnemonic* and the *operands*.
+An instruction mnemonic is a closed set of 16 identifiers, eg. `lea`.
+An instruction operand may be one of three tokens: a register, an integer
+literal (known as an *immediate* in this context), or a label reference.
+Each instruction has a strict expectation of which operands are valid, but may
+accept multiple operand forms, eg. `add` accepts either a register or immediate
+as its third operand.
+
+A directive (also known as a *psuedo-operation*) is a special type of statement,
+prefixed with a period, which informs the assembler to perform certain actions,
+such as allocating and initialising memory for arbitrary data (in the case of
+`.FILL` and `.STRINGZ`), denoting the address of user memory (`.ORIG`), or
+stopping the assembly phase (`.END`).
+No text is lexed or parsed after the `.END` directive.
+Implementations are free to describe and implement additional directives with
+custom semantics.
+A directive may have a number of arguments following it, such as a *string
+literal* or *integer literal*.
+
+A *trap alias* is an alternative to a `trap` instruction with a hardcoded
+vector, which aids readability. An example is `halt` which is equivalent to
+`trap 0x25`.
+Since a trap's implementation is implemented in the emulator, the set of trap
+aliases is an open set, which the assembler must be aware of to avoid ambiguity
+with labels.
+
+A label definition gives a name to a memory location allocated with an
+instruction statement or directive, which the assembler can use when compiling
+instructions with label operands.
+The label operand is a reference to the label definition, and is converted into
+an offset value of 9, 10, or 11 bits, signifying the signed distance between the
+instruction which references the label, and the location which the label
+definition names.
+A label definition may be immediately followed by a colon, though this is
+optional.
+
+A general-purpose register is written with an `r` or `R` followed by a number
+`0-7` (inclusive).
+It is not possible to name a "special" register (such as the program counter) in
+assembly, since these registers are not directly accessible.
+
+An integer literal may be in decimal or hexadecimal, or binary or octal with an
+extension.
+A decimal integer may be prefixed with a `#` character, but this is optional.
+A hexadecimal integer must be prefixed with a `x` or `X`, which itself may be
+preceeded by a leading `0`.
+These are examples of valid hexadecimal integer literals: `0x1f`, `xbeef`,
+`0X0`.
+Because of this bespoke syntax, a token beginning with `x` or `X`, which is
+intended to be a label, may instead be parsed as a hexadecimal integer; this is
+unavoidable and necessary.
+
+> See the [ELK style guide] for more information, and how possible ambiguity
+> concerns are addressed.
 
 ## Runtime Overview
-- Memory layout
-- General purpose registers
-- Special registers
-    - Program counter
-    - Condition code
 
-## Instruction Set
-- ...
+The LC-3 runtime is simple. The state of the entire computer can be expressed as
+a tuple $(M, R, PC, CC)$, where $M$ is $2^{16}$ words of memory, $R$ is 8 16-bit
+general-purpose registers, $PC$ is the program counter, signifying the address
+of the *next instruction to be interpreted*, and $CC$ is the condition code,
+which is one of `negative`, `zero`, or `positive`, signifying the *sign of the
+value in the last-modified register*.
+
+Memory is partitioned into segments, with user program memory in the range
+`[0x3000, 0xFDFF]`. Access of memory outside of this user program segment is
+implementation-specific and thus undefined in this context.
+An assembled LC-3 program is loaded into memory at the program's "origin" (the
+address specified by `.ORIG`), which is typically `0x3000` (the start of user
+memory).
+The rest of user memory, as well as all general purpose registers, are
+typically initialised to zero.
+The program counter ($PC$) is initially set to the program's origin addreess.
+The condition code register ($CC$) may be initialised as `zero`, or a sentinel
+"undefined" value in some implementations.
+
+The LC-3 machine runs a fetch-decode-execute loop until this flow is broken,
+either by a `halt` invokation or a *runtime exception*.
+The value at the memory location pointed to by the program counter is loaded,
+and the highest 4 bits are decoded as the instruction's *opcode*.
+The rest of the instruction is decoded differently depending on the instruction.
+The execution of an instruction may read multiple registers or memory
+locations, and/or write exactly one register or memory location.
+If, and only if, a register was modified, the condition code ($CC$) is set to
+the sign of that register's value.
+It may also modify the program counter by adding an offset, known as branching
+or jumping.
+A `trap` instruction decodes its lowest 8 bits as the *trap vector*, which
+determines which *trap routine* to run.
+A trap routine may perform "privileged" operations, such as halting the program,
+invoking input/output operations, or anything else.
 
 ## Available Traps
-- Standard traps
-- Extension traps
-- Custom traps
+
+ELK provides full control over trap behaviour, allowing a library user to
+override traps or create their own traps with custom routines.
+ELK provides several "built-in" traps for convenience, but they are not magic;
+the exact same behaviour can be achieved with user-provided traps.
+The built-in traps are as follows: 6 "standard" traps, which are expected in all
+LC-3 implementations, as well as 2 "extension" traps, which are provided for
+debugging use and may be undefined on other implementations.
+
+| Type | Alias | Vector | Name | Description |
+|------|-------|--------|------|-------------|
+| Standard  | `getc`  | `0x20` | "Get Char"          | Read character from stdin, store in `r0`, **without echoing** |
+| Standard  | `out`   | `0x21` | "Output Char"       | Load from `r0`, write to stdout as a character  |
+| Standard  | `puts`  | `0x22` | "Put String"        | Load address from `r0`, write each **word** starting from that address to stdout until null terminator (`0x0000`) is reached |
+| Standard  | `in`    | `0x23` | "Input Char"        | Read character from stdin, store in `r0`, **echo to stdout** |
+| Standard  | `putsp` | `0x24` | "Put String Padded" | Load address from `r0`, write each **byte** starting from that address to stdout until null terminator (`0x00`) is reached |
+| Standard  | `halt`  | `0x25` | "Halt"              | Ends program |
+| Extension | `putn`  | `0x26` | "Put Number"        | Load from `r0`, write to stdout as an integer |
+| Extension | `reg`   | `0x27` | "Registers"         | Write all register values to stdout, in a table form |
 
 # Why ELK?
 - Explain why ELK is best!
