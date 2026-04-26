@@ -220,7 +220,6 @@ fn readSymbolTable(
 }
 
 fn replacePathExtension(buffer: []u8, path: []const u8, extension: []const u8) []u8 {
-    // FIXME: Assert can fit in buffer
     const index = std.mem.findScalarLast(u8, path, '.') orelse 0;
     @memcpy(buffer[0..index], path[0..index]);
     buffer[index] = '.';
