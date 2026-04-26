@@ -92,6 +92,20 @@ pub fn main(init: std.process.Init) !u8 {
         .emulate => |operation| {
             const input_path = operation.input.asRegular() catch unreachable;
 
+            var symbols: std.ArrayList(elk.Runtime.SymbolEntry) = .empty;
+            defer symbols.deinit(gpa);
+
+            var symbol_names = std.heap.ArenaAllocator.init(gpa);
+            defer symbol_names.deinit();
+
+            if (operation.import_symbols) |sym_path| {
+                try readSymbolTable(io, gpa, symbol_names.allocator(), sym_path, &symbols);
+            }
+
+            for (symbols.items) |entry| {
+                std.debug.print("[{s}] 0x{x:04}\n", .{ entry.name, entry.address });
+            }
+
             const file = try Io.Dir.cwd().openFile(io, input_path, .{});
             try emulate(
                 io,
@@ -172,6 +186,38 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     return 0;
+}
+
+fn readSymbolTable(
+    io: Io,
+    gpa: Allocator,
+    arena: Allocator,
+    filepath: []const u8,
+    symbols: *std.ArrayList(elk.Runtime.SymbolEntry),
+) !void {
+    var file = try Io.Dir.cwd().openFile(io, filepath, .{});
+    defer file.close(io);
+
+    var buffer: [512]u8 = undefined;
+    var reader = file.reader(io, &buffer);
+
+    while (try reader.interface.takeDelimiter('\n')) |line| {
+        var columns = std.mem.tokenizeScalar(u8, line, ' ');
+
+        const name_temp = columns.next() orelse
+            return error.MalformedSymbolTable;
+        const address_string = columns.next() orelse
+            return error.MalformedSymbolTable;
+
+        if (address_string.len != 5 or address_string[0] != 'x')
+            return error.MalformedSymbolTable;
+        const address = std.fmt.parseInt(u16, address_string[1..], 16) catch
+            return error.MalformedSymbolTable;
+
+        const name = try arena.dupe(u8, name_temp);
+
+        try symbols.append(gpa, .{ .address = address, .name = name });
+    }
 }
 
 fn replacePathExtension(buffer: []u8, path: []const u8, extension: []const u8) []u8 {

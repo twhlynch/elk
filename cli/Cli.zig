@@ -259,7 +259,6 @@ pub fn parse(iter: *ArgIterator) error{ ParseFailed, DisplayMetadata, Unimplemen
     const unimplemented_args = [_][]const u8{
         "format",
         "lsp",
-        "import_symbols",
     };
     for (unimplemented_args) |name| {
         inline for (@typeInfo(@TypeOf(args.named)).@"struct".fields) |field| {
