@@ -493,6 +493,7 @@ fn runCommand(
         },
 
         .eval => |arguments| {
+            // TODO: Eval should also work with symbol table instead of assembly! #53
             const assembly = try debugger.getAssembly(command.tag);
             try debugger.evalCommand(runtime, assembly, arguments.instruction, source);
         },
@@ -605,6 +606,7 @@ fn printListing(debugger: *Debugger, runtime: *Runtime, start: u16, end: u16) !v
             const width = 12;
             var buffer: [width]u8 = undefined;
             var string: []const u8 = buffer[0..0];
+            // TODO: This should also work via imported symbol table! #53
             if (debugger.assembly) |assembly| {
                 if (getAssemblyLineIndexOptional(assembly, address)) |index| {
                     if (getLineLabel(assembly, index)) |label| {
@@ -641,6 +643,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
                 break :blk;
             const line = &assembly.air.lines.items[index];
 
+            // TODO: This should also work via imported symbol table! #53
             if (getLineLabel(assembly, index)) |label| {
                 try debugger.writer.print(" (labelled '{s}')", .{
                     label.span.view(assembly.source),
