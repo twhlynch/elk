@@ -497,13 +497,7 @@ fn runCommand(
         .eval => |arguments| {
             // TODO: Eval should also work with symbol table instead of assembly! #53
             const assembly = try debugger.getAssembly(command.tag);
-
-            try debugger.evalCommand(
-                runtime,
-                assembly,
-                arguments.instruction,
-                source,
-            );
+            try debugger.evalCommand(runtime, assembly, arguments.instruction, source);
         },
 
         .echo => |arguments| {
@@ -751,20 +745,20 @@ fn copyReporter(debugger: *const Debugger, source: Source) Reporter {
 
 fn getAssemblyLine(
     debugger: *Debugger,
-    assembly_air: *const Air,
+    air: *const Air,
     address: u16,
     span: Span,
 ) error{Reported}!*const Air.Line {
     try debugger.ensureUserAddress(address, span);
     // Overflow is not possible since address is in user memory
-    const index = address - assembly_air.origin;
-    if (index >= assembly_air.lines.items.len) {
+    const index = address - air.origin;
+    if (index >= air.lines.items.len) {
         try debugger.reporter.report(.debugger_address_not_in_assembly, .{
             .value = address,
-            .max = @intCast(assembly_air.origin + assembly_air.lines.items.len - 1),
+            .max = @intCast(air.origin + air.lines.items.len - 1),
         }).abort();
     }
-    return &assembly_air.lines.items[index];
+    return &air.lines.items[index];
 }
 
 fn getAssemblyLineIndexOptional(air: *const Air, address: u16) ?usize {
