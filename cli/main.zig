@@ -266,10 +266,7 @@ fn emulate(
             file: Io.File,
             symbols: ?[]const elk.Runtime.SymbolEntry,
         },
-        assembly: struct {
-            air: *const elk.Air,
-            source: elk.Source,
-        },
+        assembly: elk.Debugger.Assembly,
     },
     debug_opt: ?Cli.Debug,
     traps: *const elk.Traps,
@@ -294,11 +291,7 @@ fn emulate(
 
         const symbol_provider: elk.Debugger.SymbolProvider = switch (runtime_source) {
             .object => |object| if (object.symbols) |symbols| .{ .symbols = symbols } else .none,
-            .assembly => |assembly| .{ .air = assembly.air },
-        };
-        const assembly_source = switch (runtime_source) {
-            .object => null,
-            .assembly => |assembly| assembly.source,
+            .assembly => |assembly| .{ .assembly = assembly },
         };
 
         break :debugger try .init(.{
@@ -310,7 +303,6 @@ fn emulate(
             .reporter = reporter,
             .command_buffer = &debugger_buffer,
             .symbol_provider = symbol_provider,
-            .assembly_source = assembly_source,
             .history_file = history_file,
             .initial_command_line = debug.commands orelse "",
         });
