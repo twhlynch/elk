@@ -58,6 +58,8 @@ const info = struct {
         \\            Write .sym symbol table file instead of compiling .obj. Requires --assemble.
         \\        --export-listing <FILE>
         \\            Write .lst listing file instead of compiling .obj. Requires --assemble.
+        \\        --import-symbols <FILE>
+        \\            Read .sym symbol table file, for patching and debugger use. Requires --emulate.
         \\        --trap-aliases <ALIASES>
         \\            Override trap aliases to parse (and assemble). Requires --assemble or --check.
         \\
