@@ -643,6 +643,7 @@ fn printBreakpoints(debugger: *Debugger) !void {
         try debugger.writer.print("    | Breakpoint at 0x{x:04}", .{entry.address});
 
         blk: {
+            // TODO: This should also work via imported symbol table! #53
             const assembly = debugger.getAssemblyOpt() orelse
                 break :blk;
 
@@ -650,7 +651,6 @@ fn printBreakpoints(debugger: *Debugger) !void {
                 break :blk;
             const line = &assembly.air.lines.items[index];
 
-            // TODO: This should also work via imported symbol table! #53
             if (getLineLabel(assembly.air, index)) |label| {
                 try debugger.writer.print(" (labelled '{s}')", .{
                     label.span.view(assembly.source),
