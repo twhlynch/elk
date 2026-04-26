@@ -30,7 +30,9 @@ state: struct {
 
 breakpoints: Breakpoints,
 initial_state: ?Runtime.State,
+// TODO: Replace these two fields with a union field
 assembly: ?Assembly,
+symbols: ?[]const Runtime.SymbolEntry,
 
 current_line: []const u8,
 input: Input,
@@ -119,6 +121,7 @@ pub fn init(params: struct {
     reporter: *Reporter,
     command_buffer: []u8,
     assembly: ?Assembly = null,
+    symbols: ?[]const Runtime.SymbolEntry = null,
     history_file: ?Io.File = null,
     initial_command_line: []const u8 = "",
 }) error{OutOfMemory}!Debugger {
@@ -140,6 +143,7 @@ pub fn init(params: struct {
         .breakpoints = breakpoints,
         .initial_state = null,
         .assembly = params.assembly,
+        .symbols = params.symbols,
         .current_line = params.initial_command_line,
         .input = input,
         .writer = .{ .inner = params.writer },
